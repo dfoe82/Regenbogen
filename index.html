@@ -191,10 +191,15 @@
     }
     .overview-child-row {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
+      flex-direction: column;
       border-bottom: 1px solid #ddd;
       padding: 8px 0;
+      gap: 6px;
+    }
+    .overview-child-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       gap: 10px;
     }
     .overview-child-row .child-name {
@@ -211,6 +216,49 @@
       gap: 4px;
       font-size: 0.9em;
       white-space: nowrap;
+    }
+    .overview-extra-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding-left: 4px;
+    }
+    .overview-extra-row select {
+      width: auto;
+      font-size: 0.85em;
+    }
+    .overview-extra-row label {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.85em;
+      white-space: nowrap;
+    }
+    /* Unterschrift-Assistent: mehr Platz im Vollbild-/Querformat */
+    #signatureWizardModal:fullscreen,
+    #signatureWizardModal:-webkit-full-screen {
+      background: rgba(0,0,0,0.85);
+    }
+    #signatureWizardModal:fullscreen .modal-box,
+    #signatureWizardModal:-webkit-full-screen .modal-box {
+      max-width: 95vw;
+      width: 95vw;
+      max-height: 95vh;
+    }
+    #signatureWizardModal:fullscreen #signatureWizardSlot canvas,
+    #signatureWizardModal:-webkit-full-screen #signatureWizardSlot canvas {
+      width: 85vw;
+      height: 45vh;
+    }
+    @media (orientation: landscape) {
+      #signatureWizardModal .modal-box {
+        max-width: 90vw;
+      }
+      #signatureWizardModal #signatureWizardSlot canvas {
+        width: 70vw;
+        height: 35vh;
+      }
     }
   </style>
 </head>
@@ -486,7 +534,7 @@
     <div class="modal-box">
       <h2 id="signatureWizardTitle">Unterschrift Eltern</h2>
       <p style="font-size:0.85em; color:#555;">
-        Bitte unterschreiben und auf "Speichern" tippen.
+        Bitte unterschreiben und auf "Speichern" tippen. Tipp: Für mehr Platz das iPad ins Querformat drehen – das Feld öffnet sich möglichst im Vollbild.
       </p>
       <div id="signatureWizardSlot" style="display:flex; justify-content:center; margin: 10px 0;">
         <!-- Das jeweilige Unterschriftsfeld wird hier per JS eingeblendet -->
@@ -762,10 +810,12 @@
     // ============================================================
     // ÜBERSICHTS-MODAL (A / oM je Kind, überträgt auf jeweilige Seite)
     // ============================================================
-    // Erzeugt für einen Container die A/oM-Checkbox-Zeilen für alle aktiven Kinder.
+    // Erzeugt für einen Container die Auswahlzeilen für alle aktiven Kinder:
+    // A/oM-Checkboxen immer, optional (includeExtras=true) zusätzlich ein
+    // Bemerkung-Dropdown und Checkboxen für KK/KU/KFU/KV/KFE.
     // idPrefix unterscheidet die Checkbox-IDs zwischen den verschiedenen Modals
     // (z. B. "overview" oder "backfill"), damit sich mehrere Modals nicht in die Quere kommen.
-    function renderChildSelectionRows(containerId, idPrefix) {
+    function renderChildSelectionRows(containerId, idPrefix, includeExtras) {
       const list = document.getElementById(containerId);
       list.innerHTML = "";
       const children = getActiveChildren();
@@ -773,14 +823,18 @@
         list.innerHTML = "<p>Bitte zuerst in der Konfiguration Kindernamen eintragen.</p>";
         return;
       }
+      const labels = loadConfig().labels;
       children.forEach(name => {
         const row = document.createElement("div");
         row.className = "overview-child-row";
 
+        const header = document.createElement("div");
+        header.className = "overview-child-header";
+
         const nameSpan = document.createElement("span");
         nameSpan.className = "child-name";
         nameSpan.textContent = name;
-        row.appendChild(nameSpan);
+        header.appendChild(nameSpan);
 
         const optionsDiv = document.createElement("div");
         optionsDiv.className = "overview-options";
@@ -817,15 +871,51 @@
 
         optionsDiv.appendChild(labelA);
         optionsDiv.appendChild(labelOM);
-        row.appendChild(optionsDiv);
+        header.appendChild(optionsDiv);
+        row.appendChild(header);
+
+        if (includeExtras) {
+          const extraRow = document.createElement("div");
+          extraRow.className = "overview-extra-row";
+
+          const remarkSelect = document.createElement("select");
+          remarkSelect.id = idPrefix + "Remark_" + safeName;
+          ["--", "geschlossen", "Feiertag", "Urlaub", "KTPP krank"].forEach(optionText => {
+            const opt = document.createElement("option");
+            opt.value = (optionText === "--") ? "" : optionText;
+            opt.textContent = optionText;
+            remarkSelect.appendChild(opt);
+          });
+          extraRow.appendChild(remarkSelect);
+
+          const extraFields = [
+            { key: "KK", label: labels.colKK },
+            { key: "KU", label: labels.colKU },
+            { key: "KFU", label: labels.colKFU },
+            { key: "KV", label: labels.colKV },
+            { key: "KFE", label: labels.colKFE }
+          ];
+          extraFields.forEach(f => {
+            const lbl = document.createElement("label");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.id = idPrefix + f.key + "_" + safeName;
+            lbl.appendChild(cb);
+            lbl.appendChild(document.createTextNode(f.label));
+            extraRow.appendChild(lbl);
+          });
+
+          row.appendChild(extraRow);
+        }
+
         list.appendChild(row);
       });
     }
 
-    // Liest die aktuell angehakten Kinder aus einem per renderChildSelectionRows
-    // erzeugten Container aus. Gibt eine Liste { name, wantsOM } zurück (nur Kinder,
-    // bei denen A oder oM angehakt wurde).
-    function getChildSelections(idPrefix) {
+    // Liest die aktuell getroffene Auswahl aus einem per renderChildSelectionRows
+    // erzeugten Container aus. Gibt eine Liste von Kindern zurück, bei denen
+    // irgendetwas ausgewählt wurde (A/oM und, falls includeExtras, Bemerkung/KK/KU/KFU/KV/KFE).
+    function getChildSelections(idPrefix, includeExtras) {
       const result = [];
       getActiveChildren().forEach(name => {
         const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
@@ -833,8 +923,26 @@
         const cbOM = document.getElementById(idPrefix + "OM_" + safeName);
         const wantsA = cbA && cbA.checked;
         const wantsOM = cbOM && cbOM.checked;
-        if (wantsA || wantsOM) {
-          result.push({ name: name, wantsOM: wantsOM });
+
+        let remark = "", kk = false, ku = false, kfu = false, kv = false, kfe = false;
+        if (includeExtras) {
+          const remarkSelect = document.getElementById(idPrefix + "Remark_" + safeName);
+          remark = remarkSelect ? remarkSelect.value : "";
+          const cbKK = document.getElementById(idPrefix + "KK_" + safeName);
+          const cbKU = document.getElementById(idPrefix + "KU_" + safeName);
+          const cbKFU = document.getElementById(idPrefix + "KFU_" + safeName);
+          const cbKV = document.getElementById(idPrefix + "KV_" + safeName);
+          const cbKFE = document.getElementById(idPrefix + "KFE_" + safeName);
+          kk = !!(cbKK && cbKK.checked);
+          ku = !!(cbKU && cbKU.checked);
+          kfu = !!(cbKFU && cbKFU.checked);
+          kv = !!(cbKV && cbKV.checked);
+          kfe = !!(cbKFE && cbKFE.checked);
+        }
+
+        const hasSelection = wantsA || wantsOM || remark || kk || ku || kfu || kv || kfe;
+        if (hasSelection) {
+          result.push({ name: name, wantsA: wantsA, wantsOM: wantsOM, remark: remark, kk: kk, ku: ku, kfu: kfu, kv: kv, kfe: kfe });
         }
       });
       return result;
@@ -866,7 +974,7 @@
       // Heutigen Tag fest vorauswählen
       daySelect.value = today.getDate();
 
-      renderChildSelectionRows("overviewChildrenList", "overview");
+      renderChildSelectionRows("overviewChildrenList", "overview", true);
       document.getElementById("overviewModal").classList.add("open");
     }
 
@@ -889,13 +997,22 @@
         return;
       }
 
-      const selections = getChildSelections("overview");
-      selections.forEach(({ name, wantsOM }) => {
+      const selections = getChildSelections("overview", true);
+      selections.forEach(({ name, wantsA, wantsOM, remark, kk, ku, kfu, kv, kfe }) => {
         const state = loadChildState(name, month, year);
-        if (!state.table[dayIndex]) return; // Tag existiert nicht (sollte nicht vorkommen)
-        state.table[dayIndex].start = config.defaultStart;
-        state.table[dayIndex].end = config.defaultEnd;
-        state.table[dayIndex].m = wantsOM; // "m" = oM-Flag (ohne Mittagessen)
+        const row = state.table[dayIndex];
+        if (!row) return; // Tag existiert nicht (sollte nicht vorkommen)
+        if (wantsA || wantsOM) {
+          row.start = config.defaultStart;
+          row.end = config.defaultEnd;
+          row.m = wantsOM; // "m" = oM-Flag (ohne Mittagessen)
+        }
+        row.remark = remark;
+        row.kk = kk;
+        row.ku = ku;
+        row.kfu = kfu;
+        row.kv = kv;
+        row.kfe = kfe;
         saveChildState(name, state);
       });
 
@@ -936,7 +1053,7 @@
         toSelect.value = daysInMonth;
       }
 
-      renderChildSelectionRows("backfillChildrenList", "backfill");
+      renderChildSelectionRows("backfillChildrenList", "backfill", false);
       document.getElementById("backfillModal").classList.add("open");
     }
 
@@ -1261,13 +1378,18 @@
       let painting = false;
       const getPosition = (e) => {
         const rect = canvas.getBoundingClientRect();
+        // Skalierungsfaktor, falls das Canvas per CSS größer angezeigt wird
+        // (z. B. im Vollbild-/Querformat des Unterschrift-Assistenten) als
+        // seine tatsächliche Pixel-Auflösung (width/height-Attribute).
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
         let x, y;
         if (e.touches) {
-          x = e.touches[0].clientX - rect.left;
-          y = e.touches[0].clientY - rect.top;
+          x = (e.touches[0].clientX - rect.left) * scaleX;
+          y = (e.touches[0].clientY - rect.top) * scaleY;
         } else {
-          x = e.clientX - rect.left;
-          y = e.clientY - rect.top;
+          x = (e.clientX - rect.left) * scaleX;
+          y = (e.clientY - rect.top) * scaleY;
         }
         return { x, y };
       };
@@ -1313,12 +1435,53 @@
     // ============================================================
     let signatureWizardStep = 0;
 
+    // Versucht, das Unterschrift-Modal im Vollbild zu öffnen und (falls vom
+    // Browser unterstützt) das Gerät im Querformat zu fixieren. Beides ist auf
+    // iPadOS/Safari nicht garantiert (Safari unterstützt z. B. keine
+    // automatische Bildschirmausrichtung) – daher jeweils mit stillem Fallback,
+    // ohne die Nutzung zu blockieren. Der Hinweistext im Modal bittet zusätzlich
+    // darum, das iPad bei Bedarf manuell zu drehen.
+    function tryEnterFullscreenLandscape() {
+      const modal = document.getElementById("signatureWizardModal");
+      const requestFs = modal.requestFullscreen || modal.webkitRequestFullscreen
+        || modal.mozRequestFullScreen || modal.msRequestFullscreen;
+      const lockLandscape = () => {
+        if (screen.orientation && screen.orientation.lock) {
+          screen.orientation.lock("landscape").catch(function(){});
+        }
+      };
+      if (requestFs) {
+        try {
+          const result = requestFs.call(modal);
+          if (result && result.then) {
+            result.then(lockLandscape).catch(function(){});
+          } else {
+            lockLandscape();
+          }
+        } catch (e) { /* Vollbild nicht verfügbar - Modal bleibt normal sichtbar */ }
+      } else {
+        lockLandscape();
+      }
+    }
+
+    function tryExitFullscreen() {
+      const exitFs = document.exitFullscreen || document.webkitExitFullscreen
+        || document.mozCancelFullScreen || document.msExitFullscreen;
+      if ((document.fullscreenElement || document.webkitFullscreenElement) && exitFs) {
+        try { exitFs.call(document); } catch (e) {}
+      }
+      if (screen.orientation && screen.orientation.unlock) {
+        try { screen.orientation.unlock(); } catch (e) {}
+      }
+    }
+
     function startSignatureWizard() {
       signatureWizardStep = 1;
       document.getElementById("signatureWizardTitle").textContent = "Unterschrift Eltern";
       document.getElementById("signatureWizardSaveBtn").textContent = "Speichern";
       document.getElementById("signatureWizardSlot").appendChild(document.getElementById("signatureContainer1"));
       document.getElementById("signatureWizardModal").classList.add("open");
+      tryEnterFullscreenLandscape();
     }
 
     function nextOrFinishSignatureWizard() {
@@ -1335,6 +1498,7 @@
         signatureFields.appendChild(document.getElementById("signatureContainer2"));
         document.getElementById("signatureWizardModal").classList.remove("open");
         signatureWizardStep = 0;
+        tryExitFullscreen();
       }
     }
 
@@ -1348,6 +1512,7 @@
       }
       document.getElementById("signatureWizardModal").classList.remove("open");
       signatureWizardStep = 0;
+      tryExitFullscreen();
     }
     
     // Initialisierung beim Laden der Seite
