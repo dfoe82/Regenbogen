@@ -489,11 +489,22 @@
       </div>
       <p style="font-size:0.85em; color:#555;">
         <strong>A</strong> = anwesend mit Mittagessen &nbsp;|&nbsp; <strong>oM</strong> = anwesend ohne Mittagessen.
+        Darunter je Kind ein Dropdown für KK/KU/KFU/KV/KFE, falls für dieses Kind individuell etwas zutrifft.
         Die Auswahl wird direkt auf die jeweilige Seite des Kindes übertragen.
       </p>
       <div id="overviewChildrenList">
         <!-- Zeilen pro Kind werden per JS erzeugt -->
       </div>
+
+      <hr>
+      <div class="modal-row">
+        <label for="overviewStatus">Kindertagespflegeperson:</label>
+        <select id="overviewStatus"></select>
+      </div>
+      <p style="font-size:0.8em; color:#555; margin-top:-4px;">
+        Ist die Kindertagespflegeperson z. B. krank oder im Urlaub, hier auswählen – die Auswahl wird dann bei <strong>jedem</strong> Kind für diesen Tag hinterlegt.
+      </p>
+
       <div class="modal-actions">
         <button type="button" onclick="closeOverviewModal()">Abbrechen</button>
         <button type="button" onclick="applyOverviewSelections()">Übernehmen</button>
@@ -808,14 +819,15 @@
     }
 
     // ============================================================
-    // ÜBERSICHTS-MODAL (A / oM je Kind, überträgt auf jeweilige Seite)
+    // ÜBERSICHTS-MODAL (A / oM + Status je Kind, überträgt auf jeweilige Seite)
     // ============================================================
     // Erzeugt für einen Container die Auswahlzeilen für alle aktiven Kinder:
-    // A/oM-Checkboxen immer, optional (includeExtras=true) zusätzlich ein
-    // Bemerkung-Dropdown und Checkboxen für KK/KU/KFU/KV/KFE.
-    // idPrefix unterscheidet die Checkbox-IDs zwischen den verschiedenen Modals
-    // (z. B. "overview" oder "backfill"), damit sich mehrere Modals nicht in die Quere kommen.
-    function renderChildSelectionRows(containerId, idPrefix, includeExtras) {
+    // A/oM-Checkboxen immer, und (falls includeChildStatus=true) zusätzlich ein
+    // Dropdown pro Kind mit den Werten der Tabellenspalten KK/KU/KFU/KV/KFE.
+    // idPrefix unterscheidet die Checkbox-/Select-IDs zwischen den verschiedenen
+    // Modals (z. B. "overview" oder "backfill"), damit sich mehrere Modals nicht
+    // in die Quere kommen.
+    function renderChildSelectionRows(containerId, idPrefix, includeChildStatus) {
       const list = document.getElementById(containerId);
       list.innerHTML = "";
       const children = getActiveChildren();
@@ -874,37 +886,27 @@
         header.appendChild(optionsDiv);
         row.appendChild(header);
 
-        if (includeExtras) {
+        if (includeChildStatus) {
           const extraRow = document.createElement("div");
           extraRow.className = "overview-extra-row";
 
-          const remarkSelect = document.createElement("select");
-          remarkSelect.id = idPrefix + "Remark_" + safeName;
-          ["--", "geschlossen", "Feiertag", "Urlaub", "KTPP krank"].forEach(optionText => {
-            const opt = document.createElement("option");
-            opt.value = (optionText === "--") ? "" : optionText;
-            opt.textContent = optionText;
-            remarkSelect.appendChild(opt);
-          });
-          extraRow.appendChild(remarkSelect);
-
-          const extraFields = [
-            { key: "KK", label: labels.colKK },
-            { key: "KU", label: labels.colKU },
-            { key: "KFU", label: labels.colKFU },
-            { key: "KV", label: labels.colKV },
-            { key: "KFE", label: labels.colKFE }
+          const statusSelect = document.createElement("select");
+          statusSelect.id = idPrefix + "Status_" + safeName;
+          const options = [
+            { value: "", text: "--" },
+            { value: "kk", text: labels.colKK },
+            { value: "ku", text: labels.colKU },
+            { value: "kfu", text: labels.colKFU },
+            { value: "kv", text: labels.colKV },
+            { value: "kfe", text: labels.colKFE }
           ];
-          extraFields.forEach(f => {
-            const lbl = document.createElement("label");
-            const cb = document.createElement("input");
-            cb.type = "checkbox";
-            cb.id = idPrefix + f.key + "_" + safeName;
-            lbl.appendChild(cb);
-            lbl.appendChild(document.createTextNode(f.label));
-            extraRow.appendChild(lbl);
+          options.forEach(o => {
+            const opt = document.createElement("option");
+            opt.value = o.value;
+            opt.textContent = o.text;
+            statusSelect.appendChild(opt);
           });
-
+          extraRow.appendChild(statusSelect);
           row.appendChild(extraRow);
         }
 
@@ -914,8 +916,8 @@
 
     // Liest die aktuell getroffene Auswahl aus einem per renderChildSelectionRows
     // erzeugten Container aus. Gibt eine Liste von Kindern zurück, bei denen
-    // irgendetwas ausgewählt wurde (A/oM und, falls includeExtras, Bemerkung/KK/KU/KFU/KV/KFE).
-    function getChildSelections(idPrefix, includeExtras) {
+    // A/oM angehakt oder (falls vorhanden) ein Status ausgewählt wurde.
+    function getChildSelections(idPrefix, includeChildStatus) {
       const result = [];
       getActiveChildren().forEach(name => {
         const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
@@ -924,29 +926,34 @@
         const wantsA = cbA && cbA.checked;
         const wantsOM = cbOM && cbOM.checked;
 
-        let remark = "", kk = false, ku = false, kfu = false, kv = false, kfe = false;
-        if (includeExtras) {
-          const remarkSelect = document.getElementById(idPrefix + "Remark_" + safeName);
-          remark = remarkSelect ? remarkSelect.value : "";
-          const cbKK = document.getElementById(idPrefix + "KK_" + safeName);
-          const cbKU = document.getElementById(idPrefix + "KU_" + safeName);
-          const cbKFU = document.getElementById(idPrefix + "KFU_" + safeName);
-          const cbKV = document.getElementById(idPrefix + "KV_" + safeName);
-          const cbKFE = document.getElementById(idPrefix + "KFE_" + safeName);
-          kk = !!(cbKK && cbKK.checked);
-          ku = !!(cbKU && cbKU.checked);
-          kfu = !!(cbKFU && cbKFU.checked);
-          kv = !!(cbKV && cbKV.checked);
-          kfe = !!(cbKFE && cbKFE.checked);
+        let status = "";
+        if (includeChildStatus) {
+          const statusSelect = document.getElementById(idPrefix + "Status_" + safeName);
+          status = statusSelect ? statusSelect.value : "";
         }
 
-        const hasSelection = wantsA || wantsOM || remark || kk || ku || kfu || kv || kfe;
-        if (hasSelection) {
-          result.push({ name: name, wantsA: wantsA, wantsOM: wantsOM, remark: remark, kk: kk, ku: ku, kfu: kfu, kv: kv, kfe: kfe });
+        if (wantsA || wantsOM || status) {
+          result.push({ name: name, wantsA: !!wantsA, wantsOM: !!wantsOM, status: status });
         }
       });
       return result;
     }
+
+    // Befüllt das zentrale Dropdown für die Kindertagespflegeperson – mit denselben
+    // Werten wie die Tabellenspalte "Bemerkung" (--, geschlossen, Feiertag, Urlaub,
+    // KTPP krank). Gilt für ALLE Kinder gemeinsam (z. B. wenn die Kindertagespflege-
+    // person krank ist), daher nur einmal zentral vorhanden statt pro Kind.
+    function populateOverviewStatusOptions() {
+      const statusSelect = document.getElementById("overviewStatus");
+      statusSelect.innerHTML = "";
+      ["--", "geschlossen", "Feiertag", "Urlaub", "KTPP krank"].forEach(optionText => {
+        const opt = document.createElement("option");
+        opt.value = (optionText === "--") ? "" : optionText;
+        opt.textContent = optionText;
+        statusSelect.appendChild(opt);
+      });
+    }
+
 
     function openOverviewModal() {
       // Die Übersicht bezieht sich immer auf den heutigen Tag: Monat/Jahr oben
@@ -975,6 +982,8 @@
       daySelect.value = today.getDate();
 
       renderChildSelectionRows("overviewChildrenList", "overview", true);
+      populateOverviewStatusOptions();
+      document.getElementById("overviewStatus").value = "";
       document.getElementById("overviewModal").classList.add("open");
     }
 
@@ -982,23 +991,26 @@
       document.getElementById("overviewModal").classList.remove("open");
     }
 
-    // Überträgt die A/oM-Auswahl je Kind direkt in den (localStorage-)Datensatz
-    // des jeweiligen Kindes für den gewählten Tag – auch ohne dass man die Seite
-    // des Kindes manuell aufruft.
+    // Überträgt die A/oM-Auswahl und den KK/KU/KFU/KV/KFE-Status je Kind sowie die
+    // zentrale Bemerkung für die Kindertagespflegeperson (gilt für alle Kinder
+    // gemeinsam) direkt in den (localStorage-)Datensatz des jeweiligen Kindes für
+    // den gewählten Tag – auch ohne dass man die Seite des Kindes manuell aufruft.
     function applyOverviewSelections() {
       const config = loadConfig();
       const selectedDay = parseInt(document.getElementById("overviewDay").value);
       const dayIndex = selectedDay - 1; // 0-basiert
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
+      const remarkValue = document.getElementById("overviewStatus").value; // "", "geschlossen", "Feiertag", "Urlaub" oder "KTPP krank"
 
       if (!isWorkDay(year, month, selectedDay)) {
         alert("Der gewählte Tag ist laut Konfiguration kein Arbeitstag – es wurde nichts übernommen.");
         return;
       }
 
+      // 1) A/oM + individueller Status (KK/KU/KFU/KV/KFE) je Kind
       const selections = getChildSelections("overview", true);
-      selections.forEach(({ name, wantsA, wantsOM, remark, kk, ku, kfu, kv, kfe }) => {
+      selections.forEach(({ name, wantsA, wantsOM, status }) => {
         const state = loadChildState(name, month, year);
         const row = state.table[dayIndex];
         if (!row) return; // Tag existiert nicht (sollte nicht vorkommen)
@@ -1007,14 +1019,27 @@
           row.end = config.defaultEnd;
           row.m = wantsOM; // "m" = oM-Flag (ohne Mittagessen)
         }
-        row.remark = remark;
-        row.kk = kk;
-        row.ku = ku;
-        row.kfu = kfu;
-        row.kv = kv;
-        row.kfe = kfe;
+        if (status) {
+          row.kk = (status === "kk");
+          row.ku = (status === "ku");
+          row.kfu = (status === "kfu");
+          row.kv = (status === "kv");
+          row.kfe = (status === "kfe");
+        }
         saveChildState(name, state);
       });
+
+      // 2) Bemerkung für die Kindertagespflegeperson: gilt für ALLE Kinder gemeinsam,
+      // nur wenn ausgewählt (z. B. "KTPP krank" -> wird bei jedem Kind eingetragen)
+      if (remarkValue) {
+        getActiveChildren().forEach(name => {
+          const state = loadChildState(name, month, year);
+          const row = state.table[dayIndex];
+          if (!row) return;
+          row.remark = remarkValue;
+          saveChildState(name, state);
+        });
+      }
 
       closeOverviewModal();
 
@@ -1053,7 +1078,7 @@
         toSelect.value = daysInMonth;
       }
 
-      renderChildSelectionRows("backfillChildrenList", "backfill", false);
+      renderChildSelectionRows("backfillChildrenList", "backfill");
       document.getElementById("backfillModal").classList.add("open");
     }
 
