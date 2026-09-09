@@ -15,7 +15,45 @@
       font-family: Arial, sans-serif;
       margin: 20px;
       padding: 0;
+      /* Platz für die fest positionierte untere Navigation freihalten */
+      padding-bottom: 74px;
       box-sizing: border-box;
+    }
+    /* ============================================================
+       SEITEN-NAVIGATION (feste untere Leiste: Übersicht / Kinder)
+       ============================================================ */
+    .page-section {
+      display: none;
+    }
+    .page-section.active {
+      display: block;
+    }
+    #bottomNav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-around;
+      align-items: stretch;
+      background: #fff;
+      border-top: 1px solid #ccc;
+      box-shadow: 0 -2px 6px rgba(0,0,0,0.08);
+      z-index: 500;
+      padding: 4px 2px calc(4px + env(safe-area-inset-bottom, 0px)) 2px;
+    }
+    #bottomNav button {
+      flex: 1;
+      background: none;
+      border: none;
+      font-size: 0.72em;
+      padding: 6px 2px;
+      color: #333;
+      white-space: nowrap;
+    }
+    #bottomNav button.active-tab {
+      color: #2e7d32;
+      font-weight: bold;
     }
     /* Umhüllender Container für die Tabelle – sorgt für horizontales Scrollen */
     .table-container {
@@ -99,15 +137,97 @@
       background: #fff;
       cursor: crosshair;
     }
-    /* Druckeinstellungen: DIN A4 nur für den Druck */
+    /* Monatsabschluss: versteckter Container, wird nur beim Drucken sichtbar
+       und ersetzt dabei komplett die normale Ansicht (ein Kind pro Seite) */
+    #monthlyCloseContainer {
+      display: none;
+    }
+    body.monthly-close-mode > *:not(#monthlyCloseContainer) {
+      display: none !important;
+    }
+    body.monthly-close-mode #monthlyCloseContainer {
+      display: block;
+    }
+    .printable-child-page {
+      page-break-after: always;
+    }
+    .printable-child-page:last-child {
+      page-break-after: auto;
+    }
+    .printable-table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .printable-table th, .printable-table td {
+      border: 1px solid #333;
+      padding: 1px 2px;
+      text-align: center;
+      font-size: 6.5pt;
+      line-height: 1.15;
+    }
+    .printable-legend {
+      font-size: 6.5pt;
+      margin-top: 6px;
+      border: 1px solid #333;
+      padding: 3px 6px;
+    }
+    /* Druckeinstellungen: DIN A4, kompakt angepasst, damit der gesamte
+       Monat auf eine Seite passt (kleinere Schrift/Abstände nur im Druck) */
     @media print {
       body {
         margin: 0;
         max-width: 210mm;
+        font-size: 8pt;
       }
       @page {
-        size: A4;
-        margin: 20mm;
+        size: A4 portrait;
+        margin: 8mm;
+      }
+      h1 {
+        font-size: 13pt;
+        margin: 0 0 6px 0;
+      }
+      #headerContainer {
+        margin-bottom: 6px;
+        font-size: 8pt;
+      }
+      #headerContainer select,
+      #headerContainer input {
+        font-size: 8pt;
+        padding: 1px;
+      }
+      table {
+        min-width: 0;
+        width: 100%;
+      }
+      th, td {
+        padding: 1px 2px;
+        font-size: 6.5pt;
+        line-height: 1.15;
+      }
+      .legend-box {
+        padding: 3px 6px;
+        margin: 6px 0;
+        font-size: 6.5pt;
+      }
+      .legend-box ul {
+        gap: 8px;
+      }
+      #bottomFields {
+        margin-top: 6px;
+        gap: 12px;
+      }
+      #dateField label,
+      #dateField input {
+        font-size: 8pt;
+      }
+      .signature-container div {
+        font-size: 7pt;
+      }
+      canvas {
+        width: 150px !important;
+        height: 75px !important;
       }
     }
     /* Responsive Anpassungen (auch für Tablets/iOS) */
@@ -264,12 +384,48 @@
 </head>
 <body>
   <!-- Toolbar -->
-  <div id="toolbar" class="no-print">
-    <button type="button" onclick="openConfigModal()">⚙️ Konfiguration</button>
-    <button type="button" onclick="openOverviewModal()">📋 Übersicht (A / oM)</button>
+  <div id="bottomNav" class="no-print">
+    <button type="button" class="nav-btn" data-page="pageOverview" onclick="showPage('pageOverview')">📋 Übersicht</button>
+    <button type="button" class="nav-btn" data-page="pageKinder" onclick="showPage('pageKinder')">👶 Kinder</button>
     <button type="button" onclick="openBackfillModal()">🕒 Nachpflegen</button>
+    <button type="button" onclick="openConfigModal()">⚙️ Konfiguration</button>
     <button type="button" onclick="startSignatureWizard()">✍️ Unterschrift</button>
+    <button type="button" onclick="performMonthlyClose()">🗂️ Monatsabschluss</button>
   </div>
+
+  <!-- ===================== Seite: Übersicht (Startseite) ===================== -->
+  <div id="pageOverview" class="page-section active">
+    <h1 style="text-align:center;">📋 Übersicht der Kinder</h1>
+    <div class="modal-row" style="justify-content:center;">
+      <label for="overviewDay">Tag im Monat:</label>
+      <select id="overviewDay"></select>
+      <span style="font-size:0.8em; color:#555;">(Monat/Jahr wird auf der Seite "Kinder" festgelegt)</span>
+    </div>
+    <p style="font-size:0.85em; color:#555; text-align:center;">
+      <strong>A</strong> = anwesend mit Mittagessen &nbsp;|&nbsp; <strong>oM</strong> = anwesend ohne Mittagessen.
+      Darunter je Kind ein Dropdown für KK/KU/KFU/KV/KFE, falls für dieses Kind individuell etwas zutrifft.
+      Die Auswahl wird direkt auf die jeweilige Seite des Kindes übertragen.
+    </p>
+    <div id="overviewChildrenList" style="max-width:600px; margin:0 auto;">
+      <!-- Zeilen pro Kind werden per JS erzeugt -->
+    </div>
+
+    <hr style="max-width:600px; margin:16px auto;">
+    <div class="modal-row" style="justify-content:center;">
+      <label for="overviewStatus">Kindertagespflegeperson:</label>
+      <select id="overviewStatus"></select>
+    </div>
+    <p style="font-size:0.8em; color:#555; margin-top:-4px; text-align:center;">
+      Ist die Kindertagespflegeperson z. B. krank oder im Urlaub, hier auswählen – die Auswahl wird dann bei <strong>jedem</strong> Kind für diesen Tag hinterlegt.
+    </p>
+
+    <div class="modal-actions" style="justify-content:center;">
+      <button type="button" onclick="applyOverviewSelections()">Übernehmen</button>
+    </div>
+  </div>
+
+  <!-- ===================== Seite: Kinder (Gesamtansicht/Monatstabelle je Kind) ===================== -->
+  <div id="pageKinder" class="page-section">
 
   <!-- Header-Bereich -->
   <div id="headerContainer">
@@ -395,11 +551,17 @@
       Tipp: Im Drucken-Dialog unten links auf das Freigabesymbol tippen und "In Dateien sichern" wählen, um die PDF-Datei lokal auf dem iPad zu speichern.
     </div>
   </div>
+  </div>
+  <!-- Ende Seite: Kinder -->
 
   <!-- ===================== Konfigurations-Modal ===================== -->
   <div id="configModal" class="modal-overlay no-print">
     <div class="modal-box">
       <h2>⚙️ Konfiguration</h2>
+      <div class="modal-actions" style="justify-content:flex-start; margin-top:0; margin-bottom:12px;">
+        <button type="button" onclick="closeConfigModal()">Abbrechen</button>
+        <button type="button" onclick="saveConfigFromModal()">Speichern</button>
+      </div>
       <p style="font-size:0.85em; color:#555;">Namen der Kinder, Standard-Uhrzeiten und Mittagessenpreis.</p>
       <div class="modal-row">
         <label for="configChildCount">Anzahl der Kinder:</label>
@@ -425,6 +587,10 @@
       <div class="modal-row">
         <label for="configPrice">Mittagessenpreis (€):</label>
         <input type="number" id="configPrice" step="0.01" min="0">
+      </div>
+      <div class="modal-row">
+        <label for="configEmail">E-Mail für Monatsabschluss:</label>
+        <input type="text" id="configEmail" placeholder="z. B. buero@beispiel.de">
       </div>
 
       <div class="modal-row" style="align-items:flex-start;">
@@ -478,49 +644,44 @@
     </div>
   </div>
 
-  <!-- ===================== Übersichts-Modal (A / oM) ===================== -->
-  <div id="overviewModal" class="modal-overlay no-print">
-    <div class="modal-box">
-      <h2>📋 Übersicht der Kinder</h2>
-      <div class="modal-row">
-        <label for="overviewDay">Tag im Monat:</label>
-        <select id="overviewDay"></select>
-        <span style="font-size:0.8em; color:#555;">(Monat/Jahr wie oben ausgewählt)</span>
-      </div>
-      <p style="font-size:0.85em; color:#555;">
-        <strong>A</strong> = anwesend mit Mittagessen &nbsp;|&nbsp; <strong>oM</strong> = anwesend ohne Mittagessen.
-        Darunter je Kind ein Dropdown für KK/KU/KFU/KV/KFE, falls für dieses Kind individuell etwas zutrifft.
-        Die Auswahl wird direkt auf die jeweilige Seite des Kindes übertragen.
-      </p>
-      <div id="overviewChildrenList">
-        <!-- Zeilen pro Kind werden per JS erzeugt -->
-      </div>
-
-      <hr>
-      <div class="modal-row">
-        <label for="overviewStatus">Kindertagespflegeperson:</label>
-        <select id="overviewStatus"></select>
-      </div>
-      <p style="font-size:0.8em; color:#555; margin-top:-4px;">
-        Ist die Kindertagespflegeperson z. B. krank oder im Urlaub, hier auswählen – die Auswahl wird dann bei <strong>jedem</strong> Kind für diesen Tag hinterlegt.
-      </p>
-
-      <div class="modal-actions">
-        <button type="button" onclick="closeOverviewModal()">Abbrechen</button>
-        <button type="button" onclick="applyOverviewSelections()">Übernehmen</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===================== Nachpflegen-Modal (Zeitraum, A / oM) ===================== -->
+  <!-- ===================== Nachpflegen-Modal (Zeitraum, wie Übersicht) ===================== -->
   <div id="backfillModal" class="modal-overlay no-print">
     <div class="modal-box">
       <h2>🕒 Anwesenheit nachpflegen</h2>
       <p style="font-size:0.85em; color:#555;">
-        Für mehrere zurückliegende Tage auf einmal nachtragen: Zeitraum wählen, pro Kind
-        <strong>A</strong> (mit Mittagessen) oder <strong>oM</strong> (ohne Mittagessen) anhaken,
-        "Übernehmen" trägt die gleiche Auswahl für jeden Tag im Zeitraum ein.
+        Für einen Zeitraum (auch in vergangenen Monaten) auf einmal nachtragen. Alle Optionen wie bei "Übersicht",
+        die Auswahl wird für jeden Tag im Zeitraum übernommen.
       </p>
+      <div class="modal-row">
+        <label for="backfillMonth">Monat / Jahr:</label>
+        <select id="backfillMonth">
+          <option value="1">Januar</option>
+          <option value="2">Februar</option>
+          <option value="3">März</option>
+          <option value="4">April</option>
+          <option value="5">Mai</option>
+          <option value="6">Juni</option>
+          <option value="7">Juli</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">Oktober</option>
+          <option value="11">November</option>
+          <option value="12">Dezember</option>
+        </select>
+        <select id="backfillYear">
+          <option value="2020">2020</option>
+          <option value="2021">2021</option>
+          <option value="2022">2022</option>
+          <option value="2023">2023</option>
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+          <option value="2026">2026</option>
+          <option value="2027">2027</option>
+          <option value="2028">2028</option>
+          <option value="2029">2029</option>
+          <option value="2030">2030</option>
+        </select>
+      </div>
       <div class="modal-row">
         <label for="backfillFrom">Von Tag:</label>
         <select id="backfillFrom"></select>
@@ -528,11 +689,24 @@
       <div class="modal-row">
         <label for="backfillTo">Bis Tag:</label>
         <select id="backfillTo"></select>
-        <span style="font-size:0.8em; color:#555;">(Monat/Jahr wie oben ausgewählt)</span>
       </div>
+      <p style="font-size:0.85em; color:#555;">
+        <strong>A</strong> = anwesend mit Mittagessen &nbsp;|&nbsp; <strong>oM</strong> = anwesend ohne Mittagessen.
+        Darunter je Kind ein Dropdown für KK/KU/KFU/KV/KFE, falls für dieses Kind individuell etwas zutrifft.
+      </p>
       <div id="backfillChildrenList">
         <!-- Zeilen pro Kind werden per JS erzeugt -->
       </div>
+
+      <hr>
+      <div class="modal-row">
+        <label for="backfillStatus">Kindertagespflegeperson:</label>
+        <select id="backfillStatus"></select>
+      </div>
+      <p style="font-size:0.8em; color:#555; margin-top:-4px;">
+        Ist die Kindertagespflegeperson z. B. krank oder im Urlaub, hier auswählen – die Auswahl wird dann bei <strong>jedem</strong> Kind für jeden Tag im Zeitraum hinterlegt.
+      </p>
+
       <div class="modal-actions">
         <button type="button" onclick="closeBackfillModal()">Abbrechen</button>
         <button type="button" onclick="applyBackfillSelections()">Übernehmen</button>
@@ -556,6 +730,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Versteckter Container für den Monatsabschluss-Druck (alle Kinder, je 1 Seite) -->
+  <div id="monthlyCloseContainer" class="no-print"></div>
   
   <script>
     // ============================================================
@@ -596,7 +773,8 @@
       mealPrice: 2.50,
       labels: DEFAULT_LABELS,
       // Index entspricht JS Date.getDay(): 0=So, 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa
-      workDays: [false, true, true, true, true, true, false]
+      workDays: [false, true, true, true, true, true, false],
+      reportEmail: ""
     };
 
     // Prüft anhand der Konfiguration, ob ein bestimmter Tag (Monat/Jahr/Tag-im-Monat)
@@ -713,6 +891,7 @@
       document.getElementById("configStart").value = config.defaultStart;
       document.getElementById("configEnd").value = config.defaultEnd;
       document.getElementById("configPrice").value = config.mealPrice;
+      document.getElementById("configEmail").value = config.reportEmail || "";
 
       const wd = config.workDays || DEFAULT_CONFIG.workDays;
       document.getElementById("workDaySo").checked = !!wd[0];
@@ -800,6 +979,7 @@
         defaultEnd: document.getElementById("configEnd").value || DEFAULT_CONFIG.defaultEnd,
         mealPrice: parseFloat(document.getElementById("configPrice").value) || 0,
         labels: labels,
+        reportEmail: document.getElementById("configEmail").value.trim(),
         workDays: [
           document.getElementById("workDaySo").checked,
           document.getElementById("workDayMo").checked,
@@ -943,8 +1123,8 @@
     // Werten wie die Tabellenspalte "Bemerkung" (--, geschlossen, Feiertag, Urlaub,
     // KTPP krank). Gilt für ALLE Kinder gemeinsam (z. B. wenn die Kindertagespflege-
     // person krank ist), daher nur einmal zentral vorhanden statt pro Kind.
-    function populateOverviewStatusOptions() {
-      const statusSelect = document.getElementById("overviewStatus");
+    function populateBemerkungOptions(selectId) {
+      const statusSelect = document.getElementById(selectId);
       statusSelect.innerHTML = "";
       ["--", "geschlossen", "Feiertag", "Urlaub", "KTPP krank"].forEach(optionText => {
         const opt = document.createElement("option");
@@ -955,9 +1135,10 @@
     }
 
 
-    function openOverviewModal() {
-      // Die Übersicht bezieht sich immer auf den heutigen Tag: Monat/Jahr oben
-      // werden bei Bedarf automatisch auf heute umgestellt.
+    // Bereitet die Übersicht-Seite auf: heutigen Tag vorauswählen (Monat/Jahr
+    // werden dazu bei Bedarf automatisch auf heute umgestellt), Kinderzeilen und
+    // das Kindertagespflegeperson-Dropdown neu aufbauen.
+    function initOverviewPage() {
       const today = new Date();
       const todayMonth = today.getMonth() + 1;
       const todayYear = today.getFullYear();
@@ -982,13 +1163,8 @@
       daySelect.value = today.getDate();
 
       renderChildSelectionRows("overviewChildrenList", "overview", true);
-      populateOverviewStatusOptions();
+      populateBemerkungOptions("overviewStatus");
       document.getElementById("overviewStatus").value = "";
-      document.getElementById("overviewModal").classList.add("open");
-    }
-
-    function closeOverviewModal() {
-      document.getElementById("overviewModal").classList.remove("open");
     }
 
     // Überträgt die A/oM-Auswahl und den KK/KU/KFU/KV/KFE-Status je Kind sowie die
@@ -1041,7 +1217,8 @@
         });
       }
 
-      closeOverviewModal();
+      // Seite zurücksetzen (heutiger Tag, leere Auswahl) für den nächsten Eintrag
+      initOverviewPage();
 
       // Falls das aktuell angezeigte Kind betroffen war, Ansicht neu laden
       resetAndLoadCurrentChild();
@@ -1051,12 +1228,15 @@
     // ============================================================
     // NACHPFLEGEN (Zeitraum auf einmal für mehrere Kinder eintragen)
     // ============================================================
-    function openBackfillModal() {
-      const month = parseInt(document.getElementById("monthSelect").value);
-      const year = parseInt(document.getElementById("yearSelect").value);
+    // Befüllt Von/Bis-Tag passend zum im Nachpflegen-Modal gewählten Monat/Jahr
+    function populateBackfillDayOptions() {
+      const month = parseInt(document.getElementById("backfillMonth").value);
+      const year = parseInt(document.getElementById("backfillYear").value);
       const daysInMonth = new Date(year, month, 0).getDate();
       const fromSelect = document.getElementById("backfillFrom");
       const toSelect = document.getElementById("backfillTo");
+      const prevFrom = parseInt(fromSelect.value) || 1;
+      const prevTo = parseInt(toSelect.value) || daysInMonth;
       fromSelect.innerHTML = "";
       toSelect.innerHTML = "";
       for (let d = 1; d <= daysInMonth; d++) {
@@ -1067,18 +1247,28 @@
         opt2.value = d; opt2.textContent = d;
         toSelect.appendChild(opt2);
       }
-      // Sinnvoller Standardzeitraum: vom 1. bis heute (im aktuellen Monat),
-      // sonst der ganze angezeigte Monat.
       const today = new Date();
       if (today.getFullYear() === year && (today.getMonth() + 1) === month) {
         fromSelect.value = 1;
         toSelect.value = today.getDate();
       } else {
-        fromSelect.value = 1;
-        toSelect.value = daysInMonth;
+        // Bisherige Auswahl beibehalten, falls im neuen Monat noch gültig, sonst ganzer Monat
+        fromSelect.value = (prevFrom <= daysInMonth) ? prevFrom : 1;
+        toSelect.value = (prevTo <= daysInMonth) ? prevTo : daysInMonth;
       }
+    }
 
-      renderChildSelectionRows("backfillChildrenList", "backfill");
+    function openBackfillModal() {
+      // Als Startpunkt den aktuell auf der Hauptseite gewählten Monat/Jahr übernehmen –
+      // kann im Modal aber frei auf einen anderen (auch früheren) Monat geändert werden.
+      document.getElementById("backfillMonth").value = document.getElementById("monthSelect").value;
+      document.getElementById("backfillYear").value = document.getElementById("yearSelect").value;
+      populateBackfillDayOptions();
+
+      renderChildSelectionRows("backfillChildrenList", "backfill", true);
+      populateBemerkungOptions("backfillStatus");
+      document.getElementById("backfillStatus").value = "";
+
       document.getElementById("backfillModal").classList.add("open");
     }
 
@@ -1086,37 +1276,66 @@
       document.getElementById("backfillModal").classList.remove("open");
     }
 
-    // Trägt die gleiche A/oM-Auswahl für jeden Tag im gewählten Zeitraum ein –
-    // damit lassen sich mehrere vergangene Tage mit nur einem Klick nachpflegen.
+    // Trägt A/oM, den individuellen KK/KU/KFU/KV/KFE-Status je Kind sowie die
+    // zentrale Bemerkung für die Kindertagespflegeperson für jeden Tag im
+    // gewählten Zeitraum (auch in vergangenen Monaten) ein.
     function applyBackfillSelections() {
       const config = loadConfig();
-      const month = document.getElementById("monthSelect").value;
-      const year = document.getElementById("yearSelect").value;
+      const month = document.getElementById("backfillMonth").value;
+      const year = document.getElementById("backfillYear").value;
       let fromDay = parseInt(document.getElementById("backfillFrom").value);
       let toDay = parseInt(document.getElementById("backfillTo").value);
       if (fromDay > toDay) { const tmp = fromDay; fromDay = toDay; toDay = tmp; }
 
-      const selections = getChildSelections("backfill");
-      if (selections.length === 0) {
-        alert("Bitte für mindestens ein Kind A oder oM auswählen.");
+      const remarkValue = document.getElementById("backfillStatus").value;
+      const selections = getChildSelections("backfill", true);
+
+      if (selections.length === 0 && !remarkValue) {
+        alert("Bitte für mindestens ein Kind A/oM oder einen Status auswählen, oder eine Bemerkung für die Kindertagespflegeperson wählen.");
         return;
       }
 
-      selections.forEach(({ name, wantsOM }) => {
-        const state = loadChildState(name, month, year);
-        for (let day = fromDay; day <= toDay; day++) {
-          const idx = day - 1;
-          if (!state.table[idx]) continue;
-          if (!isWorkDay(year, month, day)) continue; // kein Arbeitstag laut Konfiguration -> überspringen
-          state.table[idx].start = config.defaultStart;
-          state.table[idx].end = config.defaultEnd;
-          state.table[idx].m = wantsOM;
+      for (let day = fromDay; day <= toDay; day++) {
+        if (!isWorkDay(year, month, day)) continue; // kein Arbeitstag laut Konfiguration -> überspringen
+        const idx = day - 1;
+
+        selections.forEach(({ name, wantsA, wantsOM, status }) => {
+          const state = loadChildState(name, month, year);
+          const row = state.table[idx];
+          if (!row) return;
+          if (wantsA || wantsOM) {
+            row.start = config.defaultStart;
+            row.end = config.defaultEnd;
+            row.m = wantsOM;
+          }
+          if (status) {
+            row.kk = (status === "kk");
+            row.ku = (status === "ku");
+            row.kfu = (status === "kfu");
+            row.kv = (status === "kv");
+            row.kfe = (status === "kfe");
+          }
+          saveChildState(name, state);
+        });
+
+        if (remarkValue) {
+          getActiveChildren().forEach(name => {
+            const state = loadChildState(name, month, year);
+            const row = state.table[idx];
+            if (!row) return;
+            row.remark = remarkValue;
+            saveChildState(name, state);
+          });
         }
-        saveChildState(name, state);
-      });
+      }
 
       closeBackfillModal();
-      resetAndLoadCurrentChild();
+
+      // Nur neu laden, wenn die Hauptansicht gerade denselben Monat/Jahr zeigt
+      if (parseInt(document.getElementById("monthSelect").value) === parseInt(month) &&
+          parseInt(document.getElementById("yearSelect").value) === parseInt(year)) {
+        resetAndLoadCurrentChild();
+      }
       alert("Nachpflegen abgeschlossen – der Zeitraum wurde für die ausgewählten Kinder übertragen.");
     }
 
@@ -1445,9 +1664,137 @@
       canvas.addEventListener('touchmove', draw);
     }
     
-    // Öffnet den nativen Drucken-Dialog von iPadOS/Safari.
+    // Öffnet den nativen Drucken-Dialog von iPadOS/Safari. Der Seitentitel wird
+    // vorher kurz auf einen sprechenden Dateinamen gesetzt, damit iOS diesen als
+    // Vorschlag beim "In Dateien sichern" anzeigt (Ordner muss trotzdem manuell
+    // bestätigt werden – Web-Apps dürfen aus Sicherheitsgründen nicht automatisch
+    // in einen bestimmten Ordner schreiben).
     function savePdf() {
+      const child = document.getElementById("nameSelect").value || "Kind";
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
+      document.title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
       window.print();
+    }
+
+    // ============================================================
+    // MONATSABSCHLUSS: alle Kinder in EINEM Druckvorgang (je 1 Seite pro Kind),
+    // danach vorausgefüllte E-Mail öffnen (Anhang muss manuell hinzugefügt
+    // werden – Browser können aus Sicherheitsgründen keine Dateien automatisch
+    // an eine E-Mail anhängen).
+    // ============================================================
+
+    // Baut eine read-only HTML-Darstellung der Monatsübersicht eines Kindes
+    // (für den kombinierten Druck) – exakt basierend auf den gespeicherten Daten.
+    function buildPrintableChildHTML(name, month, year) {
+      const config = loadConfig();
+      const labels = config.labels;
+      const state = loadChildState(name, month, year);
+      const weekDays = ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."];
+      let rowsHtml = "";
+      state.table.forEach((row, i) => {
+        const day = i + 1;
+        const dt = new Date(parseInt(year), parseInt(month) - 1, day);
+        const wd = weekDays[dt.getDay()];
+        const hours = calculateHours(row.start, row.end);
+        rowsHtml += "<tr>"
+          + "<td>" + wd + "</td><td>" + day + "</td>"
+          + "<td>" + (row.start || "") + "</td><td>" + (row.end || "") + "</td>"
+          + "<td>" + hours + "</td><td>" + (row.remark || "") + "</td>"
+          + "<td>" + (row.m ? "✓" : "") + "</td>"
+          + "<td>" + (row.kk ? "✓" : "") + "</td>"
+          + "<td>" + (row.ku ? "✓" : "") + "</td>"
+          + "<td>" + (row.kfu ? "✓" : "") + "</td>"
+          + "<td>" + (row.kv ? "✓" : "") + "</td>"
+          + "<td>" + (row.kfe ? "✓" : "") + "</td>"
+          + "</tr>";
+      });
+
+      let presentDays = 0, omDays = 0;
+      state.table.forEach(row => {
+        if (row.start && row.end) presentDays++;
+        if (row.m) omDays++;
+      });
+      const toPay = Math.max(0, presentDays - omDays) * (parseFloat(config.mealPrice) || 0);
+
+      const ktpName = (state.header && state.header.ktp) || document.getElementById("ctpInput").value;
+      const sig1 = localStorage.getItem("signature1");
+      const sig2 = localStorage.getItem("signature2");
+      const sigBox = "width:150px;height:75px;border:1px solid #000;";
+
+      return ""
+        + '<div class="printable-child-page">'
+        + '<div style="display:flex; justify-content:space-between; font-size:9pt;">'
+        + "<div><strong>Anwesenheit und Fehlzeiten für den Monat " + month + "/" + year + "</strong> – " + name + "</div>"
+        + "<div><strong>Kindertagespflegeperson:</strong> " + ktpName + "</div>"
+        + "</div>"
+        + '<table class="printable-table"><thead><tr>'
+        + "<th>" + labels.colTag + "</th><th>" + labels.colDatum + "</th>"
+        + "<th>" + labels.colVon + "</th><th>" + labels.colBis + "</th>"
+        + "<th>" + labels.colStunden + "</th><th>" + labels.colBemerkung + "</th>"
+        + "<th>" + labels.colOM + "</th><th>" + labels.colKK + "</th>"
+        + "<th>" + labels.colKU + "</th><th>" + labels.colKFU + "</th>"
+        + "<th>" + labels.colKV + "</th><th>" + labels.colKFE + "</th>"
+        + "</tr></thead><tbody>" + rowsHtml + "</tbody>"
+        + '<tfoot><tr><td colspan="6" style="text-align:right;">zu zahlen (Mittagessen):</td>'
+        + '<td colspan="6" style="text-align:left;">' + toPay.toFixed(2).replace(".", ",") + " €</td></tr></tfoot>"
+        + "</table>"
+        + '<div class="printable-legend">'
+        + "<strong>" + labels.legendOM + "</strong>: " + labels.legendTextOM + " &nbsp; "
+        + "<strong>" + labels.legendKK + "</strong>: " + labels.legendTextKK + " &nbsp; "
+        + "<strong>" + labels.legendKU + "</strong>: " + labels.legendTextKU + " &nbsp; "
+        + "<strong>" + labels.legendKFU + "</strong>: " + labels.legendTextKFU + " &nbsp; "
+        + "<strong>" + labels.legendKV + "</strong>: " + labels.legendTextKV + " &nbsp; "
+        + "<strong>" + labels.legendKFE + "</strong>: " + labels.legendTextKFE
+        + "</div>"
+        + '<div style="display:flex; justify-content:space-between; margin-top:8px; font-size:8pt;">'
+        + "<div>Datum: " + (state.recordDate || "") + "</div>"
+        + '<div style="display:flex; gap:20px;">'
+        + '<div style="text-align:center;">' + (sig1 ? '<img src="' + sig1 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '"></div>') + "<div>Unterschrift Eltern</div></div>"
+        + '<div style="text-align:center;">' + (sig2 ? '<img src="' + sig2 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '"></div>') + "<div>Unterschrift Kindertagespflegeperson</div></div>"
+        + "</div></div></div>";
+    }
+
+    function performMonthlyClose() {
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
+      const children = getActiveChildren();
+      if (children.length === 0) {
+        alert("Bitte zuerst in der Konfiguration Kindernamen eintragen.");
+        return;
+      }
+      const container = document.getElementById("monthlyCloseContainer");
+      container.innerHTML = children.map(name => buildPrintableChildHTML(name, month, year)).join("");
+      document.body.classList.add("monthly-close-mode");
+      document.title = "Monatsabschluss_" + month + "-" + year;
+      window.print();
+    }
+
+    // Nach dem Drucken (oder Abbrechen des Druckdialogs) automatisch wieder zur
+    // normalen Ansicht wechseln, den Seitentitel zurücksetzen und – falls eine
+    // Adresse hinterlegt ist – eine vorausgefüllte E-Mail öffnen.
+    window.addEventListener("afterprint", function() {
+      document.title = "Anwesenheitsliste";
+      if (document.body.classList.contains("monthly-close-mode")) {
+        document.body.classList.remove("monthly-close-mode");
+        document.getElementById("monthlyCloseContainer").innerHTML = "";
+        openMonthlyCloseMailReminder();
+      }
+    });
+
+    function openMonthlyCloseMailReminder() {
+      const config = loadConfig();
+      const email = (config.reportEmail || "").trim();
+      if (!email) return; // keine Adresse hinterlegt -> keine E-Mail vorbereiten
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
+      const subject = encodeURIComponent("Anwesenheitsliste " + month + "/" + year);
+      const body = encodeURIComponent(
+        "Anbei die Anwesenheitsliste für " + month + "/" + year + ".\n\n" +
+        "Bitte die soeben gespeicherte PDF-Datei manuell als Anhang hinzufügen " +
+        "(aus Sicherheitsgründen können Web-Apps Dateien nicht automatisch an E-Mails anhängen)."
+      );
+      window.location.href = "mailto:" + encodeURIComponent(email) + "?subject=" + subject + "&body=" + body;
     }
 
     // ============================================================
@@ -1541,6 +1888,20 @@
     }
     
     // Initialisierung beim Laden der Seite
+    // ============================================================
+    // SEITEN-NAVIGATION (feste untere Leiste: Übersicht / Kinder)
+    // ============================================================
+    function showPage(pageId) {
+      document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
+      document.getElementById(pageId).classList.add("active");
+      document.querySelectorAll("#bottomNav .nav-btn").forEach(btn => {
+        btn.classList.toggle("active-tab", btn.dataset.page === pageId);
+      });
+      if (pageId === "pageOverview") {
+        initOverviewPage();
+      }
+    }
+
     window.addEventListener('DOMContentLoaded', function(){
       applyLabels();
       populateNameSelect();
@@ -1551,10 +1912,14 @@
       document.getElementById("yearSelect").addEventListener('change', resetAndLoadCurrentChild);
       document.getElementById("nameSelect").addEventListener('change', resetAndLoadCurrentChild);
       document.getElementById("ctpInput").addEventListener('change', saveTableState);
+      document.getElementById("backfillMonth").addEventListener('change', populateBackfillDayOptions);
+      document.getElementById("backfillYear").addEventListener('change', populateBackfillDayOptions);
       initSignaturePad("signature1");
       initSignaturePad("signature2");
       loadSignature("signature1");
       loadSignature("signature2");
+      // Startseite: Übersicht
+      showPage("pageOverview");
     });
   </script>
 </body>
