@@ -647,7 +647,7 @@
   
   <!-- Legendenkasten (zweispaltig, wie in der offiziellen PDF-Vorlage) -->
   <div id="legend" class="legend-box">
-     <strong>Legende:</strong>
+     <strong>Legende (Auswahlmöglichkeiten im Bemerkung-Dropdown):</strong>
      <div style="display:flex; justify-content:space-between; gap:20px; margin-top:6px; flex-wrap:wrap;">
        <ul style="margin:0; padding:0; list-style:none;">
          <li><strong id="legendLabelKK">KK</strong> = <span id="legendTextKK">Krankmeldung</span></li>
@@ -658,6 +658,9 @@
          <li><strong id="legendLabelKV">KV</strong> = <span id="legendTextKV">Weiteres</span></li>
          <li><strong id="legendLabelKFE">KFE</strong> = <span id="legendTextKFE">(Neue Spalte)</span></li>
        </ul>
+     </div>
+     <div style="margin-top:8px; font-size:0.9em;">
+       <strong>Weitere Bemerkung-Optionen:</strong> geschlossen, Feiertag, KTPP Urlaub, KTPP krank, kein Mittagessen
      </div>
   </div>
   
@@ -984,6 +987,31 @@
       const config = loadConfig();
       const count = config.childCount || 5;
       return config.children.slice(0, count).filter(n => n && n.trim() !== "");
+    }
+
+    // Ersetzt automatisch (einmalig) noch nicht angepasste, alte Standard-
+    // Legendentexte durch die offiziellen Kreis-Plön-Bezeichnungen. Wurde ein
+    // Text bereits individuell geändert (weicht vom alten Standard ab), bleibt
+    // er unangetastet.
+    function migrateLegendLabelsIfNeeded() {
+      const config = loadConfig();
+      const OLD_DEFAULTS = {
+        legendTextKK: "Krankmeldung",
+        legendTextKU: "Urlaub",
+        legendTextKFU: "Fortbildung",
+        legendTextKV: "Weiteres",
+        legendTextKFE: "(Neue Spalte)"
+      };
+      let changed = false;
+      Object.keys(OLD_DEFAULTS).forEach(function(key) {
+        if (config.labels[key] === OLD_DEFAULTS[key]) {
+          config.labels[key] = DEFAULT_LABELS[key];
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveConfig(config);
+      }
     }
 
     // Überträgt die konfigurierten Bezeichnungen auf Tabellenüberschriften und Legende
@@ -2523,6 +2551,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', function(){
+      migrateLegendLabelsIfNeeded();
       applyLabels();
       populateNameSelect();
       populateTable();
