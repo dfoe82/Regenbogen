@@ -895,7 +895,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.0.0";
+    const APP_VERSION = "1.0.1";
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -1549,6 +1549,15 @@
     // zentrale Bemerkung für die Kindertagespflegeperson für jeden Tag im
     // gewählten Zeitraum ein (heute oder auch ein zurückliegender Zeitraum).
     function applyOverviewSelections() {
+      try {
+        applyOverviewSelectionsInner();
+      } catch (e) {
+        alert("Fehler beim Übernehmen (bitte diesen Text an den Entwickler schicken):\n" + e.message);
+        console.error(e);
+      }
+    }
+
+    function applyOverviewSelectionsInner() {
       const config = loadConfig();
       const labels = config.labels;
       const month = document.getElementById("overviewMonth").value;
