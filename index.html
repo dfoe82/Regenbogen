@@ -1,3 +1,9 @@
+<!--
+  Anwesenheitsliste offline – Versionshistorie
+  v1.0.0 (2026-09-10): Erste durchnummerierte Version. Enthält u. a.:
+    Übersicht (inkl. Nachpflegen), Kinder-Monatstabellen, Unterschrift-Assistent,
+    Monatsabschluss (PDF + E-Mail-Erinnerung), Konfiguration, Export/Import.
+-->
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -740,6 +746,7 @@
   <div id="configModal" class="modal-overlay no-print">
     <div class="modal-box">
       <h2>⚙️ Konfiguration</h2>
+      <p style="font-size:0.75em; color:#999; margin-top:-8px;">Version <span id="appVersionText"></span></p>
       <div class="modal-actions" style="justify-content:flex-start; margin-top:0; margin-bottom:12px;">
         <button type="button" onclick="closeConfigModal()">Abbrechen</button>
         <button type="button" onclick="saveConfigFromModal()">Speichern</button>
@@ -888,6 +895,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
+    const APP_VERSION = "1.0.0";
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -1567,8 +1575,14 @@
       };
 
       let appliedAnyDay = false;
+      const isSingleDay = (fromDay === toDay);
+      if (isSingleDay && !isWorkDay(year, month, fromDay)) {
+        const proceed = confirm("Der gewählte Tag ist laut Konfiguration kein Arbeitstag. Trotzdem übernehmen?");
+        if (!proceed) return;
+      }
       for (let day = fromDay; day <= toDay; day++) {
-        if (!isWorkDay(year, month, day)) continue; // kein Arbeitstag laut Konfiguration -> überspringen
+        const dayIsWorkDay = isWorkDay(year, month, day);
+        if (!dayIsWorkDay && !(isSingleDay && day === fromDay)) continue; // im Zeitraum: kein Arbeitstag -> überspringen
         appliedAnyDay = true;
         const idx = day - 1;
 
@@ -2500,6 +2514,7 @@
 
     window.addEventListener('DOMContentLoaded', function(){
       migrateLegendLabelsIfNeeded();
+      document.getElementById("appVersionText").textContent = APP_VERSION;
       applyLabels();
       populateNameSelect();
       populateTable();
