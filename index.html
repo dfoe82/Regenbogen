@@ -848,7 +848,7 @@
   </div>
 
   <!-- Versteckter Container für den Monatsabschluss-Druck (alle Kinder, je 1 Seite) -->
-  <div id="monthlyCloseContainer" class="no-print"></div>
+  <div id="monthlyCloseContainer"></div>
   
   <script>
     // ============================================================
@@ -1933,7 +1933,7 @@
       container.innerHTML = buildPrintableChildHTML(child, month, year);
       document.body.classList.add("monthly-close-mode");
       document.title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
-      window.print();
+      triggerPrint();
     }
 
     // ============================================================
@@ -2131,6 +2131,19 @@
     // "monthlyClose" = danach E-Mail-Erinnerung öffnen
     let printMode = null;
 
+    // Ruft window.print() erst nach zwei Render-Durchläufen auf. Safari
+    // "fotografiert" den Druckinhalt manchmal, bevor gerade per JS eingefügte
+    // Inhalte tatsächlich gerendert wurden – das führt sonst zu einer leeren
+    // Druckvorschau. Der doppelte requestAnimationFrame stellt sicher, dass der
+    // Browser den neuen Inhalt vorher mindestens einmal komplett gezeichnet hat.
+    function triggerPrint() {
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          window.print();
+        });
+      });
+    }
+
     function performMonthlyClose() {
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
@@ -2144,7 +2157,7 @@
       container.innerHTML = children.map(name => buildPrintableChildHTML(name, month, year)).join("");
       document.body.classList.add("monthly-close-mode");
       document.title = "Monatsabschluss_" + month + "-" + year;
-      window.print();
+      triggerPrint();
     }
 
     // Nach dem Drucken (oder Abbrechen des Druckdialogs) automatisch wieder zur
@@ -2198,7 +2211,7 @@
       container.innerHTML = buildPrintableChildHTML(child, month, year);
       document.body.classList.add("monthly-close-mode");
       document.title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
-      window.print();
+      triggerPrint();
     }
 
     function openMonthlyCloseMailReminder() {
