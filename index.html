@@ -506,7 +506,7 @@
       <button type="button" onclick="showPage('pageKinder')" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
       <button type="button" onclick="startSignatureWizard()" style="padding:14px; font-size:1em;">✍️ Unterschrift einholen</button>
       <button type="button" onclick="openParentMessageModal()" style="padding:14px; font-size:1em;">✉️ Nachricht für Eltern erstellen</button>
-      <button type="button" onclick="startSequentialChildPrint()" style="padding:14px; font-size:1em;">📑 Kinder einzeln als PDF (nacheinander)</button>
+      <button type="button" id="sequentialPrintBtn" onclick="startSequentialChildPrint()" style="padding:14px; font-size:1em;">📑 Kinder einzeln als PDF (nacheinander)</button>
       <hr style="width:100%; margin:8px 0;">
       <button type="button" onclick="performMonthlyClose()" style="padding:14px; font-size:1em; font-weight:bold;">🗂️ Monatsabschluss jetzt erstellen (alle Kinder, PDF + E-Mail)</button>
     </div>
@@ -1959,14 +1959,21 @@
         openMonthlyCloseMailReminder();
       } else if (finishedMode === "sequential") {
         sequentialPrintIndex++;
+        const btn = document.getElementById("sequentialPrintBtn");
         if (sequentialPrintIndex < sequentialPrintChildren.length) {
-          // Hinweis: Da dies nicht mehr aus einem direkten Tastendruck heraus
-          // erfolgt, kann iOS diesen Druckaufruf blockieren. Falls der
-          // Druckdialog beim nächsten Kind ausbleibt, bitte den Button für
-          // dieses Kind einfach erneut antippen.
-          printCurrentSequentialChild();
+          // WICHTIG: window.print() darf nur direkt aus einem Tastendruck heraus
+          // aufgerufen werden, sonst blockiert/verhält sich iOS unvorhersehbar.
+          // Deshalb hier NICHT automatisch weiterdrucken, sondern den Button
+          // umbeschriften – ein Antippen löst dann einen echten, direkten
+          // Tastendruck für das nächste Kind aus.
+          const nextChild = sequentialPrintChildren[sequentialPrintIndex];
+          btn.textContent = "▶️ Weiter: " + nextChild + " drucken (" +
+            (sequentialPrintIndex + 1) + "/" + sequentialPrintChildren.length + ")";
+          btn.onclick = function() { printCurrentSequentialChild(); };
         } else {
           sequentialPrintIndex = -1;
+          btn.textContent = "📑 Kinder einzeln als PDF (nacheinander)";
+          btn.onclick = function() { startSequentialChildPrint(); };
           alert("Alle Kinder wurden nacheinander zum Sichern angeboten.");
         }
       }
