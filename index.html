@@ -45,6 +45,42 @@
     body.monthly-close-mode #monthlyCloseContainer {
       display: block;
     }
+    /* Kurze Speicherbestätigung ("✓ Gespeichert") */
+    .save-toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: #2e7d32;
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 0.85em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+      z-index: 2000;
+    }
+    .save-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    /* Fortschrittsanzeige auf der Kinder-Seite */
+    #progressIndicator {
+      text-align: center;
+      font-size: 0.85em;
+      color: #555;
+      margin: 4px 0 10px 0;
+    }
+    /* Hinweisbanner, wenn ein Monat als abgeschlossen markiert ist */
+    #monthLockBanner {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      padding: 6px 10px;
+      margin-bottom: 10px;
+      font-size: 0.85em;
+      border-radius: 4px;
+    }
     #bottomNav {
       position: fixed;
       bottom: 0;
@@ -620,6 +656,12 @@
     <p style="font-size:0.85em; color:#555; text-align:center; max-width:500px; margin:0 auto 16px auto;">
       Alle Aktionen unten beziehen sich auf den oben gewählten Monat. Öffnet sich immer mit dem aktuellen Monat.
     </p>
+    <div class="modal-row" style="justify-content:center;">
+      <label><input type="checkbox" id="monthClosedCheckbox" onchange="onMonthClosedToggle()"> 🔒 Diesen Monat als abgeschlossen markieren</label>
+    </div>
+    <p style="font-size:0.8em; color:#555; text-align:center; margin-top:-4px;">
+      Sperrt die Eingabefelder auf der Kinder-Seite für diesen Monat gegen versehentliches Ändern.
+    </p>
     <div style="display:flex; flex-direction:column; gap:12px; max-width:400px; margin:0 auto;">
       <button type="button" onclick="goToKinderPageForCloseMonth()" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
       <button type="button" onclick="startSignatureWizard()" style="padding:14px; font-size:1em;">✍️ Unterschrift einholen</button>
@@ -679,6 +721,10 @@
   </div>
   
   <h1 style="text-align:center;">Anwesenheitsliste</h1>
+  <div id="monthLockBanner" class="no-print" style="display:none;">
+    🔒 Dieser Monat ist als abgeschlossen markiert. Zum Bearbeiten auf der Monatsabschluss-Seite entsperren.
+  </div>
+  <div id="progressIndicator" class="no-print"></div>
   <div class="no-print" style="text-align:center;">
     <span id="offlineNotice">✅ Läuft komplett lokal auf diesem iPad – keine Internetverbindung nötig, alle Daten bleiben nur auf diesem Gerät gespeichert.</span>
   </div>
@@ -918,13 +964,15 @@
   </div>
 
   <!-- Versteckter Container für den Druck (Einzel-Kind, Monatsabschluss, sequenziell) -->
+  <div id="saveToast" class="save-toast no-print">✓ Gespeichert</div>
+
   <div id="monthlyCloseContainer"></div>
   
   <script>
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.1.0";
+    const APP_VERSION = "1.2.0";
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -1777,8 +1825,99 @@
       const chargeableDays = Math.max(0, presentDays - omDays);
       const toPay = chargeableDays * price;
       document.getElementById("sumToPay").textContent = toPay.toFixed(2).replace(".", ",") + " €";
+      updateProgressIndicator();
     }
-    
+
+    // Blendet kurz "✓ Gespeichert" ein und wieder aus.
+    let saveToastTimer = null;
+    function showSaveToast() {
+      const toast = document.getElementById("saveToast");
+      toast.classList.add("show");
+      clearTimeout(saveToastTimer);
+      saveToastTimer = setTimeout(function() {
+        toast.classList.remove("show");
+      }, 1300);
+    }
+
+    // Zeigt an, für wie viele der Arbeitstage des Monats bereits etwas
+    // eingetragen ist (Uhrzeiten oder eine Bemerkung).
+    function updateProgressIndicator() {
+      const el = document.getElementById("progressIndicator");
+      if (!el) return;
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
+      const rows = document.querySelectorAll('#tableBody tr');
+      let totalWorkDays = 0, filledWorkDays = 0;
+      rows.forEach((row, i) => {
+        const day = i + 1;
+        if (!isWorkDay(year, month, day)) return;
+        totalWorkDays++;
+        const start = row.querySelector('input[name="start"]').value;
+        const end = row.querySelector('input[name="end"]').value;
+        const remark = row.querySelector('select[name="remark"]').value;
+        if ((start && end) || remark) filledWorkDays++;
+      });
+      el.textContent = filledWorkDays + " von " + totalWorkDays + " Arbeitstagen erfasst";
+    }
+
+    // ============================================================
+    // "MONAT ABGESCHLOSSEN"-MARKIERUNG (sperrt Eingabefelder gegen
+    // versehentliches Ändern, gilt monatsweise für alle Kinder gemeinsam)
+    // ============================================================
+    function getClosedMonthsMap() {
+      const raw = localStorage.getItem("closedMonths");
+      if (!raw) return {};
+      try { return JSON.parse(raw); } catch (e) { return {}; }
+    }
+
+    function isMonthClosed(year, month) {
+      const map = getClosedMonthsMap();
+      return !!map[year + "-" + String(month).padStart(2, "0")];
+    }
+
+    function setMonthClosed(year, month, closed) {
+      const map = getClosedMonthsMap();
+      const key = year + "-" + String(month).padStart(2, "0");
+      if (closed) { map[key] = true; } else { delete map[key]; }
+      localStorage.setItem("closedMonths", JSON.stringify(map));
+    }
+
+    // Sperrt/entsperrt die Eingabefelder auf der Kinder-Seite je nachdem, ob
+    // der dort aktuell angezeigte Monat als abgeschlossen markiert ist.
+    function applyMonthLockState() {
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
+      const closed = isMonthClosed(year, month);
+      const rows = document.querySelectorAll('#tableBody tr');
+      rows.forEach(row => {
+        row.querySelector('input[name="start"]').disabled = closed;
+        row.querySelector('input[name="end"]').disabled = closed;
+        row.querySelector('select[name="remark"]').disabled = closed;
+      });
+      const banner = document.getElementById("monthLockBanner");
+      if (banner) banner.style.display = closed ? "block" : "none";
+    }
+
+    // Aktualisiert die Checkbox auf der Monatsabschluss-Seite passend zum dort
+    // gewählten Monat/Jahr.
+    function refreshMonthClosedCheckbox() {
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
+      document.getElementById("monthClosedCheckbox").checked = isMonthClosed(year, month);
+    }
+
+    function onMonthClosedToggle() {
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
+      const checked = document.getElementById("monthClosedCheckbox").checked;
+      setMonthClosed(year, month, checked);
+      // Falls die Kinder-Seite gerade denselben Monat zeigt, Sperrzustand sofort aktualisieren
+      if (parseInt(document.getElementById("monthSelect").value) === parseInt(month) &&
+          parseInt(document.getElementById("yearSelect").value) === parseInt(year)) {
+        applyMonthLockState();
+      }
+    }
+
     // Speichert den Inhalt der Tabelle + Header-Felder für das AKTUELL gewählte Kind
     function saveTableState() {
       let data = [];
@@ -1802,6 +1941,7 @@
       };
       if (nameSelect) {
         saveChildState(nameSelect, state);
+        showSaveToast();
       }
     }
     
@@ -1838,6 +1978,7 @@
       loadSignature("signature1", childName);
       loadSignature("signature2", childName);
       updatePaymentSums();
+      applyMonthLockState();
     }
 
     // Baut die Tabelle neu auf und lädt danach die Daten des aktuellen Kindes
@@ -2079,6 +2220,7 @@
       const finishedMode = printMode;
       printMode = null;
       if (finishedMode === "monthlyClose") {
+        maybeShowBackupReminder();
         openMonthlyCloseMailReminder();
       } else if (finishedMode === "sequential") {
         sequentialPrintIndex++;
@@ -2324,6 +2466,7 @@
       const today = new Date();
       document.getElementById("closeMonth").value = today.getMonth() + 1;
       document.getElementById("closeYear").value = today.getFullYear();
+      refreshMonthClosedCheckbox();
     }
 
     // Schaltet die Kinder-Seite auf den auf der Monatsabschluss-Seite gewählten
@@ -2392,6 +2535,21 @@
         "(aus Sicherheitsgründen können Web-Apps Dateien nicht automatisch an E-Mails anhängen)."
       );
       window.location.href = "mailto:" + encodeURIComponent(email) + "?subject=" + subject + "&body=" + body;
+    }
+
+    // Fragt einmal pro Kalendermonat (nicht bei jedem Monatsabschluss erneut),
+    // ob gerade ein Backup exportiert werden soll – da alle Daten nur lokal auf
+    // diesem Gerät liegen.
+    function maybeShowBackupReminder() {
+      const now = new Date();
+      const currentTag = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+      const lastShown = localStorage.getItem("lastBackupReminderMonth");
+      if (lastShown === currentTag) return;
+      localStorage.setItem("lastBackupReminderMonth", currentTag);
+      const wantsBackup = confirm("Möchtest du jetzt ein Backup deiner Daten exportieren? (Empfohlen einmal im Monat, da alle Daten nur auf diesem Gerät gespeichert sind.)");
+      if (wantsBackup) {
+        exportAllData();
+      }
     }
 
     // ============================================================
@@ -2590,6 +2748,8 @@
       document.getElementById("overviewYear").addEventListener('change', populateOverviewDayOptions);
       document.getElementById("overviewFromDate").addEventListener('change', onDateFieldChanged);
       document.getElementById("overviewToDate").addEventListener('change', onDateFieldChanged);
+      document.getElementById("closeMonth").addEventListener('change', refreshMonthClosedCheckbox);
+      document.getElementById("closeYear").addEventListener('change', refreshMonthClosedCheckbox);
       initSignaturePad("signature1");
       initSignaturePad("signature2");
       // Startseite: Übersicht
