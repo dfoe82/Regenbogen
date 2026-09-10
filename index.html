@@ -263,7 +263,7 @@
          die interaktive Seite zuverlässig aus, während der Druck-Container
          garantiert sichtbar wird. */
       #bottomNav, #pageOverview, #pageMonthlyClose, #pageKinder,
-      #configModal, #backfillModal, #signatureWizardModal, #parentMessageModal {
+      #configModal, #signatureWizardModal, #parentMessageModal {
         display: none !important;
       }
       #monthlyCloseContainer {
@@ -433,6 +433,12 @@
       font-size: 0.9em;
       white-space: nowrap;
     }
+    /* Zeitraum-Auswahl (Übersicht): Kalender-Button */
+    #calendarToggleBtn.active-mode {
+      background: #2e7d32;
+      color: #fff;
+      border-color: #2e7d32;
+    }
     .overview-extra-row {
       display: flex;
       flex-wrap: wrap;
@@ -502,23 +508,60 @@
   <!-- Toolbar -->
   <div id="bottomNav" class="no-print">
     <button type="button" class="nav-btn" data-page="pageOverview" onclick="showPage('pageOverview')">📋 Übersicht</button>
-    <button type="button" onclick="openBackfillModal()">🕒 Nachpflegen</button>
     <button type="button" onclick="openConfigModal()">⚙️ Konfiguration</button>
     <button type="button" class="nav-btn" data-page="pageMonthlyClose" onclick="showPage('pageMonthlyClose')">🗂️ Monatsabschluss</button>
   </div>
 
-  <!-- ===================== Seite: Übersicht (Startseite) ===================== -->
+  <!-- ===================== Seite: Übersicht (Startseite, inkl. Nachpflegen) ===================== -->
   <div id="pageOverview" class="page-section active">
     <h1 style="text-align:center;">📋 Übersicht der Kinder</h1>
     <div class="modal-row" style="justify-content:center;">
-      <label for="overviewDay">Tag im Monat:</label>
-      <select id="overviewDay"></select>
-      <span style="font-size:0.8em; color:#555;">(Monat/Jahr wird auf der Seite "Kinder" festgelegt)</span>
+      <label for="overviewMonth">Monat / Jahr:</label>
+      <select id="overviewMonth">
+        <option value="1">Januar</option>
+        <option value="2">Februar</option>
+        <option value="3">März</option>
+        <option value="4">April</option>
+        <option value="5">Mai</option>
+        <option value="6">Juni</option>
+        <option value="7">Juli</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">Oktober</option>
+        <option value="11">November</option>
+        <option value="12">Dezember</option>
+      </select>
+      <select id="overviewYear">
+        <option value="2020">2020</option>
+        <option value="2021">2021</option>
+        <option value="2022">2022</option>
+        <option value="2023">2023</option>
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+        <option value="2029">2029</option>
+        <option value="2030">2030</option>
+      </select>
     </div>
+    <div class="modal-row" style="justify-content:center;">
+      <button type="button" id="calendarToggleBtn" onclick="toggleCalendarFields()">🗓️ Kalender</button>
+    </div>
+
+    <!-- Von/Bis als "Speicher" für die aktuelle Auswahl, unsichtbar bis "Kalender" angetippt wird -->
+    <select id="overviewFrom" style="display:none;"></select>
+    <select id="overviewTo" style="display:none;"></select>
+
+    <div id="dateRangeFields" class="modal-row" style="justify-content:center; display:none;">
+      <label for="overviewFromDate">Von:</label>
+      <input type="date" id="overviewFromDate">
+      <label for="overviewToDate">Bis:</label>
+      <input type="date" id="overviewToDate">
+    </div>
+
     <p style="font-size:0.85em; color:#555; text-align:center;">
-      <strong>A</strong> = anwesend mit Mittagessen &nbsp;|&nbsp; <strong>oM</strong> = anwesend ohne Mittagessen.
-      Darunter je Kind ein Dropdown für KK/KU/KFU/KV/KFE, falls für dieses Kind individuell etwas zutrifft.
-      Die Auswahl wird direkt auf die jeweilige Seite des Kindes übertragen.
+      <strong>A</strong> = anwesend. "Kein Mittagessen" über das Dropdown auswählen.
     </p>
     <div id="overviewChildrenList" style="max-width:600px; margin:0 auto;">
       <!-- Zeilen pro Kind werden per JS erzeugt -->
@@ -529,9 +572,6 @@
       <label for="overviewStatus">Kindertagespflegeperson:</label>
       <select id="overviewStatus"></select>
     </div>
-    <p style="font-size:0.8em; color:#555; margin-top:-4px; text-align:center;">
-      Ist die Kindertagespflegeperson z. B. krank oder im Urlaub, hier auswählen – die Auswahl wird dann bei <strong>jedem</strong> Kind für diesen Tag hinterlegt.
-    </p>
 
     <div class="modal-actions" style="justify-content:center;">
       <button type="button" onclick="applyOverviewSelections()">Übernehmen</button>
@@ -808,75 +848,6 @@
   </div>
 
   <!-- ===================== Nachpflegen-Modal (Zeitraum, wie Übersicht) ===================== -->
-  <div id="backfillModal" class="modal-overlay no-print">
-    <div class="modal-box">
-      <h2>🕒 Anwesenheit nachpflegen</h2>
-      <p style="font-size:0.85em; color:#555;">
-        Für einen Zeitraum (auch in vergangenen Monaten) auf einmal nachtragen. Alle Optionen wie bei "Übersicht",
-        die Auswahl wird für jeden Tag im Zeitraum übernommen.
-      </p>
-      <div class="modal-row">
-        <label for="backfillMonth">Monat / Jahr:</label>
-        <select id="backfillMonth">
-          <option value="1">Januar</option>
-          <option value="2">Februar</option>
-          <option value="3">März</option>
-          <option value="4">April</option>
-          <option value="5">Mai</option>
-          <option value="6">Juni</option>
-          <option value="7">Juli</option>
-          <option value="8">August</option>
-          <option value="9">September</option>
-          <option value="10">Oktober</option>
-          <option value="11">November</option>
-          <option value="12">Dezember</option>
-        </select>
-        <select id="backfillYear">
-          <option value="2020">2020</option>
-          <option value="2021">2021</option>
-          <option value="2022">2022</option>
-          <option value="2023">2023</option>
-          <option value="2024">2024</option>
-          <option value="2025">2025</option>
-          <option value="2026">2026</option>
-          <option value="2027">2027</option>
-          <option value="2028">2028</option>
-          <option value="2029">2029</option>
-          <option value="2030">2030</option>
-        </select>
-      </div>
-      <div class="modal-row">
-        <label for="backfillFrom">Von Tag:</label>
-        <select id="backfillFrom"></select>
-      </div>
-      <div class="modal-row">
-        <label for="backfillTo">Bis Tag:</label>
-        <select id="backfillTo"></select>
-      </div>
-      <p style="font-size:0.85em; color:#555;">
-        <strong>A</strong> = anwesend mit Mittagessen &nbsp;|&nbsp; <strong>oM</strong> = anwesend ohne Mittagessen.
-        Darunter je Kind ein Dropdown für KK/KU/KFU/KV/KFE, falls für dieses Kind individuell etwas zutrifft.
-      </p>
-      <div id="backfillChildrenList">
-        <!-- Zeilen pro Kind werden per JS erzeugt -->
-      </div>
-
-      <hr>
-      <div class="modal-row">
-        <label for="backfillStatus">Kindertagespflegeperson:</label>
-        <select id="backfillStatus"></select>
-      </div>
-      <p style="font-size:0.8em; color:#555; margin-top:-4px;">
-        Ist die Kindertagespflegeperson z. B. krank oder im Urlaub, hier auswählen – die Auswahl wird dann bei <strong>jedem</strong> Kind für jeden Tag im Zeitraum hinterlegt.
-      </p>
-
-      <div class="modal-actions">
-        <button type="button" onclick="closeBackfillModal()">Abbrechen</button>
-        <button type="button" onclick="applyBackfillSelections()">Übernehmen</button>
-      </div>
-    </div>
-  </div>
-
   <!-- ===================== Unterschrift-Assistent (nacheinander: Eltern, dann Kindertagespflegeperson) ===================== -->
   <div id="signatureWizardModal" class="modal-overlay no-print">
     <div class="modal-box">
@@ -1452,111 +1423,14 @@
     // Bereitet die Übersicht-Seite auf: heutigen Tag vorauswählen (Monat/Jahr
     // werden dazu bei Bedarf automatisch auf heute umgestellt), Kinderzeilen und
     // das Kindertagespflegeperson-Dropdown neu aufbauen.
-    function initOverviewPage() {
-      const today = new Date();
-      const todayMonth = today.getMonth() + 1;
-      const todayYear = today.getFullYear();
-      const monthSelect = document.getElementById("monthSelect");
-      const yearSelect = document.getElementById("yearSelect");
-      if (parseInt(monthSelect.value) !== todayMonth || parseInt(yearSelect.value) !== todayYear) {
-        monthSelect.value = todayMonth;
-        yearSelect.value = todayYear;
-        resetAndLoadCurrentChild();
-      }
-
-      const daysInMonth = new Date(todayYear, todayMonth, 0).getDate();
-      const daySelect = document.getElementById("overviewDay");
-      daySelect.innerHTML = "";
-      for (let d = 1; d <= daysInMonth; d++) {
-        const opt = document.createElement("option");
-        opt.value = d;
-        opt.textContent = d;
-        daySelect.appendChild(opt);
-      }
-      // Heutigen Tag fest vorauswählen
-      daySelect.value = today.getDate();
-
-      renderChildSelectionRows("overviewChildrenList", "overview", true);
-      populateBemerkungOptions("overviewStatus");
-      document.getElementById("overviewStatus").value = "";
-    }
-
-    // Überträgt die A/oM-Auswahl und den KK/KU/KFU/KV/KFE-Status je Kind sowie die
-    // zentrale Bemerkung für die Kindertagespflegeperson (gilt für alle Kinder
-    // gemeinsam) direkt in den (localStorage-)Datensatz des jeweiligen Kindes für
-    // den gewählten Tag – auch ohne dass man die Seite des Kindes manuell aufruft.
-    function applyOverviewSelections() {
-      const config = loadConfig();
-      const labels = config.labels;
-      const selectedDay = parseInt(document.getElementById("overviewDay").value);
-      const dayIndex = selectedDay - 1; // 0-basiert
-      const month = document.getElementById("monthSelect").value;
-      const year = document.getElementById("yearSelect").value;
-      const remarkValue = document.getElementById("overviewStatus").value; // "", "geschlossen", "Feiertag", "Urlaub" oder "KTPP krank"
-
-      if (!isWorkDay(year, month, selectedDay)) {
-        alert("Der gewählte Tag ist laut Konfiguration kein Arbeitstag – es wurde nichts übernommen.");
-        return;
-      }
-
-      // 1) A-Checkbox + Status-Dropdown (kein Mittagessen / KK / KU / KFU / KV / KFE) je Kind.
-      // Die Dropdown-Auswahl wird als ausgeschriebener Text in "Bemerkung" geschrieben;
-      // "kein Mittagessen" setzt zusätzlich das oM-Flag (zählt nicht bei "zu zahlen").
-      const statusTextByValue = {
-        kk: labels.legendTextKK,
-        ku: labels.legendTextKU,
-        kfu: labels.legendTextKFU,
-        kv: labels.legendTextKV,
-        kfe: labels.legendTextKFE,
-        om: "kein Mittagessen"
-      };
-      const selections = getChildSelections("overview", true);
-      selections.forEach(({ name, wantsA, statusValue }) => {
-        const state = loadChildState(name, month, year);
-        const row = state.table[dayIndex];
-        if (!row) return; // Tag existiert nicht (sollte nicht vorkommen)
-        const noMeal = statusValue === "om";
-        if (wantsA || noMeal) {
-          row.start = config.defaultStart;
-          row.end = config.defaultEnd;
-          row.m = noMeal; // "m" = oM-Flag (ohne Mittagessen)
-        }
-        if (statusValue && statusTextByValue[statusValue]) {
-          row.remark = statusTextByValue[statusValue];
-        }
-        saveChildState(name, state);
-      });
-
-      // 2) Bemerkung für die Kindertagespflegeperson: gilt für ALLE Kinder gemeinsam,
-      // nur wenn ausgewählt (z. B. "KTPP krank" -> wird bei jedem Kind eingetragen)
-      if (remarkValue) {
-        getActiveChildren().forEach(name => {
-          const state = loadChildState(name, month, year);
-          const row = state.table[dayIndex];
-          if (!row) return;
-          row.remark = remarkValue;
-          saveChildState(name, state);
-        });
-      }
-
-      // Seite zurücksetzen (heutiger Tag, leere Auswahl) für den nächsten Eintrag
-      initOverviewPage();
-
-      // Falls das aktuell angezeigte Kind betroffen war, Ansicht neu laden
-      resetAndLoadCurrentChild();
-      alert("Übersicht wurde übernommen und auf die jeweiligen Kinder-Seiten übertragen.");
-    }
-
-    // ============================================================
-    // NACHPFLEGEN (Zeitraum auf einmal für mehrere Kinder eintragen)
-    // ============================================================
-    // Befüllt Von/Bis-Tag passend zum im Nachpflegen-Modal gewählten Monat/Jahr
-    function populateBackfillDayOptions() {
-      const month = parseInt(document.getElementById("backfillMonth").value);
-      const year = parseInt(document.getElementById("backfillYear").value);
+    // Befüllt Von/Bis-Tag passend zum in der Übersicht gewählten Monat/Jahr.
+    // Behält eine bereits getroffene Auswahl bei, falls sie im neuen Monat noch gültig ist.
+    function populateOverviewDayOptions() {
+      const month = parseInt(document.getElementById("overviewMonth").value);
+      const year = parseInt(document.getElementById("overviewYear").value);
       const daysInMonth = new Date(year, month, 0).getDate();
-      const fromSelect = document.getElementById("backfillFrom");
-      const toSelect = document.getElementById("backfillTo");
+      const fromSelect = document.getElementById("overviewFrom");
+      const toSelect = document.getElementById("overviewTo");
       const prevFrom = parseInt(fromSelect.value) || 1;
       const prevTo = parseInt(toSelect.value) || daysInMonth;
       fromSelect.innerHTML = "";
@@ -1571,47 +1445,112 @@
       }
       const today = new Date();
       if (today.getFullYear() === year && (today.getMonth() + 1) === month) {
-        fromSelect.value = 1;
+        fromSelect.value = today.getDate();
         toSelect.value = today.getDate();
       } else {
-        // Bisherige Auswahl beibehalten, falls im neuen Monat noch gültig, sonst ganzer Monat
         fromSelect.value = (prevFrom <= daysInMonth) ? prevFrom : 1;
         toSelect.value = (prevTo <= daysInMonth) ? prevTo : daysInMonth;
       }
+      updateDateFieldsFromSelection();
     }
 
-    function openBackfillModal() {
-      // Als Startpunkt den aktuell auf der Hauptseite gewählten Monat/Jahr übernehmen –
-      // kann im Modal aber frei auf einen anderen (auch früheren) Monat geändert werden.
-      document.getElementById("backfillMonth").value = document.getElementById("monthSelect").value;
-      document.getElementById("backfillYear").value = document.getElementById("yearSelect").value;
-      populateBackfillDayOptions();
-
-      renderChildSelectionRows("backfillChildrenList", "backfill", true);
-      populateBemerkungOptions("backfillStatus");
-      document.getElementById("backfillStatus").value = "";
-
-      document.getElementById("backfillModal").classList.add("open");
+    // ============================================================
+    // ZEITRAUM-AUSWAHL (Übersicht): "Von"/"Bis" bleiben standardmäßig verborgen
+    // (Auswahl = heute) und werden erst nach Antippen von "🗓️ Kalender" sichtbar.
+    // ============================================================
+    // Baut aus Monat/Jahr + Tag ein Datum im Format YYYY-MM-DD (für <input type="date">)
+    function buildIsoDate(year, month, day) {
+      return year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
     }
 
-    function closeBackfillModal() {
-      document.getElementById("backfillModal").classList.remove("open");
+    function toggleCalendarFields() {
+      const fields = document.getElementById("dateRangeFields");
+      const isHidden = (fields.style.display === "none" || fields.style.display === "");
+      fields.style.display = isHidden ? "flex" : "none";
+      document.getElementById("calendarToggleBtn").classList.toggle("active-mode", isHidden);
+      if (isHidden) updateDateFieldsFromSelection();
+    }
+
+    function updateDateFieldsFromSelection() {
+      const month = parseInt(document.getElementById("overviewMonth").value);
+      const year = parseInt(document.getElementById("overviewYear").value);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const fromDay = parseInt(document.getElementById("overviewFrom").value);
+      const toDay = parseInt(document.getElementById("overviewTo").value);
+      const minDate = buildIsoDate(year, month, 1);
+      const maxDate = buildIsoDate(year, month, daysInMonth);
+      const fromInput = document.getElementById("overviewFromDate");
+      const toInput = document.getElementById("overviewToDate");
+      fromInput.min = minDate; fromInput.max = maxDate;
+      toInput.min = minDate; toInput.max = maxDate;
+      fromInput.value = buildIsoDate(year, month, fromDay);
+      toInput.value = buildIsoDate(year, month, toDay);
+    }
+
+    // Wenn im Datumsfeld ein anderer Monat/Jahr gewählt wird, werden die
+    // Monat/Jahr-Auswahlfelder oben mit übernommen (bleibt konsistent für
+    // applyOverviewSelections()).
+    function onDateFieldChanged() {
+      const fromVal = document.getElementById("overviewFromDate").value;
+      const toVal = document.getElementById("overviewToDate").value;
+      if (!fromVal || !toVal) return;
+      const fromParts = fromVal.split("-");
+      const toParts = toVal.split("-");
+      // Bei unterschiedlichem Monat/Jahr gilt der Monat/Jahr des "Von"-Datums;
+      // das "Bis"-Datum wird auf das Monatsende dieses Monats begrenzt.
+      const year = parseInt(fromParts[0]);
+      const month = parseInt(fromParts[1]);
+      document.getElementById("overviewMonth").value = month;
+      document.getElementById("overviewYear").value = year;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      let fromDay = parseInt(fromParts[2]);
+      let toDay = (parseInt(toParts[0]) === year && parseInt(toParts[1]) === month)
+        ? parseInt(toParts[2]) : daysInMonth;
+      if (fromDay > toDay) { const tmp = fromDay; fromDay = toDay; toDay = tmp; }
+
+      // Von/Bis-Auswahlfelder (intern) neu befüllen, ohne die Datumsfelder erneut zu überschreiben
+      const fromSelect = document.getElementById("overviewFrom");
+      const toSelect = document.getElementById("overviewTo");
+      fromSelect.innerHTML = ""; toSelect.innerHTML = "";
+      for (let d = 1; d <= daysInMonth; d++) {
+        const opt1 = document.createElement("option"); opt1.value = d; opt1.textContent = d; fromSelect.appendChild(opt1);
+        const opt2 = document.createElement("option"); opt2.value = d; opt2.textContent = d; toSelect.appendChild(opt2);
+      }
+      fromSelect.value = fromDay;
+      toSelect.value = toDay;
+    }
+
+    // Öffnet die Übersicht immer mit dem heutigen Tag (Monat/Jahr/Von/Bis = heute).
+    // Monat/Jahr können danach frei geändert werden, um einen anderen Zeitraum
+    // (auch in vergangenen Monaten) nachzupflegen – unabhängig vom Monat/Jahr,
+    // das gerade auf der Seite "Kinder" angezeigt wird.
+    function initOverviewPage() {
+      const today = new Date();
+      document.getElementById("overviewMonth").value = today.getMonth() + 1;
+      document.getElementById("overviewYear").value = today.getFullYear();
+      populateOverviewDayOptions();
+      document.getElementById("dateRangeFields").style.display = "none";
+      document.getElementById("calendarToggleBtn").classList.remove("active-mode");
+
+      renderChildSelectionRows("overviewChildrenList", "overview", true);
+      populateBemerkungOptions("overviewStatus");
+      document.getElementById("overviewStatus").value = "";
     }
 
     // Trägt A/oM, den individuellen KK/KU/KFU/KV/KFE-Status je Kind sowie die
     // zentrale Bemerkung für die Kindertagespflegeperson für jeden Tag im
-    // gewählten Zeitraum (auch in vergangenen Monaten) ein.
-    function applyBackfillSelections() {
+    // gewählten Zeitraum ein (heute oder auch ein zurückliegender Zeitraum).
+    function applyOverviewSelections() {
       const config = loadConfig();
       const labels = config.labels;
-      const month = document.getElementById("backfillMonth").value;
-      const year = document.getElementById("backfillYear").value;
-      let fromDay = parseInt(document.getElementById("backfillFrom").value);
-      let toDay = parseInt(document.getElementById("backfillTo").value);
+      const month = document.getElementById("overviewMonth").value;
+      const year = document.getElementById("overviewYear").value;
+      let fromDay = parseInt(document.getElementById("overviewFrom").value);
+      let toDay = parseInt(document.getElementById("overviewTo").value);
       if (fromDay > toDay) { const tmp = fromDay; fromDay = toDay; toDay = tmp; }
 
-      const remarkValue = document.getElementById("backfillStatus").value;
-      const selections = getChildSelections("backfill", true);
+      const remarkValue = document.getElementById("overviewStatus").value;
+      const selections = getChildSelections("overview", true);
 
       if (selections.length === 0 && !remarkValue) {
         alert("Bitte für mindestens ein Kind A/kein Mittagessen oder einen Status auswählen, oder eine Bemerkung für die Kindertagespflegeperson wählen.");
@@ -1627,8 +1566,10 @@
         om: "kein Mittagessen"
       };
 
+      let appliedAnyDay = false;
       for (let day = fromDay; day <= toDay; day++) {
         if (!isWorkDay(year, month, day)) continue; // kein Arbeitstag laut Konfiguration -> überspringen
+        appliedAnyDay = true;
         const idx = day - 1;
 
         selections.forEach(({ name, wantsA, statusValue }) => {
@@ -1658,14 +1599,20 @@
         }
       }
 
-      closeBackfillModal();
+      if (!appliedAnyDay) {
+        alert("Im gewählten Zeitraum ist laut Konfiguration kein Arbeitstag enthalten – es wurde nichts übernommen.");
+        return;
+      }
 
-      // Nur neu laden, wenn die Hauptansicht gerade denselben Monat/Jahr zeigt
+      // Seite zurücksetzen (heutiger Tag, leere Auswahl) für den nächsten Eintrag
+      initOverviewPage();
+
+      // Nur neu laden, wenn die Kinder-Seite gerade denselben Monat/Jahr zeigt
       if (parseInt(document.getElementById("monthSelect").value) === parseInt(month) &&
           parseInt(document.getElementById("yearSelect").value) === parseInt(year)) {
         resetAndLoadCurrentChild();
       }
-      alert("Nachpflegen abgeschlossen – der Zeitraum wurde für die ausgewählten Kinder übertragen.");
+      alert("Übersicht wurde übernommen und auf die jeweiligen Kinder-Seiten übertragen.");
     }
 
     // ============================================================
@@ -2326,7 +2273,8 @@
         alert("Bitte zuerst in der Konfiguration Kindernamen eintragen.");
         return;
       }
-      const title = "Monatsabschluss_" + month + "-" + year;
+      const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
+      const title = "Anwesenheitsliste_" + monthName + "_" + year;
       const html = children.map(name => buildPrintableChildHTML(name, month, year)).join("");
       printViaMainDocument(html, title, "monthlyClose");
     }
@@ -2564,8 +2512,10 @@
       document.getElementById("yearSelect").addEventListener('change', resetAndLoadCurrentChild);
       document.getElementById("nameSelect").addEventListener('change', resetAndLoadCurrentChild);
       document.getElementById("ctpInput").addEventListener('change', saveTableState);
-      document.getElementById("backfillMonth").addEventListener('change', populateBackfillDayOptions);
-      document.getElementById("backfillYear").addEventListener('change', populateBackfillDayOptions);
+      document.getElementById("overviewMonth").addEventListener('change', populateOverviewDayOptions);
+      document.getElementById("overviewYear").addEventListener('change', populateOverviewDayOptions);
+      document.getElementById("overviewFromDate").addEventListener('change', onDateFieldChanged);
+      document.getElementById("overviewToDate").addEventListener('change', onDateFieldChanged);
       initSignaturePad("signature1");
       initSignaturePad("signature2");
       // Startseite: Übersicht
