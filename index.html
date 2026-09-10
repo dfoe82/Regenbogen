@@ -587,12 +587,41 @@
   <!-- ===================== Seite: Monatsabschluss (Hub mit Kinder/Unterschrift) ===================== -->
   <div id="pageMonthlyClose" class="page-section">
     <h1 style="text-align:center;">🗂️ Monatsabschluss</h1>
+    <div class="modal-row" style="justify-content:center;">
+      <label for="closeMonth">Monat / Jahr:</label>
+      <select id="closeMonth">
+        <option value="1">Januar</option>
+        <option value="2">Februar</option>
+        <option value="3">März</option>
+        <option value="4">April</option>
+        <option value="5">Mai</option>
+        <option value="6">Juni</option>
+        <option value="7">Juli</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">Oktober</option>
+        <option value="11">November</option>
+        <option value="12">Dezember</option>
+      </select>
+      <select id="closeYear">
+        <option value="2020">2020</option>
+        <option value="2021">2021</option>
+        <option value="2022">2022</option>
+        <option value="2023">2023</option>
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+        <option value="2029">2029</option>
+        <option value="2030">2030</option>
+      </select>
+    </div>
     <p style="font-size:0.85em; color:#555; text-align:center; max-width:500px; margin:0 auto 16px auto;">
-      Hier findest du alles rund um den Monatsabschluss: die Monatstabellen der Kinder ansehen/bearbeiten,
-      Unterschriften einholen und zum Schluss den Monatsabschluss für alle Kinder erstellen.
+      Alle Aktionen unten beziehen sich auf den oben gewählten Monat. Öffnet sich immer mit dem aktuellen Monat.
     </p>
     <div style="display:flex; flex-direction:column; gap:12px; max-width:400px; margin:0 auto;">
-      <button type="button" onclick="showPage('pageKinder')" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
+      <button type="button" onclick="goToKinderPageForCloseMonth()" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
       <button type="button" onclick="startSignatureWizard()" style="padding:14px; font-size:1em;">✍️ Unterschrift einholen</button>
       <button type="button" onclick="openParentMessageModal()" style="padding:14px; font-size:1em;">✉️ Nachricht für Eltern erstellen</button>
       <button type="button" id="sequentialPrintBtn" onclick="startSequentialChildPrint()" style="padding:14px; font-size:1em;">📑 Kinder einzeln als PDF (nacheinander)</button>
@@ -895,7 +924,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.0.2";
+    const APP_VERSION = "1.1.0";
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -2096,8 +2125,8 @@
 
     function buildParentMessageText(childName) {
       const config = loadConfig();
-      const month = document.getElementById("monthSelect").value;
-      const year = document.getElementById("yearSelect").value;
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
       const state = loadChildState(childName, month, year);
       let presentDays = 0, omDays = 0;
       state.table.forEach(function(row) {
@@ -2289,9 +2318,26 @@
         + "</div>";
     }
 
+    // Setzt Monat/Jahr auf der Monatsabschluss-Seite immer auf den aktuellen
+    // Monat zurück, sobald die Seite geöffnet wird (analog zur Übersicht).
+    function initMonthlyClosePage() {
+      const today = new Date();
+      document.getElementById("closeMonth").value = today.getMonth() + 1;
+      document.getElementById("closeYear").value = today.getFullYear();
+    }
+
+    // Schaltet die Kinder-Seite auf den auf der Monatsabschluss-Seite gewählten
+    // Monat/Jahr um, bevor sie angezeigt wird.
+    function goToKinderPageForCloseMonth() {
+      document.getElementById("monthSelect").value = document.getElementById("closeMonth").value;
+      document.getElementById("yearSelect").value = document.getElementById("closeYear").value;
+      resetAndLoadCurrentChild();
+      showPage("pageKinder");
+    }
+
     function performMonthlyClose() {
-      const month = document.getElementById("monthSelect").value;
-      const year = document.getElementById("yearSelect").value;
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
       const children = getActiveChildren();
       if (children.length === 0) {
         alert("Bitte zuerst in der Konfiguration Kindernamen eintragen.");
@@ -2327,8 +2373,8 @@
 
     function printCurrentSequentialChild() {
       const child = sequentialPrintChildren[sequentialPrintIndex];
-      const month = document.getElementById("monthSelect").value;
-      const year = document.getElementById("yearSelect").value;
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
       const title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
       printViaMainDocument(buildPrintableChildHTML(child, month, year), title, "sequential");
     }
@@ -2337,8 +2383,8 @@
       const config = loadConfig();
       const email = (config.reportEmail || "").trim();
       if (!email) return; // keine Adresse hinterlegt -> keine E-Mail vorbereiten
-      const month = document.getElementById("monthSelect").value;
-      const year = document.getElementById("yearSelect").value;
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
       const subject = encodeURIComponent("Anwesenheitsliste " + month + "/" + year);
       const body = encodeURIComponent(
         "Anbei die Anwesenheitsliste für " + month + "/" + year + ".\n\n" +
@@ -2519,6 +2565,9 @@
       });
       if (pageId === "pageOverview") {
         initOverviewPage();
+      }
+      if (pageId === "pageMonthlyClose") {
+        initMonthlyClosePage();
       }
     }
 
