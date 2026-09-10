@@ -168,6 +168,13 @@
     }
     .printable-child-page {
       page-break-after: always;
+      width: 100%;
+      max-width: 190mm;
+      margin-left: auto;
+      margin-right: auto;
+      box-sizing: border-box;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
     .printable-child-page:last-child {
       page-break-after: auto;
@@ -176,15 +183,29 @@
       border-collapse: collapse;
       width: 100%;
       margin-top: 8px;
-      table-layout: fixed;
+      table-layout: auto;
     }
     .printable-table th, .printable-table td {
       border: 1px solid #333;
-      padding: 1px 2px;
+      padding: 1px 4px;
       text-align: center;
       font-size: 6.5pt;
+      font-weight: normal;
       line-height: 1.15;
+      white-space: nowrap;
+    }
+    .printable-table td.remark-cell {
+      text-align: left;
+      white-space: normal;
       overflow-wrap: break-word;
+      width: 100%;
+      font-size: 6.5pt !important;
+      line-height: 1.15 !important;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+    .printable-table th {
+      font-weight: bold;
     }
     .printable-legend {
       font-size: 6.5pt;
@@ -539,17 +560,11 @@
     <table id="attendanceTable">
       <colgroup>
         <col style="width:6%">
-        <col style="width:5%">
-        <col style="width:9%">
-        <col style="width:9%">
-        <col style="width:7%">
-        <col style="width:28%">
         <col style="width:6%">
-        <col style="width:6%">
-        <col style="width:6%">
-        <col style="width:6%">
-        <col style="width:6%">
-        <col style="width:6%">
+        <col style="width:11%">
+        <col style="width:11%">
+        <col style="width:8%">
+        <col style="width:58%">
       </colgroup>
       <thead>
         <tr>
@@ -558,13 +573,7 @@
           <th id="thVon">Uhrzeit von</th>
           <th id="thBis">Uhrzeit bis</th>
           <th id="thStunden">Stunden</th>
-          <th id="thBemerkung">Bemerkung</th>
-          <th id="thOM">oM</th>
-          <th id="thKK">KK</th>
-          <th id="thKU">KU</th>
-          <th id="thKFU">KFU</th>
-          <th id="thKV">KV</th>
-          <th id="thKFE">KFE</th>
+          <th id="thBemerkung" style="text-align:left;">Bemerkung</th>
         </tr>
       </thead>
       <tbody id="tableBody">
@@ -587,7 +596,6 @@
   <div id="legend" class="legend-box">
      <strong>Legende:</strong>
      <ul>
-       <li><strong id="legendLabelOM">oM</strong>: <span id="legendTextOM">Anwesend ohne Mittagessen (zählt nicht bei "zu zahlen")</span></li>
        <li><strong id="legendLabelKK">KK</strong>: <span id="legendTextKK">Krankmeldung</span></li>
        <li><strong id="legendLabelKU">KU</strong>: <span id="legendTextKU">Urlaub</span></li>
        <li><strong id="legendLabelKFU">KFU</strong>: <span id="legendTextKFU">Fortbildung</span></li>
@@ -861,17 +869,17 @@
       colKV: "KV",
       colKFE: "KFE",
       legendOM: "oM",
-      legendTextOM: "Anwesend ohne Mittagessen (zählt nicht bei \"zu zahlen\")",
+      legendTextOM: "Anwesend ohne Mittagessen (zählt nicht bei \"zu zahlen\") – interner Vermerk, nicht Teil des offiziellen Formulars",
       legendKK: "KK",
-      legendTextKK: "Krankmeldung",
+      legendTextKK: "Kind krank",
       legendKU: "KU",
-      legendTextKU: "Urlaub",
+      legendTextKU: "Kind Urlaub",
       legendKFU: "KFU",
-      legendTextKFU: "Fortbildung",
+      legendTextKFU: "Kind fehlt unentschuldigt",
       legendKV: "KV",
-      legendTextKV: "Weiteres",
+      legendTextKV: "Kind bei Vertretungstagespflegeperson",
       legendKFE: "KFE",
-      legendTextKFE: "(Neue Spalte)"
+      legendTextKFE: "Kind fehlt entschuldigt"
     };
     const DEFAULT_CONFIG = {
       children: ["Marlon", "Stella", "Jelle", "Nilas", "Emilia"],
@@ -929,15 +937,7 @@
       document.getElementById("thBis").textContent = l.colBis;
       document.getElementById("thStunden").textContent = l.colStunden;
       document.getElementById("thBemerkung").textContent = l.colBemerkung;
-      document.getElementById("thOM").textContent = l.colOM;
-      document.getElementById("thKK").textContent = l.colKK;
-      document.getElementById("thKU").textContent = l.colKU;
-      document.getElementById("thKFU").textContent = l.colKFU;
-      document.getElementById("thKV").textContent = l.colKV;
-      document.getElementById("thKFE").textContent = l.colKFE;
 
-      document.getElementById("legendLabelOM").textContent = l.legendOM;
-      document.getElementById("legendTextOM").textContent = l.legendTextOM;
       document.getElementById("legendLabelKK").textContent = l.legendKK;
       document.getElementById("legendTextKK").textContent = l.legendTextKK;
       document.getElementById("legendLabelKU").textContent = l.legendKU;
@@ -1243,54 +1243,52 @@
         cbA.type = "checkbox";
         cbA.id = idPrefix + "A_" + safeName;
         cbA.dataset.child = name;
-        cbA.addEventListener("change", function() {
-          if (cbA.checked) {
-            const cbOM = document.getElementById(idPrefix + "OM_" + safeName);
-            if (cbOM) cbOM.checked = false;
-          }
-        });
         labelA.appendChild(cbA);
         labelA.appendChild(document.createTextNode("A"));
-
-        const labelOM = document.createElement("label");
-        const cbOM = document.createElement("input");
-        cbOM.type = "checkbox";
-        cbOM.id = idPrefix + "OM_" + safeName;
-        cbOM.dataset.child = name;
-        cbOM.addEventListener("change", function() {
-          if (cbOM.checked) {
-            const cbA2 = document.getElementById(idPrefix + "A_" + safeName);
-            if (cbA2) cbA2.checked = false;
-          }
-        });
-        labelOM.appendChild(cbOM);
-        labelOM.appendChild(document.createTextNode("oM"));
-
         optionsDiv.appendChild(labelA);
-        optionsDiv.appendChild(labelOM);
+
+        if (!includeChildStatus) {
+          // Klassische oM-Checkbox (nur falls kein Status-Dropdown verwendet wird)
+          const labelOM = document.createElement("label");
+          const cbOM = document.createElement("input");
+          cbOM.type = "checkbox";
+          cbOM.id = idPrefix + "OM_" + safeName;
+          cbOM.dataset.child = name;
+          cbA.addEventListener("change", function() { if (cbA.checked) cbOM.checked = false; });
+          cbOM.addEventListener("change", function() { if (cbOM.checked) cbA.checked = false; });
+          labelOM.appendChild(cbOM);
+          labelOM.appendChild(document.createTextNode("oM"));
+          optionsDiv.appendChild(labelOM);
+        }
+
         header.appendChild(optionsDiv);
         row.appendChild(header);
 
         if (includeChildStatus) {
+          // Status-Dropdown: "kein Mittagessen" (oM) + die ausgeschriebenen
+          // Beschreibungen für KK/KU/KFU/KV/KFE. Die Auswahl wird beim
+          // Übernehmen direkt als Text in das Bemerkung-Feld geschrieben.
           const extraRow = document.createElement("div");
           extraRow.className = "overview-extra-row";
 
-          const fields = [
-            { key: "KK", text: labels.colKK },
-            { key: "KU", text: labels.colKU },
-            { key: "KFU", text: labels.colKFU },
-            { key: "KV", text: labels.colKV },
-            { key: "KFE", text: labels.colKFE }
+          const statusSelect = document.createElement("select");
+          statusSelect.id = idPrefix + "Status_" + safeName;
+          const options = [
+            { value: "", text: "--" },
+            { value: "om", text: "kein Mittagessen" },
+            { value: "kk", text: labels.legendTextKK },
+            { value: "ku", text: labels.legendTextKU },
+            { value: "kfu", text: labels.legendTextKFU },
+            { value: "kv", text: labels.legendTextKV },
+            { value: "kfe", text: labels.legendTextKFE }
           ];
-          fields.forEach(f => {
-            const lbl = document.createElement("label");
-            const cb = document.createElement("input");
-            cb.type = "checkbox";
-            cb.id = idPrefix + f.key + "_" + safeName;
-            lbl.appendChild(cb);
-            lbl.appendChild(document.createTextNode(f.text));
-            extraRow.appendChild(lbl);
+          options.forEach(o => {
+            const opt = document.createElement("option");
+            opt.value = o.value;
+            opt.textContent = o.text;
+            statusSelect.appendChild(opt);
           });
+          extraRow.appendChild(statusSelect);
           row.appendChild(extraRow);
         }
 
@@ -1300,33 +1298,26 @@
 
     // Liest die aktuell getroffene Auswahl aus einem per renderChildSelectionRows
     // erzeugten Container aus. Gibt eine Liste von Kindern zurück, bei denen
-    // A/oM angehakt oder (falls vorhanden) mindestens eine KK/KU/KFU/KV/KFE-
-    // Checkbox aktiviert wurde.
+    // A angehakt oder (falls vorhanden) ein Status-Dropdown-Wert gewählt wurde.
     function getChildSelections(idPrefix, includeChildStatus) {
       const result = [];
       getActiveChildren().forEach(name => {
         const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
         const cbA = document.getElementById(idPrefix + "A_" + safeName);
-        const cbOM = document.getElementById(idPrefix + "OM_" + safeName);
-        const wantsA = cbA && cbA.checked;
-        const wantsOM = cbOM && cbOM.checked;
+        const wantsA = !!(cbA && cbA.checked);
 
-        let kk = false, ku = false, kfu = false, kv = false, kfe = false;
+        let wantsOM = false;
+        let statusValue = "";
         if (includeChildStatus) {
-          const cbKK = document.getElementById(idPrefix + "KK_" + safeName);
-          const cbKU = document.getElementById(idPrefix + "KU_" + safeName);
-          const cbKFU = document.getElementById(idPrefix + "KFU_" + safeName);
-          const cbKV = document.getElementById(idPrefix + "KV_" + safeName);
-          const cbKFE = document.getElementById(idPrefix + "KFE_" + safeName);
-          kk = !!(cbKK && cbKK.checked);
-          ku = !!(cbKU && cbKU.checked);
-          kfu = !!(cbKFU && cbKFU.checked);
-          kv = !!(cbKV && cbKV.checked);
-          kfe = !!(cbKFE && cbKFE.checked);
+          const statusSelect = document.getElementById(idPrefix + "Status_" + safeName);
+          statusValue = statusSelect ? statusSelect.value : "";
+        } else {
+          const cbOM = document.getElementById(idPrefix + "OM_" + safeName);
+          wantsOM = !!(cbOM && cbOM.checked);
         }
 
-        if (wantsA || wantsOM || kk || ku || kfu || kv || kfe) {
-          result.push({ name: name, wantsA: !!wantsA, wantsOM: !!wantsOM, kk: kk, ku: ku, kfu: kfu, kv: kv, kfe: kfe });
+        if (wantsA || wantsOM || statusValue) {
+          result.push({ name: name, wantsA: wantsA, wantsOM: wantsOM, statusValue: statusValue });
         }
       });
       return result;
@@ -1386,6 +1377,7 @@
     // den gewählten Tag – auch ohne dass man die Seite des Kindes manuell aufruft.
     function applyOverviewSelections() {
       const config = loadConfig();
+      const labels = config.labels;
       const selectedDay = parseInt(document.getElementById("overviewDay").value);
       const dayIndex = selectedDay - 1; // 0-basiert
       const month = document.getElementById("monthSelect").value;
@@ -1397,22 +1389,31 @@
         return;
       }
 
-      // 1) A/oM + individuelle KK/KU/KFU/KV/KFE-Checkboxen je Kind
+      // 1) A-Checkbox + Status-Dropdown (kein Mittagessen / KK / KU / KFU / KV / KFE) je Kind.
+      // Die Dropdown-Auswahl wird als ausgeschriebener Text in "Bemerkung" geschrieben;
+      // "kein Mittagessen" setzt zusätzlich das oM-Flag (zählt nicht bei "zu zahlen").
+      const statusTextByValue = {
+        kk: labels.legendTextKK,
+        ku: labels.legendTextKU,
+        kfu: labels.legendTextKFU,
+        kv: labels.legendTextKV,
+        kfe: labels.legendTextKFE,
+        om: "kein Mittagessen"
+      };
       const selections = getChildSelections("overview", true);
-      selections.forEach(({ name, wantsA, wantsOM, kk, ku, kfu, kv, kfe }) => {
+      selections.forEach(({ name, wantsA, statusValue }) => {
         const state = loadChildState(name, month, year);
         const row = state.table[dayIndex];
         if (!row) return; // Tag existiert nicht (sollte nicht vorkommen)
-        if (wantsA || wantsOM) {
+        const noMeal = statusValue === "om";
+        if (wantsA || noMeal) {
           row.start = config.defaultStart;
           row.end = config.defaultEnd;
-          row.m = wantsOM; // "m" = oM-Flag (ohne Mittagessen)
+          row.m = noMeal; // "m" = oM-Flag (ohne Mittagessen)
         }
-        if (kk) row.kk = true;
-        if (ku) row.ku = true;
-        if (kfu) row.kfu = true;
-        if (kv) row.kv = true;
-        if (kfe) row.kfe = true;
+        if (statusValue && statusTextByValue[statusValue]) {
+          row.remark = statusTextByValue[statusValue];
+        }
         saveChildState(name, state);
       });
 
@@ -1492,6 +1493,7 @@
     // gewählten Zeitraum (auch in vergangenen Monaten) ein.
     function applyBackfillSelections() {
       const config = loadConfig();
+      const labels = config.labels;
       const month = document.getElementById("backfillMonth").value;
       const year = document.getElementById("backfillYear").value;
       let fromDay = parseInt(document.getElementById("backfillFrom").value);
@@ -1502,29 +1504,35 @@
       const selections = getChildSelections("backfill", true);
 
       if (selections.length === 0 && !remarkValue) {
-        alert("Bitte für mindestens ein Kind A/oM oder einen Status auswählen, oder eine Bemerkung für die Kindertagespflegeperson wählen.");
+        alert("Bitte für mindestens ein Kind A/kein Mittagessen oder einen Status auswählen, oder eine Bemerkung für die Kindertagespflegeperson wählen.");
         return;
       }
+
+      const statusTextByValue = {
+        kk: labels.legendTextKK,
+        ku: labels.legendTextKU,
+        kfu: labels.legendTextKFU,
+        kv: labels.legendTextKV,
+        kfe: labels.legendTextKFE,
+        om: "kein Mittagessen"
+      };
 
       for (let day = fromDay; day <= toDay; day++) {
         if (!isWorkDay(year, month, day)) continue; // kein Arbeitstag laut Konfiguration -> überspringen
         const idx = day - 1;
 
-        selections.forEach(({ name, wantsA, wantsOM, status }) => {
+        selections.forEach(({ name, wantsA, statusValue }) => {
           const state = loadChildState(name, month, year);
           const row = state.table[idx];
           if (!row) return;
-          if (wantsA || wantsOM) {
+          const noMeal = statusValue === "om";
+          if (wantsA || noMeal) {
             row.start = config.defaultStart;
             row.end = config.defaultEnd;
-            row.m = wantsOM;
+            row.m = noMeal;
           }
-          if (status) {
-            row.kk = (status === "kk");
-            row.ku = (status === "ku");
-            row.kfu = (status === "kfu");
-            row.kv = (status === "kv");
-            row.kfe = (status === "kfe");
+          if (statusValue && statusTextByValue[statusValue]) {
+            row.remark = statusTextByValue[statusValue];
           }
           saveChildState(name, state);
         });
@@ -1571,7 +1579,7 @@
         // oder ein anderer Monat gespeichert war.
         const emptyTable = [];
         for (let i = 0; i < daysInMonth; i++) {
-          emptyTable.push({ start: "", end: "", remark: "", m: false, kk: false, ku: false, kfu: false, kv: false, kfe: false });
+          emptyTable.push({ start: "", end: "", remark: "" });
         }
         state = {
           table: emptyTable,
@@ -1618,24 +1626,8 @@
       document.getElementById("recordDateText").textContent = formatDateDE(iso);
     }
     
-    // Wird bei Änderung der oM-Checkbox aufgerufen (ehemals "M")
-    function updateRow(checkbox) {
-      const row = checkbox.closest('tr');
-      const startInput = row.querySelector('input[name="start"]');
-      const endInput = row.querySelector('input[name="end"]');
-      const hoursInput = row.querySelector('input[name="hours"]');
-      const config = loadConfig();
-      if (checkbox.checked) {
-        // Anwesend (ohne Mittagessen) -> Standardzeiten aus der Konfiguration übernehmen
-        if (!startInput.value) startInput.value = config.defaultStart;
-        if (!endInput.value) endInput.value = config.defaultEnd;
-        hoursInput.value = calculateHours(startInput.value, endInput.value);
-      }
-      updatePaymentSums();
-      saveTableState();
-    }
-    
-    // Aktualisiert den zu zahlenden Betrag (Anwesenheitstage abzüglich oM-Tage × Preis)
+    // Aktualisiert den zu zahlenden Betrag (Anwesenheitstage abzüglich Tage
+    // mit "kein Mittagessen" × Preis)
     function updatePaymentSums() {
       const rows = document.querySelectorAll('#tableBody tr');
       let presentDays = 0;
@@ -1643,9 +1635,9 @@
       rows.forEach(row => {
         const start = row.querySelector('input[name="start"]').value;
         const end = row.querySelector('input[name="end"]').value;
-        const om = row.querySelector('input.m-checkbox').checked;
+        const remarkVal = row.querySelector('select[name="remark"]').value;
         if (start && end) presentDays++;
-        if (om) omDays++;
+        if (remarkVal === "kein Mittagessen") omDays++;
       });
       const config = loadConfig();
       const price = parseFloat(config.mealPrice) || 0;
@@ -1663,13 +1655,7 @@
         const start = row.querySelector('input[name="start"]').value;
         const end = row.querySelector('input[name="end"]').value;
         const remark = row.querySelector('select[name="remark"]').value;
-        const m = row.querySelector('input.m-checkbox').checked;
-        const kk = row.querySelector('input[name="kk"]').checked;
-        const ku = row.querySelector('input[name="ku"]').checked;
-        const kfu = row.querySelector('input[name="kfu"]').checked;
-        const kv = row.querySelector('input[name="kv"]').checked;
-        const kfe = row.querySelector('input[name="kfe"]').checked;
-        data.push({ start, end, remark, m, kk, ku, kfu, kv, kfe });
+        data.push({ start, end, remark });
       });
       const recordDate = document.getElementById("recordDate").value;
       const monthSelect = document.getElementById("monthSelect").value;
@@ -1703,12 +1689,6 @@
         row.querySelector('input[name="end"]').value = data.end;
         row.querySelector('select[name="remark"]').value = data.remark;
         row.querySelector('input[name="hours"]').value = calculateHours(data.start, data.end);
-        row.querySelector('input.m-checkbox').checked = data.m;
-        row.querySelector('input[name="kk"]').checked = data.kk;
-        row.querySelector('input[name="ku"]').checked = data.ku;
-        row.querySelector('input[name="kfu"]').checked = data.kfu;
-        row.querySelector('input[name="kv"]').checked = data.kv;
-        row.querySelector('input[name="kfe"]').checked = data.kfe;
       });
       if (state.recordDate) {
         document.getElementById("recordDate").value = state.recordDate;
@@ -1784,43 +1764,46 @@
         stundenCell.appendChild(hoursInput);
         row.appendChild(stundenCell);
         const bemerkungCell = document.createElement("td");
+        bemerkungCell.style.textAlign = "left";
         const selectElem = document.createElement("select");
         selectElem.name = "remark";
-        selectElem.addEventListener('change', saveTableState);
-        const options = ["--", "geschlossen", "Feiertag", "Urlaub", "KTPP krank"];
-        options.forEach((optionText) => {
+        selectElem.style.width = "100%";
+        const config = loadConfig();
+        const labels = config.labels;
+        const options = [
+          { value: "", text: "--" },
+          { value: "geschlossen", text: "geschlossen" },
+          { value: "Feiertag", text: "Feiertag" },
+          { value: "KTPP Urlaub", text: "KTPP Urlaub" },
+          { value: "KTPP krank", text: "KTPP krank" },
+          { value: "kein Mittagessen", text: "kein Mittagessen" },
+          { value: labels.legendTextKK, text: labels.legendTextKK },
+          { value: labels.legendTextKU, text: labels.legendTextKU },
+          { value: labels.legendTextKFU, text: labels.legendTextKFU },
+          { value: labels.legendTextKV, text: labels.legendTextKV },
+          { value: labels.legendTextKFE, text: labels.legendTextKFE }
+        ];
+        options.forEach((o) => {
           const option = document.createElement("option");
-          option.value = (optionText === "--") ? "" : optionText;
-          option.textContent = optionText;
+          option.value = o.value;
+          option.textContent = o.text;
           selectElem.appendChild(option);
+        });
+        // "kein Mittagessen" trägt automatisch die Standard-Uhrzeiten ein
+        // (Kind ist anwesend, nur ohne Mittagessen) – bei allen anderen
+        // Bemerkungen bleiben die Uhrzeiten unangetastet.
+        selectElem.addEventListener('change', function() {
+          if (selectElem.value === "kein Mittagessen") {
+            const cfg = loadConfig();
+            if (!startInput.value) startInput.value = cfg.defaultStart;
+            if (!endInput.value) endInput.value = cfg.defaultEnd;
+            hoursInput.value = calculateHours(startInput.value, endInput.value);
+          }
+          updatePaymentSums();
+          saveTableState();
         });
         bemerkungCell.appendChild(selectElem);
         row.appendChild(bemerkungCell);
-        // Spalte oM (Checkbox, ehemals "M")
-        const mCell = document.createElement("td");
-        const mCheckbox = document.createElement("input");
-        mCheckbox.type = "checkbox";
-        mCheckbox.className = "m-checkbox";
-        mCheckbox.addEventListener('change', function(){ updateRow(mCheckbox); });
-        mCell.appendChild(mCheckbox);
-        row.appendChild(mCell);
-        const checkboxNames = ["kk", "ku", "kfu", "kv"];
-        checkboxNames.forEach(name => {
-          const cell = document.createElement("td");
-          const checkbox = document.createElement("input");
-          checkbox.type = "checkbox";
-          checkbox.name = name;
-          checkbox.addEventListener('change', saveTableState);
-          cell.appendChild(checkbox);
-          row.appendChild(cell);
-        });
-        const kfeCell = document.createElement("td");
-        const kfeCheckbox = document.createElement("input");
-        kfeCheckbox.type = "checkbox";
-        kfeCheckbox.name = "kfe";
-        kfeCheckbox.addEventListener('change', saveTableState);
-        kfeCell.appendChild(kfeCheckbox);
-        row.appendChild(kfeCell);
         tableBody.appendChild(row);
       }
     }
@@ -1931,15 +1914,24 @@
       canvas.addEventListener('touchmove', draw);
     }
     
-    // Öffnet den nativen Drucken-Dialog von iPadOS/Safari. Der Seitentitel wird
-    // vorher kurz auf einen sprechenden Dateinamen gesetzt, damit iOS diesen als
-    // Vorschlag beim "In Dateien sichern" anzeigt (Ordner muss trotzdem manuell
+    // Öffnet den nativen Drucken-Dialog von iPadOS/Safari mit der offiziellen
+    // Formularvorlage (Kreis Plön) für das aktuell gewählte Kind. Der Seitentitel
+    // wird vorher kurz auf einen sprechenden Dateinamen gesetzt, damit iOS diesen
+    // als Vorschlag beim "In Dateien sichern" anzeigt (Ordner muss trotzdem manuell
     // bestätigt werden – Web-Apps dürfen aus Sicherheitsgründen nicht automatisch
     // in einen bestimmten Ordner schreiben).
     function savePdf() {
-      const child = document.getElementById("nameSelect").value || "Kind";
+      const child = document.getElementById("nameSelect").value;
+      if (!child) {
+        alert("Bitte zuerst ein Kind auswählen.");
+        return;
+      }
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
+      printMode = "single";
+      const container = document.getElementById("monthlyCloseContainer");
+      container.innerHTML = buildPrintableChildHTML(child, month, year);
+      document.body.classList.add("monthly-close-mode");
       document.title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
       window.print();
     }
@@ -2062,76 +2054,82 @@
       const config = loadConfig();
       const labels = config.labels;
       const state = loadChildState(name, month, year);
-      const weekDays = ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."];
+
+      // Der Bemerkung-Text ist jetzt bereits das vollständige, ausgeschriebene
+      // Feld (aus dem Dropdown auf der Kinder-Seite bzw. der Übersicht) – hier
+      // wird er unverändert übernommen.
+      function buildRemarkText(row) {
+        return row.remark || "";
+      }
+
       let rowsHtml = "";
       state.table.forEach((row, i) => {
         const day = i + 1;
-        const dt = new Date(parseInt(year), parseInt(month) - 1, day);
-        const wd = weekDays[dt.getDay()];
         const hours = calculateHours(row.start, row.end);
         rowsHtml += "<tr>"
-          + "<td>" + wd + "</td><td>" + day + "</td>"
+          + "<td>" + day + ".</td>"
           + "<td>" + (row.start || "") + "</td><td>" + (row.end || "") + "</td>"
-          + "<td>" + hours + "</td><td>" + (row.remark || "") + "</td>"
-          + "<td>" + (row.m ? "✓" : "") + "</td>"
-          + "<td>" + (row.kk ? "✓" : "") + "</td>"
-          + "<td>" + (row.ku ? "✓" : "") + "</td>"
-          + "<td>" + (row.kfu ? "✓" : "") + "</td>"
-          + "<td>" + (row.kv ? "✓" : "") + "</td>"
-          + "<td>" + (row.kfe ? "✓" : "") + "</td>"
+          + "<td>" + hours + "</td><td class=\"remark-cell\">" + buildRemarkText(row) + "</td>"
           + "</tr>";
       });
 
       let presentDays = 0, omDays = 0;
       state.table.forEach(row => {
         if (row.start && row.end) presentDays++;
-        if (row.m) omDays++;
+        if (row.remark === "kein Mittagessen" || row.m) omDays++;
       });
       const toPay = Math.max(0, presentDays - omDays) * (parseFloat(config.mealPrice) || 0);
 
       const ktpName = (state.header && state.header.ktp) || document.getElementById("ctpInput").value;
       const sig1 = localStorage.getItem(getSignatureKey("signature1", name));
       const sig2 = localStorage.getItem(getSignatureKey("signature2", name));
-      const sigBox = "width:150px;height:75px;border:1px solid #000;";
+      const sigBox = "width:150px;height:70px;";
+      const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
 
       return ""
-        + '<div class="printable-child-page">'
-        + '<div style="display:flex; justify-content:space-between; font-size:9pt;">'
-        + "<div><strong>Anwesenheit und Fehlzeiten für den Monat " + month + "/" + year + "</strong> – " + name + "</div>"
-        + "<div><strong>Kindertagespflegeperson:</strong> " + ktpName + "</div>"
+        + '<div class="printable-child-page" style="margin-top:24pt;">'
+        // Titel
+        + '<div style="font-size:9.5pt; font-weight:bold; margin-bottom:10px; white-space:nowrap;">Anwesenheit und Fehlzeiten für den Monat ' + monthName + " " + year + "</div>"
+        // Tagespflegekind / Kindertagespflegeperson
+        + '<div style="display:flex; justify-content:space-between; gap:20px; font-size:9pt; margin-bottom:10px;">'
+        + '<div style="flex:1;"><strong style="text-decoration:underline;">Tagespflegekind</strong><br><div style="border-bottom:1px solid #000; margin-top:14px; padding-bottom:2px;">' + name + '</div><div style="font-size:7pt;">(Name, Vorname)</div></div>'
+        + '<div style="flex:1;"><strong style="text-decoration:underline;">Kindertagespflegeperson</strong><br><div style="border-bottom:1px solid #000; margin-top:14px; padding-bottom:2px;">' + ktpName + '</div><div style="font-size:7pt;">(Name, Vorname)</div></div>'
         + "</div>"
+        // Tabelle: Datum | von (Uhrzeit) | bis (Uhrzeit) | Stunden | Bemerkungen
+        // (Spaltenbreiten werden nicht mehr fest vorgegeben, sondern passen sich
+        // automatisch an den tatsächlichen Inhalt an – nur "Bemerkungen" darf
+        // umbrechen und nimmt den restlichen Platz ein.)
         + '<table class="printable-table">'
-        + '<colgroup><col style="width:6%"><col style="width:5%"><col style="width:9%">'
-        + '<col style="width:9%"><col style="width:7%"><col style="width:28%">'
-        + '<col style="width:6%"><col style="width:6%"><col style="width:6%">'
-        + '<col style="width:6%"><col style="width:6%"><col style="width:6%"></colgroup>'
         + '<thead><tr>'
-        + "<th>" + labels.colTag + "</th><th>" + labels.colDatum + "</th>"
-        + "<th>" + labels.colVon + "</th><th>" + labels.colBis + "</th>"
-        + "<th>" + labels.colStunden + "</th><th>" + labels.colBemerkung + "</th>"
-        + "<th>" + labels.colOM + "</th><th>" + labels.colKK + "</th>"
-        + "<th>" + labels.colKU + "</th><th>" + labels.colKFU + "</th>"
-        + "<th>" + labels.colKV + "</th><th>" + labels.colKFE + "</th>"
+        + "<th>Datum</th><th>von (Uhrzeit)</th><th>bis (Uhrzeit)</th>"
+        + "<th>Stunden</th><th>Bemerkungen</th>"
         + "</tr></thead><tbody>" + rowsHtml + "</tbody>"
-        + '<tfoot><tr><td colspan="6" style="text-align:right;">zu zahlen (Mittagessen):</td>'
-        + '<td colspan="6" style="text-align:left;">' + toPay.toFixed(2).replace(".", ",") + " €</td></tr></tfoot>"
         + "</table>"
-        + '<div class="printable-legend">'
-        + "<strong>" + labels.legendOM + "</strong>: " + labels.legendTextOM + " &nbsp; "
-        + "<strong>" + labels.legendKK + "</strong>: " + labels.legendTextKK + " &nbsp; "
-        + "<strong>" + labels.legendKU + "</strong>: " + labels.legendTextKU + " &nbsp; "
-        + "<strong>" + labels.legendKFU + "</strong>: " + labels.legendTextKFU + " &nbsp; "
-        + "<strong>" + labels.legendKV + "</strong>: " + labels.legendTextKV + " &nbsp; "
-        + "<strong>" + labels.legendKFE + "</strong>: " + labels.legendTextKFE
+        // Hinweis wie im offiziellen Formular
+        + '<div style="border:1px solid #000; padding:4px 6px; margin-top:6px; font-size:7pt;">'
+        + "Die Angabe der Uhrzeiten ist nicht verpflichtend, kann jedoch zu Ihrer Dokumentation dienen.<br>"
+        + '<div style="display:flex; justify-content:space-between; margin-top:4px;">'
+        + '<div><strong>' + labels.colKK + '</strong> = ' + labels.legendTextKK + '<br><strong>' + labels.colKU + '</strong> = ' + labels.legendTextKU + '<br><strong>' + labels.colKFU + '</strong> = ' + labels.legendTextKFU + '</div>'
+        + '<div><strong>' + labels.colKV + '</strong> = ' + labels.legendTextKV + '<br><strong>' + labels.colKFE + '</strong> = ' + labels.legendTextKFE + '</div>'
+        + "</div></div>"
+        // zu zahlen (interner Zusatz, nicht Teil des offiziellen Formulars)
+        + '<div style="margin-top:6px; font-size:7pt; color:#333; font-weight:bold;">'
+        + "zu zahlen (Mittagessen): " + toPay.toFixed(2).replace(".", ",") + " €"
         + "</div>"
-        + '<div style="margin-top:8px; font-size:8pt; text-align:left;">'
-        + (config.location || DEFAULT_CONFIG.location) + ", den " + formatDateDE(state.recordDate)
+        // Datum / Unterschrift KTPP / Unterschrift Eltern (Reihenfolge wie im offiziellen Formular)
+        + '<div style="display:flex; justify-content:space-between; gap:16px; margin-top:24px; font-size:8pt;">'
+        + '<div style="flex:1; text-align:center;">' + formatDateDE(state.recordDate) + '<div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Datum</div></div>'
+        + '<div style="flex:1; text-align:center;">' + (sig2 ? '<img src="' + sig2 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '; margin:0 auto;"></div>') + '<div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Unterschrift KTPP</div></div>'
+        + '<div style="flex:1; text-align:center;">' + (sig1 ? '<img src="' + sig1 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '; margin:0 auto;"></div>') + '<div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Unterschrift Eltern</div></div>'
         + "</div>"
-        + '<div style="display:flex; gap:20px; margin-top:6px; font-size:8pt;">'
-        + '<div style="text-align:center;">' + (sig1 ? '<img src="' + sig1 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '"></div>') + "<div>Unterschrift Eltern</div></div>"
-        + '<div style="text-align:center;">' + (sig2 ? '<img src="' + sig2 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '"></div>') + "<div>Unterschrift Kindertagespflegeperson</div></div>"
-        + "</div></div>";
+        + "</div>";
     }
+
+    // Steuert, was nach dem Drucken (afterprint) passieren soll:
+    // "single" = einzelnes Kind, keine weitere Aktion
+    // "sequential" = automatisch zum nächsten Kind weiterschalten
+    // "monthlyClose" = danach E-Mail-Erinnerung öffnen
+    let printMode = null;
 
     function performMonthlyClose() {
       const month = document.getElementById("monthSelect").value;
@@ -2141,6 +2139,7 @@
         alert("Bitte zuerst in der Konfiguration Kindernamen eintragen.");
         return;
       }
+      printMode = "monthlyClose";
       const container = document.getElementById("monthlyCloseContainer");
       container.innerHTML = children.map(name => buildPrintableChildHTML(name, month, year)).join("");
       document.body.classList.add("monthly-close-mode");
@@ -2149,15 +2148,17 @@
     }
 
     // Nach dem Drucken (oder Abbrechen des Druckdialogs) automatisch wieder zur
-    // normalen Ansicht wechseln, den Seitentitel zurücksetzen und – falls eine
-    // Adresse hinterlegt ist – eine vorausgefüllte E-Mail öffnen.
+    // normalen Ansicht wechseln, den Seitentitel zurücksetzen und je nach
+    // Druckart weitermachen (nächstes Kind bzw. E-Mail-Erinnerung).
     window.addEventListener("afterprint", function() {
       document.title = "Anwesenheitsliste";
-      if (document.body.classList.contains("monthly-close-mode")) {
-        document.body.classList.remove("monthly-close-mode");
-        document.getElementById("monthlyCloseContainer").innerHTML = "";
+      document.body.classList.remove("monthly-close-mode");
+      document.getElementById("monthlyCloseContainer").innerHTML = "";
+      const finishedMode = printMode;
+      printMode = null;
+      if (finishedMode === "monthlyClose") {
         openMonthlyCloseMailReminder();
-      } else if (sequentialPrintIndex >= 0) {
+      } else if (finishedMode === "sequential") {
         // Sequenzielles Drucken: automatisch zum nächsten Kind weiterschalten
         sequentialPrintIndex++;
         if (sequentialPrintIndex < sequentialPrintChildren.length) {
@@ -2190,10 +2191,12 @@
 
     function printCurrentSequentialChild() {
       const child = sequentialPrintChildren[sequentialPrintIndex];
-      document.getElementById("nameSelect").value = child;
-      resetAndLoadCurrentChild();
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
+      printMode = "sequential";
+      const container = document.getElementById("monthlyCloseContainer");
+      container.innerHTML = buildPrintableChildHTML(child, month, year);
+      document.body.classList.add("monthly-close-mode");
       document.title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
       window.print();
     }
@@ -2215,13 +2218,11 @@
 
     // ============================================================
     // UNTERSCHRIFT-ASSISTENT
-    // Blendet nacheinander erst das Eltern- dann das KTPP-Unterschriftsfeld
-    // in einem Modal ein. Die vorhandenen Canvas-Elemente werden dafür
-    // vorübergehend in das Modal verschoben (nicht kopiert), damit die
-    // Unterschrift danach unverändert an ihrem angestammten Platz erscheint
-    // (wichtig für Ansicht & PDF-Ausdruck).
+    // KTPP unterschreibt einmalig (gilt für alle Kinder), Eltern unterschreiben
+    // je Kind separat. Die vorhandenen Canvas-Elemente werden dafür vorübergehend
+    // in das Modal verschoben (nicht kopiert), damit die Unterschrift danach
+    // unverändert an ihrem angestammten Platz erscheint (wichtig für Ansicht & PDF-Ausdruck).
     // ============================================================
-    let signatureWizardStep = 0;
 
     // Versucht, das Unterschrift-Modal im Vollbild zu öffnen und (falls vom
     // Browser unterstützt) das Gerät im Querformat zu fixieren. Beides ist auf
@@ -2263,10 +2264,11 @@
       }
     }
 
-    // Durchläuft ALLE Kinder nacheinander: für jedes Kind erst Eltern-, dann
-    // KTPP-Unterschrift. So bekommt jedes Kind seine eigene, separate Unterschrift.
+    // Ablauf: zuerst EINMAL die Unterschrift der Kindertagespflegeperson (wird auf
+    // ALLE Kinder übertragen), danach für JEDES Kind separat die Eltern-Unterschrift.
     let signatureWizardChildren = [];
     let signatureWizardChildIndex = 0;
+    let signatureWizardPhase = "ktpp"; // "ktpp" (einmalig) oder "parents" (pro Kind)
 
     function startSignatureWizard() {
       signatureWizardChildren = getActiveChildren();
@@ -2274,48 +2276,74 @@
         alert("Bitte zuerst in der Konfiguration Kindernamen eintragen.");
         return;
       }
+      signatureWizardPhase = "ktpp";
       signatureWizardChildIndex = 0;
-      signatureWizardStep = 1;
       document.getElementById("signatureWizardModal").classList.add("open");
       showSignatureWizardStep();
       tryEnterFullscreenLandscape();
     }
 
-    // Zeigt das Unterschriftsfeld für das aktuelle Kind + den aktuellen Schritt
-    // (1 = Eltern, 2 = Kindertagespflegeperson) an.
+    // Zeigt je nach Phase entweder die einmalige KTPP-Unterschrift oder die
+    // Eltern-Unterschrift des aktuellen Kindes an.
     function showSignatureWizardStep() {
-      const childName = signatureWizardChildren[signatureWizardChildIndex];
-      currentSignatureChild = childName;
-      const isParentStep = (signatureWizardStep === 1);
-      const containerId = isParentStep ? "signatureContainer1" : "signatureContainer2";
-      const canvasId = isParentStep ? "signature1" : "signature2";
-      const roleLabel = isParentStep ? "Eltern" : "Kindertagespflegeperson";
+      if (signatureWizardPhase === "ktpp") {
+        // Als Zeichenfläche technisch an das erste Kind gebunden; beim Weiterklicken
+        // wird die Unterschrift auf ALLE Kinder kopiert.
+        currentSignatureChild = signatureWizardChildren[0];
+        document.getElementById("signatureWizardTitle").textContent =
+          "Unterschrift Kindertagespflegeperson (gilt für alle Kinder)";
+        document.getElementById("signatureWizardSaveBtn").textContent = "Speichern & weiter";
+        document.getElementById("signatureWizardSlot").appendChild(document.getElementById("signatureContainer2"));
+        loadSignature("signature2", signatureWizardChildren[0]);
+      } else {
+        const childName = signatureWizardChildren[signatureWizardChildIndex];
+        currentSignatureChild = childName;
+        const isLastStep = (signatureWizardChildIndex === signatureWizardChildren.length - 1);
 
-      document.getElementById("signatureWizardTitle").textContent =
-        "Unterschrift " + roleLabel + " – " + childName +
-        " (" + (signatureWizardChildIndex + 1) + "/" + signatureWizardChildren.length + ")";
+        document.getElementById("signatureWizardTitle").textContent =
+          "Unterschrift Eltern – " + childName +
+          " (" + (signatureWizardChildIndex + 1) + "/" + signatureWizardChildren.length + ")";
+        document.getElementById("signatureWizardSaveBtn").textContent = isLastStep ? "Speichern & fertig" : "Speichern & weiter";
 
-      const isLastStep = !isParentStep && (signatureWizardChildIndex === signatureWizardChildren.length - 1);
-      document.getElementById("signatureWizardSaveBtn").textContent = isLastStep ? "Speichern & fertig" : "Speichern & weiter";
-
-      document.getElementById("signatureWizardSlot").appendChild(document.getElementById(containerId));
-      loadSignature(canvasId, childName);
+        document.getElementById("signatureWizardSlot").appendChild(document.getElementById("signatureContainer1"));
+        loadSignature("signature1", childName);
+      }
     }
 
     function nextOrFinishSignatureWizard() {
       const signatureFields = document.getElementById("signatureFields");
-      const currentContainerId = (signatureWizardStep === 1) ? "signatureContainer1" : "signatureContainer2";
-      signatureFields.appendChild(document.getElementById(currentContainerId));
 
-      if (signatureWizardStep === 1) {
-        // Eltern-Unterschrift dieses Kindes fertig -> KTPP-Unterschrift desselben Kindes
-        signatureWizardStep = 2;
+      if (signatureWizardPhase === "ktpp") {
+        // KTPP-Unterschrift auf ALLE Kinder übertragen (inkl. heutigem Datum)
+        const dataURL = document.getElementById("signature2").toDataURL();
+        const today = new Date();
+        const iso = today.getFullYear() + "-" +
+          String(today.getMonth() + 1).padStart(2, "0") + "-" +
+          String(today.getDate()).padStart(2, "0");
+        const month = document.getElementById("monthSelect").value;
+        const year = document.getElementById("yearSelect").value;
+        signatureWizardChildren.forEach(function(name) {
+          localStorage.setItem(getSignatureKey("signature2", name), dataURL);
+          const state = loadChildState(name, month, year);
+          state.recordDate = iso;
+          saveChildState(name, state);
+        });
+        // Datumsfeld auf der Kinder-Seite aktualisieren, falls das aktuell
+        // angezeigte Kind betroffen ist
+        if (signatureWizardChildren.indexOf(document.getElementById("nameSelect").value) !== -1) {
+          document.getElementById("recordDate").value = iso;
+          updateRecordDateDisplay();
+        }
+
+        signatureFields.appendChild(document.getElementById("signatureContainer2"));
+        signatureWizardPhase = "parents";
+        signatureWizardChildIndex = 0;
         showSignatureWizardStep();
       } else {
-        // KTPP-Unterschrift dieses Kindes fertig -> nächstes Kind, wieder mit Eltern beginnen
+        // Eltern-Unterschrift dieses Kindes fertig -> nächstes Kind
+        signatureFields.appendChild(document.getElementById("signatureContainer1"));
         signatureWizardChildIndex++;
         if (signatureWizardChildIndex < signatureWizardChildren.length) {
-          signatureWizardStep = 1;
           showSignatureWizardStep();
         } else {
           finishSignatureWizard();
@@ -2326,7 +2354,7 @@
     // Bricht den Assistenten ab und legt das gerade offene Feld wieder an seinen Platz
     function cancelSignatureWizard() {
       const signatureFields = document.getElementById("signatureFields");
-      const currentContainerId = (signatureWizardStep === 1) ? "signatureContainer1" : "signatureContainer2";
+      const currentContainerId = (signatureWizardPhase === "ktpp") ? "signatureContainer2" : "signatureContainer1";
       signatureFields.appendChild(document.getElementById(currentContainerId));
       finishSignatureWizard();
     }
@@ -2335,7 +2363,7 @@
     // Kind ein, das gerade auf der Seite "Kinder" ausgewählt ist.
     function finishSignatureWizard() {
       document.getElementById("signatureWizardModal").classList.remove("open");
-      signatureWizardStep = 0;
+      signatureWizardPhase = "ktpp";
       signatureWizardChildIndex = 0;
       tryExitFullscreen();
       const selectedChild = document.getElementById("nameSelect").value;
