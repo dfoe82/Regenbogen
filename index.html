@@ -588,9 +588,9 @@
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="6" style="text-align:right;">zu zahlen (Mittagessen):</td>
-          <td colspan="2" id="sumToPay" style="text-align:left;">0,00 €</td>
-          <td colspan="4">
+          <td colspan="3" style="text-align:right;">zu zahlen (Mittagessen):</td>
+          <td id="sumToPay" style="text-align:left;">0,00 €</td>
+          <td colspan="2">
             <input type="checkbox" id="footerBezahlt">
             <label for="footerBezahlt">bezahlt</label>
           </td>
@@ -733,6 +733,9 @@
       <div class="modal-row"><label>Legende "KV" Text:</label><input type="text" id="labelLegendTextKV"></div>
       <div class="modal-row"><label>Legende "KFE" Kürzel:</label><input type="text" id="labelLegendKFE"></div>
       <div class="modal-row"><label>Legende "KFE" Text:</label><input type="text" id="labelLegendTextKFE"></div>
+      <div class="modal-row">
+        <button type="button" onclick="resetLegendToOfficial()">Legende auf Kreis-Plön-Vorlage zurücksetzen</button>
+      </div>
 
       <h2 style="font-size:1.05em; margin-top:20px;">Datensicherung</h2>
       <p style="font-size:0.85em; color:#555;">
@@ -1058,6 +1061,22 @@
       document.getElementById("configModal").classList.remove("open");
     }
 
+    // Füllt nur die Legenden-Felder im Konfig-Modal mit den offiziellen
+    // Kreis-Plön-Bezeichnungen (noch nicht gespeichert – dafür "Speichern" nutzen).
+    function resetLegendToOfficial() {
+      document.getElementById("labelLegendKK").value = DEFAULT_LABELS.legendKK;
+      document.getElementById("labelLegendTextKK").value = DEFAULT_LABELS.legendTextKK;
+      document.getElementById("labelLegendKU").value = DEFAULT_LABELS.legendKU;
+      document.getElementById("labelLegendTextKU").value = DEFAULT_LABELS.legendTextKU;
+      document.getElementById("labelLegendKFU").value = DEFAULT_LABELS.legendKFU;
+      document.getElementById("labelLegendTextKFU").value = DEFAULT_LABELS.legendTextKFU;
+      document.getElementById("labelLegendKV").value = DEFAULT_LABELS.legendKV;
+      document.getElementById("labelLegendTextKV").value = DEFAULT_LABELS.legendTextKV;
+      document.getElementById("labelLegendKFE").value = DEFAULT_LABELS.legendKFE;
+      document.getElementById("labelLegendTextKFE").value = DEFAULT_LABELS.legendTextKFE;
+      alert("Legende auf die Kreis-Plön-Vorlage zurückgesetzt. Bitte oben oder unten auf \"Speichern\" tippen, damit es übernommen wird.");
+    }
+
     function saveConfigFromModal() {
       const childCount = parseInt(document.getElementById("configChildCount").value) || 5;
       const children = [];
@@ -1144,9 +1163,9 @@
         const key = localStorage.key(i);
         if (!key) continue;
         if (key.indexOf("attendanceState_") === 0) {
-          const childName = key.substring("attendanceState_".length);
+          // Voller Schlüssel (inkl. Kind + Monat/Jahr) wird 1:1 gesichert.
           try {
-            data.attendance[childName] = JSON.parse(localStorage.getItem(key));
+            data.attendance[key] = JSON.parse(localStorage.getItem(key));
           } catch (e) { /* beschädigten Eintrag überspringen */ }
         } else if (key.indexOf("signature1_") === 0 || key.indexOf("signature2_") === 0) {
           data.signatures[key] = localStorage.getItem(key);
@@ -1195,8 +1214,14 @@
           });
         }
         if (data.attendance) {
-          Object.keys(data.attendance).forEach(function(childName) {
-            localStorage.setItem("attendanceState_" + childName, JSON.stringify(data.attendance[childName]));
+          Object.keys(data.attendance).forEach(function(key) {
+            // Neue Sicherungen enthalten bereits den vollen Schlüssel
+            // ("attendanceState_Kind_Jahr_Monat"). Ältere Sicherungen (vor der
+            // Umstellung auf pro-Monat-Speicherung) enthielten nur den
+            // Kindernamen als Schlüssel – diese werden als alter Schlüssel
+            // wiederhergestellt und beim nächsten Öffnen automatisch migriert.
+            const fullKey = key.indexOf("attendanceState_") === 0 ? key : "attendanceState_" + key;
+            localStorage.setItem(fullKey, JSON.stringify(data.attendance[key]));
           });
         }
 
@@ -1570,24 +1595,45 @@
     }
 
     // ============================================================
-    // PRO-KIND-DATENSPEICHERUNG (jedes Kind hat einen eigenen Datensatz)
+    // PRO-KIND-DATENSPEICHERUNG (jedes Kind hat einen eigenen Datensatz JE MONAT)
     // ============================================================
-    function getChildStorageKey(childName) {
+    function getChildStorageKey(childName, month, year) {
+      return "attendanceState_" + childName + "_" + year + "_" + String(month).padStart(2, "0");
+    }
+
+    // Alter Speicherschlüssel (vor der Umstellung auf pro-Monat-Speicherung) –
+    // wird nur noch für die einmalige Migration bereits vorhandener Daten benötigt.
+    function getLegacyChildStorageKey(childName) {
       return "attendanceState_" + childName;
     }
 
-    // Lädt (oder erzeugt) den kompletten Zustand eines Kindes für einen Monat/Jahr
+    // Lädt (oder erzeugt) den kompletten Zustand eines Kindes für einen Monat/Jahr.
+    // Jeder Monat wird unter einem eigenen Schlüssel gespeichert, damit das
+    // Nachpflegen früherer Monate nicht die Daten des aktuellen Monats überschreibt.
     function loadChildState(childName, month, year) {
-      const raw = localStorage.getItem(getChildStorageKey(childName));
+      const key = getChildStorageKey(childName, month, year);
+      let raw = localStorage.getItem(key);
       let state = null;
       if (raw) {
         try { state = JSON.parse(raw); } catch (e) { state = null; }
       }
+      if (!state) {
+        // Einmalige Migration: alten, monatsübergreifenden Speicherplatz prüfen,
+        // falls er zufällig zu genau diesem Monat/Jahr gehört.
+        const legacyRaw = localStorage.getItem(getLegacyChildStorageKey(childName));
+        if (legacyRaw) {
+          try {
+            const legacyState = JSON.parse(legacyRaw);
+            if (legacyState && legacyState.header && legacyState.header.month == month && legacyState.header.year == year) {
+              state = legacyState;
+              localStorage.setItem(key, JSON.stringify(state));
+            }
+          } catch (e) { /* beschädigte Altdaten ignorieren */ }
+        }
+      }
       const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
-      if (!state || !state.table || state.table.length !== daysInMonth
-          || !state.header || state.header.month != month || state.header.year != year) {
-        // Neuer/leerer Datensatz für diesen Monat, falls noch keiner existiert
-        // oder ein anderer Monat gespeichert war.
+      if (!state || !state.table || state.table.length !== daysInMonth) {
+        // Neuer/leerer Datensatz für diesen Monat, falls noch keiner existiert.
         const emptyTable = [];
         for (let i = 0; i < daysInMonth; i++) {
           emptyTable.push({ start: "", end: "", remark: "" });
@@ -1602,7 +1648,9 @@
     }
 
     function saveChildState(childName, state) {
-      localStorage.setItem(getChildStorageKey(childName), JSON.stringify(state));
+      const month = state.header.month;
+      const year = state.header.year;
+      localStorage.setItem(getChildStorageKey(childName, month, year), JSON.stringify(state));
     }
 
     // ============================================================
@@ -2175,8 +2223,8 @@
         + "zu zahlen (Mittagessen): " + toPay.toFixed(2).replace(".", ",") + " €"
         + "</div>"
         // Datum / Unterschrift KTPP / Unterschrift Eltern (Reihenfolge wie im offiziellen Formular)
-        + '<div style="display:flex; justify-content:space-between; gap:16px; margin-top:24px; font-size:8pt;">'
-        + '<div style="flex:1; text-align:center;">' + formatDateDE(state.recordDate) + '<div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Datum</div></div>'
+        + '<div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-top:24px; font-size:8pt;">'
+        + '<div style="flex:1; text-align:center;"><div style="height:70px; display:flex; align-items:flex-end; justify-content:center;">' + formatDateDE(state.recordDate) + '</div><div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Datum</div></div>'
         + '<div style="flex:1; text-align:center;">' + (sig2 ? '<img src="' + sig2 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '; margin:0 auto;"></div>') + '<div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Unterschrift KTPP</div></div>'
         + '<div style="flex:1; text-align:center;">' + (sig1 ? '<img src="' + sig1 + '" style="' + sigBox + '">' : '<div style="' + sigBox + '; margin:0 auto;"></div>') + '<div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Unterschrift Eltern</div></div>'
         + "</div>"
