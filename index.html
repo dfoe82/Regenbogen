@@ -216,6 +216,18 @@
     /* Druckeinstellungen: DIN A4, kompakt angepasst, damit der gesamte
        Monat auf eine Seite passt (kleinere Schrift/Abstände nur im Druck) */
     @media print {
+      /* Garantierte Isolation beim tatsächlichen Drucken, unabhängig vom Timing
+         der per JavaScript gesetzten Klasse "monthly-close-mode": Diese Regel
+         wird vom Browser erst beim eigentlichen Drucken ausgewertet und blendet
+         die interaktive Seite zuverlässig aus, während der Druck-Container
+         garantiert sichtbar wird. */
+      #bottomNav, #pageOverview, #pageMonthlyClose, #pageKinder,
+      #configModal, #backfillModal, #signatureWizardModal, #parentMessageModal {
+        display: none !important;
+      }
+      #monthlyCloseContainer {
+        display: block !important;
+      }
       body {
         margin: 0;
         max-width: 210mm;
