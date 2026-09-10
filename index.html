@@ -2148,12 +2148,15 @@
     // Inhalte tatsächlich gerendert wurden – das führt sonst zu einer leeren
     // Druckvorschau. Der doppelte requestAnimationFrame stellt sicher, dass der
     // Browser den neuen Inhalt vorher mindestens einmal komplett gezeichnet hat.
+    // window.print() MUSS synchron/unmittelbar im Klick-Handler aufgerufen werden –
+    // eine Verzögerung (z. B. via requestAnimationFrame/setTimeout) lässt iOS Safari
+    // den Druckvorgang als "nicht direkt vom Nutzer ausgelöst" erkennen und ihn
+    // nach kurzer Zeit von selbst wieder schließen. Der eigentliche "leere Seite"-
+    // Fehler wird stattdessen zuverlässig über die @media print-Regeln oben gelöst
+    // (die werden vom Browser erst beim tatsächlichen Drucken ausgewertet, unabhängig
+    // vom Zeitpunkt der DOM-Änderung).
     function triggerPrint() {
-      requestAnimationFrame(function() {
-        requestAnimationFrame(function() {
-          window.print();
-        });
-      });
+      window.print();
     }
 
     function performMonthlyClose() {
