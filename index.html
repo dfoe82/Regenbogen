@@ -2214,14 +2214,29 @@
         // Hinweis wie im offiziellen Formular
         + '<div style="border:1px solid #000; padding:4px 6px; margin-top:6px; font-size:7pt;">'
         + "Die Angabe der Uhrzeiten ist nicht verpflichtend, kann jedoch zu Ihrer Dokumentation dienen.<br>"
-        + '<div style="display:flex; justify-content:space-between; margin-top:4px;">'
-        + '<div><strong>' + labels.colKK + '</strong> = ' + labels.legendTextKK + '<br><strong>' + labels.colKU + '</strong> = ' + labels.legendTextKU + '<br><strong>' + labels.colKFU + '</strong> = ' + labels.legendTextKFU + '</div>'
-        + '<div><strong>' + labels.colKV + '</strong> = ' + labels.legendTextKV + '<br><strong>' + labels.colKFE + '</strong> = ' + labels.legendTextKFE + '</div>'
-        + "</div></div>"
-        // zu zahlen (interner Zusatz, nicht Teil des offiziellen Formulars)
-        + '<div style="margin-top:6px; font-size:7pt; color:#333; font-weight:bold;">'
-        + "zu zahlen (Mittagessen): " + toPay.toFixed(2).replace(".", ",") + " €"
+        + '<table style="width:100%; margin-top:4px; border-collapse:collapse;"><tr>'
+        + '<td style="width:8%; vertical-align:top; padding:1px 4px 1px 0;"><strong>' + labels.colKK + '</strong></td>'
+        + '<td style="width:42%; vertical-align:top; padding:1px 4px 1px 0;">' + labels.legendTextKK + '</td>'
+        + '<td style="width:8%; vertical-align:top; padding:1px 4px 1px 0;"><strong>' + labels.colKV + '</strong></td>'
+        + '<td style="width:42%; vertical-align:top; padding:1px 0;">' + labels.legendTextKV + '</td>'
+        + '</tr><tr>'
+        + '<td style="vertical-align:top; padding:1px 4px 1px 0;"><strong>' + labels.colKU + '</strong></td>'
+        + '<td style="vertical-align:top; padding:1px 4px 1px 0;">' + labels.legendTextKU + '</td>'
+        + '<td style="vertical-align:top; padding:1px 4px 1px 0;"><strong>' + labels.colKFE + '</strong></td>'
+        + '<td style="vertical-align:top; padding:1px 0;">' + labels.legendTextKFE + '</td>'
+        + '</tr><tr>'
+        + '<td style="vertical-align:top; padding:1px 4px 1px 0;"><strong>' + labels.colKFU + '</strong></td>'
+        + '<td style="vertical-align:top; padding:1px 4px 1px 0;">' + labels.legendTextKFU + '</td>'
+        + '<td></td><td></td>'
+        + '</tr></table>'
         + "</div>"
+        // zu zahlen + bezahlt-Kästchen (interner Zusatz, nicht Teil des offiziellen Formulars)
+        + '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; font-size:8pt; font-weight:bold;">'
+        + '<div>zu zahlen (Mittagessen): ' + toPay.toFixed(2).replace(".", ",") + ' €</div>'
+        + '<div style="display:flex; align-items:center; gap:5px; font-weight:normal;">'
+        + '<span style="display:inline-block; width:11px; height:11px; border:1px solid #000;"></span> bezahlt'
+        + '</div>'
+        + '</div>'
         // Datum / Unterschrift KTPP / Unterschrift Eltern (Reihenfolge wie im offiziellen Formular)
         + '<div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-top:24px; font-size:8pt;">'
         + '<div style="flex:1; text-align:center;"><div style="height:70px; display:flex; align-items:flex-end; justify-content:center;">' + formatDateDE(state.recordDate) + '</div><div style="border-top:1px solid #000; margin-top:4px; padding-top:2px;">Datum</div></div>'
