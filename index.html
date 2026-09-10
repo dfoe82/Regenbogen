@@ -2131,7 +2131,7 @@
       let presentDays = 0, omDays = 0;
       state.table.forEach(function(row) {
         if (row.start && row.end) presentDays++;
-        if (row.m) omDays++;
+        if (row.remark === "kein Mittagessen" || row.m) omDays++;
       });
       const toPay = Math.max(0, presentDays - omDays) * (parseFloat(config.mealPrice) || 0);
       const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
