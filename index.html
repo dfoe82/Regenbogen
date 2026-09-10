@@ -28,6 +28,17 @@
     .page-section.active {
       display: block;
     }
+    /* Druck-Container: unsichtbar im Normalbetrieb, ersetzt beim Drucken
+       komplett die Hauptseite (ein Kind pro Seite, offizielle Formularvorlage) */
+    #monthlyCloseContainer {
+      display: none;
+    }
+    body.monthly-close-mode > *:not(#monthlyCloseContainer) {
+      display: none !important;
+    }
+    body.monthly-close-mode #monthlyCloseContainer {
+      display: block;
+    }
     #bottomNav {
       position: fixed;
       bottom: 0;
@@ -203,11 +214,18 @@
     /* Druckeinstellungen: DIN A4, kompakt angepasst, damit der gesamte
        Monat auf eine Seite passt (kleinere Schrift/Abstände nur im Druck) */
     @media print {
-      /* Hinweis: Der eigentliche Formulardruck (Einzel-PDF, Monatsabschluss,
-         sequenzielles Drucken) läuft inzwischen über ein eigenständiges Iframe
-         mit eigenem CSS (siehe PRINT_CSS im Script) und ist von diesen Regeln
-         hier unabhängig. Diese @media print-Regeln greifen nur noch, falls die
-         Hauptseite selbst direkt gedruckt wird (z. B. über das System-Freigabemenü). */
+      /* Garantierte Isolation beim tatsächlichen Drucken, unabhängig vom Timing
+         der per JavaScript gesetzten Klasse "monthly-close-mode": Diese Regel
+         wird vom Browser erst beim eigentlichen Drucken ausgewertet und blendet
+         die interaktive Seite zuverlässig aus, während der Druck-Container
+         garantiert sichtbar wird. */
+      #bottomNav, #pageOverview, #pageMonthlyClose, #pageKinder,
+      #configModal, #backfillModal, #signatureWizardModal, #parentMessageModal {
+        display: none !important;
+      }
+      #monthlyCloseContainer {
+        display: block !important;
+      }
       body {
         margin: 0;
         max-width: 210mm;
@@ -839,7 +857,8 @@
     </div>
   </div>
 
-  <!-- Versteckter Container für den Monatsabschluss-Druck (alle Kinder, je 1 Seite) -->
+  <!-- Versteckter Container für den Druck (Einzel-Kind, Monatsabschluss, sequenziell) -->
+  <div id="monthlyCloseContainer"></div>
   
   <script>
     // ============================================================
@@ -1905,70 +1924,53 @@
       canvas.addEventListener('touchmove', draw);
     }
     
-    // Enthält alle CSS-Regeln, die für die gedruckte Formularvorlage nötig sind.
-    // Wird in ein eigenständiges, unsichtbares Iframe-Dokument geschrieben, damit
-    // der Druck komplett unabhängig vom Zustand/Timing der Hauptseite läuft.
-    const PRINT_CSS = ""
-      + "* { box-sizing: border-box; }"
-      + "body { font-family: Arial, sans-serif; margin: 0; font-size: 8pt; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }"
-      + "@page { size: A4 portrait; margin: 8mm; }"
-      + ".printable-child-page { page-break-after: always; width: 100%; max-width: 190mm; margin-left: auto; margin-right: auto; }"
-      + ".printable-child-page:last-child { page-break-after: auto; }"
-      + ".printable-table { border-collapse: collapse; width: 100%; margin-top: 8px; table-layout: fixed; }"
-      + ".printable-table th, .printable-table td { border: 1px solid #333; padding: 1px 4px; text-align: center; font-size: 6.5pt; font-weight: normal; line-height: 1.15; white-space: nowrap; overflow: hidden; }"
-      + ".printable-table td.remark-cell { text-align: left; white-space: normal; overflow-wrap: break-word; font-size: 6.5pt; line-height: 1.15; }"
-      + ".printable-table th { font-weight: bold; }"
-      + ".printable-legend { font-size: 6.5pt; margin-top: 6px; border: 1px solid #333; padding: 3px 6px; }";
+    // Merkt sich, welche Art Druck gerade läuft, damit nach der Rückkehr zur App
+    // (Fokus-Ereignis) die passende Anschlussaktion ausgeführt werden kann.
+    let printMode = null;
 
-    // Druckt beliebigen HTML-Inhalt über ein eigenständiges, unsichtbares Iframe.
-    // Dadurch ist der Druck komplett von der Hauptseite entkoppelt: kein
-    // Ein-/Ausblenden von Live-Inhalten mehr nötig, keine Timing-Probleme.
-    // WICHTIG: Muss synchron aus einem Klick-Handler heraus aufgerufen werden,
-    // sonst bricht iOS Safari den Druckvorgang von selbst wieder ab.
-    function printHTMLDocument(bodyHtml, docTitle, onDone) {
-      const old = document.getElementById("printFrame");
-      if (old && old.parentNode) old.parentNode.removeChild(old);
-
-      const iframe = document.createElement("iframe");
-      iframe.id = "printFrame";
-      iframe.style.position = "fixed";
-      iframe.style.top = "-10000px";
-      iframe.style.left = "-10000px";
-      iframe.style.width = "210mm";
-      iframe.style.height = "297mm";
-      iframe.style.border = "0";
-      iframe.style.visibility = "hidden";
-      document.body.appendChild(iframe);
-
-      const doc = iframe.contentWindow.document;
-      doc.open();
-      doc.write(
-        "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
-        + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-        + "<title>" + docTitle + "</title>"
-        + "<style>" + PRINT_CSS + "</style>"
-        + "</head><body>" + bodyHtml + "</body></html>"
-      );
-      doc.close();
-
-      // WICHTIG: Das Iframe wird hier bewusst NIE automatisch entfernt (weder über
-      // "afterprint" noch über einen Timer). Auf iOS können solche Ereignisse schon
-      // auslösen, während die Druck-/Freigabe-Vorschau noch sichtbar ist – wird das
-      // Iframe dann entfernt, wird die noch offene (live darauf verweisende)
-      // Vorschau leer. Das unsichtbare Iframe bleibt daher einfach im Hintergrund
-      // liegen; der nächste Druckaufruf entfernt es automatisch (siehe oben).
-      // "onDone" (z. B. E-Mail-Erinnerung, nächstes Kind) wird ausgelöst, sobald
-      // das Hauptfenster den Fokus zurückbekommt (Nutzer ist zur App zurück).
-      if (onDone) {
-        window.addEventListener("focus", function once() {
-          window.removeEventListener("focus", once);
-          onDone();
-        });
-      }
-
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
+    // Druckt beliebigen HTML-Inhalt, indem die interaktive Seite komplett
+    // ausgeblendet und stattdessen NUR der Druck-Container gezeigt wird
+    // (siehe CSS: body.monthly-close-mode). window.print() wird dabei synchron
+    // im Klick-Handler aufgerufen – WICHTIG: iOS Safari bricht den Druckvorgang
+    // sonst von selbst wieder ab. Ein separates, unsichtbares Iframe funktioniert
+    // auf iOS NICHT zuverlässig (iOS druckt dabei teils die sichtbare Hauptseite
+    // statt des Iframe-Inhalts) – deshalb läuft der Druck direkt über die
+    // Hauptseite selbst.
+    function printViaMainDocument(bodyHtml, docTitle, mode) {
+      const container = document.getElementById("monthlyCloseContainer");
+      container.innerHTML = bodyHtml;
+      document.body.classList.add("monthly-close-mode");
+      document.title = docTitle;
+      printMode = mode;
+      window.print();
     }
+
+    // Wird ausgeführt, sobald das Hauptfenster nach dem Drucken/Freigeben wieder
+    // den Fokus bekommt (Nutzer ist zur App zurückgekehrt). Der Container-Inhalt
+    // wird dabei bewusst NICHT geleert – der nächste Druckvorgang überschreibt ihn
+    // ohnehin, und vorzeitiges Leeren könnte eine noch sichtbare Vorschau leeren.
+    window.addEventListener("focus", function() {
+      if (!document.body.classList.contains("monthly-close-mode")) return;
+      document.body.classList.remove("monthly-close-mode");
+      document.title = "Anwesenheitsliste";
+      const finishedMode = printMode;
+      printMode = null;
+      if (finishedMode === "monthlyClose") {
+        openMonthlyCloseMailReminder();
+      } else if (finishedMode === "sequential") {
+        sequentialPrintIndex++;
+        if (sequentialPrintIndex < sequentialPrintChildren.length) {
+          // Hinweis: Da dies nicht mehr aus einem direkten Tastendruck heraus
+          // erfolgt, kann iOS diesen Druckaufruf blockieren. Falls der
+          // Druckdialog beim nächsten Kind ausbleibt, bitte den Button für
+          // dieses Kind einfach erneut antippen.
+          printCurrentSequentialChild();
+        } else {
+          sequentialPrintIndex = -1;
+          alert("Alle Kinder wurden nacheinander zum Sichern angeboten.");
+        }
+      }
+    });
 
     // Öffnet den nativen Drucken-Dialog von iPadOS/Safari mit der offiziellen
     // Formularvorlage (Kreis Plön) für das aktuell gewählte Kind.
@@ -1981,7 +1983,7 @@
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
       const title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
-      printHTMLDocument(buildPrintableChildHTML(child, month, year), title);
+      printViaMainDocument(buildPrintableChildHTML(child, month, year), title, "single");
     }
 
     // ============================================================
@@ -2183,9 +2185,7 @@
       }
       const title = "Monatsabschluss_" + month + "-" + year;
       const html = children.map(name => buildPrintableChildHTML(name, month, year)).join("");
-      printHTMLDocument(html, title, function() {
-        openMonthlyCloseMailReminder();
-      });
+      printViaMainDocument(html, title, "monthlyClose");
     }
 
     // ============================================================
@@ -2215,15 +2215,7 @@
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
       const title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
-      printHTMLDocument(buildPrintableChildHTML(child, month, year), title, function() {
-        sequentialPrintIndex++;
-        if (sequentialPrintIndex < sequentialPrintChildren.length) {
-          printCurrentSequentialChild();
-        } else {
-          sequentialPrintIndex = -1;
-          alert("Alle Kinder wurden nacheinander zum Sichern angeboten.");
-        }
-      });
+      printViaMainDocument(buildPrintableChildHTML(child, month, year), title, "sequential");
     }
 
     function openMonthlyCloseMailReminder() {
