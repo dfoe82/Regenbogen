@@ -895,7 +895,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.0.1";
+    const APP_VERSION = "1.0.2";
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -1630,11 +1630,12 @@
       // Seite zurücksetzen (heutiger Tag, leere Auswahl) für den nächsten Eintrag
       initOverviewPage();
 
-      // Nur neu laden, wenn die Kinder-Seite gerade denselben Monat/Jahr zeigt
-      if (parseInt(document.getElementById("monthSelect").value) === parseInt(month) &&
-          parseInt(document.getElementById("yearSelect").value) === parseInt(year)) {
-        resetAndLoadCurrentChild();
-      }
+      // Kinder-Seite immer auf den gerade bearbeiteten Monat/Jahr umschalten,
+      // damit der soeben übernommene Eintrag sofort sichtbar ist (unabhängig
+      // davon, welcher Monat dort vorher zufällig eingestellt war).
+      document.getElementById("monthSelect").value = month;
+      document.getElementById("yearSelect").value = year;
+      resetAndLoadCurrentChild();
       alert("Übersicht wurde übernommen und auf die jeweiligen Kinder-Seiten übertragen.");
     }
 
