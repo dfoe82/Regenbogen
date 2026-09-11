@@ -16,15 +16,109 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Anwesenheitsliste</title>
   <style>
+    /* ============================================================
+       DESIGN-SYSTEM: Farben, Radien, Schatten als CSS-Variablen –
+       zentrale Stelle für ein einheitliches Erscheinungsbild.
+       ============================================================ */
+    :root {
+      --color-primary: #2563eb;
+      --color-primary-dark: #1d4ed8;
+      --color-primary-light: #eef2ff;
+      --color-success: #16a34a;
+      --color-success-light: #ecfdf3;
+      --color-warning: #f59e0b;
+      --color-warning-light: #fffbeb;
+      --color-danger: #dc2626;
+      --color-bg: #f4f6f9;
+      --color-surface: #ffffff;
+      --color-border: #e2e8f0;
+      --color-text: #1f2937;
+      --color-text-muted: #6b7280;
+      --radius: 14px;
+      --radius-sm: 10px;
+      --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08);
+      --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.10);
+      --font-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
     /* Basis-Styles */
     body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      padding: 0;
-      /* Platz für die fest positionierte untere Navigation freihalten */
-      padding-bottom: 74px;
-      box-sizing: border-box;
+      font-family: var(--font-base);
+      background: var(--color-bg);
+      color: var(--color-text);
+      margin: 0;
+      padding: 20px;
+      padding-bottom: 90px;
+      -webkit-text-size-adjust: 100%;
     }
+    h1 {
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--color-text);
+    }
+    h2 {
+      color: var(--color-text);
+      font-weight: 700;
+    }
+    p, label, span, li, td, th {
+      font-family: var(--font-base);
+    }
+    /* Einheitliche Buttons */
+    button {
+      font-family: var(--font-base);
+      background: var(--color-surface);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-size: 0.95em;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+      transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    button:hover {
+      background: #f8fafc;
+    }
+    button.btn-primary {
+      background: var(--color-primary);
+      color: #fff;
+      border-color: var(--color-primary);
+      font-weight: 600;
+    }
+    button.btn-primary:hover {
+      background: var(--color-primary-dark);
+    }
+    button.btn-danger {
+      background: #fff;
+      border-color: var(--color-danger);
+      color: var(--color-danger);
+    }
+    /* Einheitliche Formularfelder */
+    select, input[type="text"], input[type="number"], input[type="date"],
+    input[type="time"], textarea {
+      font-family: var(--font-base);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 7px 9px;
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+    select:focus, input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+    input[type="checkbox"] {
+      accent-color: var(--color-primary);
+    }
+    hr {
+      border: none;
+      border-top: 1px solid var(--color-border);
+    }
+    a { color: var(--color-primary); }
     /* ============================================================
        SEITEN-NAVIGATION (feste untere Leiste: Übersicht / Kinder)
        ============================================================ */
@@ -74,12 +168,12 @@
     }
     /* Hinweisbanner, wenn ein Monat als abgeschlossen markiert ist */
     #monthLockBanner {
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      padding: 6px 10px;
+      background: var(--color-warning-light);
+      border: 1px solid var(--color-warning);
+      padding: 8px 12px;
       margin-bottom: 10px;
       font-size: 0.85em;
-      border-radius: 4px;
+      border-radius: var(--radius-sm);
     }
     #bottomNav {
       position: fixed;
@@ -89,24 +183,30 @@
       display: flex;
       justify-content: space-around;
       align-items: stretch;
-      background: #fff;
-      border-top: 1px solid #ccc;
-      box-shadow: 0 -2px 6px rgba(0,0,0,0.08);
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border);
+      box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.08);
       z-index: 500;
-      padding: 4px 2px calc(4px + env(safe-area-inset-bottom, 0px)) 2px;
+      padding: 6px 2px calc(6px + env(safe-area-inset-bottom, 0px)) 2px;
     }
     #bottomNav button {
       flex: 1;
       background: none;
       border: none;
+      box-shadow: none;
+      border-radius: var(--radius-sm);
       font-size: 0.72em;
-      padding: 6px 2px;
-      color: #333;
+      padding: 8px 2px;
+      color: var(--color-text-muted);
       white-space: nowrap;
     }
+    #bottomNav button:active {
+      background: var(--color-bg);
+    }
     #bottomNav button.active-tab {
-      color: #2e7d32;
-      font-weight: bold;
+      color: var(--color-primary);
+      font-weight: 700;
+      background: var(--color-primary-light);
     }
     /* Umhüllender Container für die Tabelle – sorgt für horizontales Scrollen */
     .table-container {
@@ -157,10 +257,13 @@
     }
     /* Legendenkasten – Horizontal angeordnete Liste */
     .legend-box {
-      border: 1px solid #333;
-      padding: 10px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      padding: 12px 14px;
       margin: 10px 0;
       font-size: 0.9em;
+      box-shadow: var(--shadow-sm);
     }
     .legend-box ul {
       list-style: none;
@@ -383,9 +486,9 @@
     /* Kleiner Hinweis-Banner, dass alles offline/lokal läuft */
     #offlineNotice {
       font-size: 0.8em;
-      color: #2e7d32;
-      background: #eaf7ea;
-      border: 1px solid #b7dfb9;
+      color: var(--color-success);
+      background: var(--color-success-light);
+      border: 1px solid #b7e4c7;
       padding: 6px 10px;
       border-radius: 4px;
       margin-bottom: 12px;
@@ -417,14 +520,15 @@
     }
     .modal-overlay.open { display: flex; }
     .modal-box {
-      background: #fff;
-      border-radius: 8px;
-      padding: 20px;
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      padding: 22px;
       max-width: 480px;
       width: 100%;
       max-height: 85vh;
       overflow-y: auto;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--color-border);
     }
     .modal-box h2 {
       margin-top: 0;
@@ -477,9 +581,9 @@
     }
     /* Zeitraum-Auswahl (Übersicht): Kalender-Button */
     #calendarToggleBtn.active-mode {
-      background: #2e7d32;
+      background: var(--color-primary);
       color: #fff;
-      border-color: #2e7d32;
+      border-color: var(--color-primary);
     }
     .overview-extra-row {
       display: flex;
@@ -616,7 +720,7 @@
     </div>
 
     <div class="modal-actions" style="justify-content:center;">
-      <button type="button" onclick="applyOverviewSelections()">Übernehmen</button>
+      <button type="button" class="btn-primary" onclick="applyOverviewSelections()">Übernehmen</button>
     </div>
   </div>
 
@@ -666,9 +770,8 @@
       <button type="button" onclick="goToKinderPageForCloseMonth()" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
       <button type="button" onclick="startSignatureWizard()" style="padding:14px; font-size:1em;">✍️ Unterschrift einholen</button>
       <button type="button" onclick="openParentMessageModal()" style="padding:14px; font-size:1em;">✉️ Nachricht für Eltern erstellen</button>
-      <button type="button" id="sequentialPrintBtn" onclick="startSequentialChildPrint()" style="padding:14px; font-size:1em;">📑 Kinder einzeln als PDF (nacheinander)</button>
       <hr style="width:100%; margin:8px 0;">
-      <button type="button" onclick="performMonthlyClose()" style="padding:14px; font-size:1em; font-weight:bold;">🗂️ Monatsabschluss jetzt erstellen (alle Kinder, PDF + E-Mail)</button>
+      <button type="button" class="btn-primary" onclick="performMonthlyClose()" style="padding:14px; font-size:1.05em;">🗂️ Monatsabschluss jetzt erstellen (alle Kinder, PDF + E-Mail)</button>
     </div>
   </div>
 
@@ -809,7 +912,7 @@
   
   <!-- Button zur PDF-Erstellung: nutzt die iPad-eigene Drucken-Funktion, dadurch keine externe Bibliothek/Internet nötig -->
   <div class="no-print" style="margin-top: 20px;">
-    <button type="button" onclick="savePdf()">Als PDF sichern (über "Drucken")</button>
+    <button type="button" class="btn-primary" onclick="savePdf()">Als PDF sichern (über "Drucken")</button>
     <div style="font-size:0.8em; color:#555; margin-top:6px;">
       Tipp: Im Drucken-Dialog unten links auf das Freigabesymbol tippen und "In Dateien sichern" wählen, um die PDF-Datei lokal auf dem iPad zu speichern.
     </div>
@@ -824,7 +927,7 @@
       <p style="font-size:0.75em; color:#999; margin-top:-8px;">Version <span id="appVersionText"></span></p>
       <div class="modal-actions" style="justify-content:flex-start; margin-top:0; margin-bottom:12px;">
         <button type="button" onclick="closeConfigModal()">Abbrechen</button>
-        <button type="button" onclick="saveConfigFromModal()">Speichern</button>
+        <button type="button" class="btn-primary" onclick="saveConfigFromModal()">Speichern</button>
       </div>
       <p style="font-size:0.85em; color:#555;">Namen der Kinder, Standard-Uhrzeiten und Mittagessenpreis.</p>
       <div class="modal-row">
@@ -877,37 +980,6 @@
         Nicht angehakte Tage werden bei "Übersicht" und "Nachpflegen" übersprungen (nicht automatisch ausgefüllt). Manuell eintragen bleibt trotzdem möglich.
       </p>
 
-      <h2 style="font-size:1.05em; margin-top:20px;">Bezeichnungen</h2>
-      <p style="font-size:0.85em; color:#555;">Spaltenüberschriften und Legendentexte anpassen.</p>
-      <div class="modal-row"><label>Spalte "Tag":</label><input type="text" id="labelColTag"></div>
-      <div class="modal-row"><label>Spalte "Datum":</label><input type="text" id="labelColDatum"></div>
-      <div class="modal-row"><label>Spalte "Uhrzeit von":</label><input type="text" id="labelColVon"></div>
-      <div class="modal-row"><label>Spalte "Uhrzeit bis":</label><input type="text" id="labelColBis"></div>
-      <div class="modal-row"><label>Spalte "Stunden":</label><input type="text" id="labelColStunden"></div>
-      <div class="modal-row"><label>Spalte "Bemerkung":</label><input type="text" id="labelColBemerkung"></div>
-      <div class="modal-row"><label>Spalte "oM":</label><input type="text" id="labelColOM"></div>
-      <div class="modal-row"><label>Spalte "KK":</label><input type="text" id="labelColKK"></div>
-      <div class="modal-row"><label>Spalte "KU":</label><input type="text" id="labelColKU"></div>
-      <div class="modal-row"><label>Spalte "KFU":</label><input type="text" id="labelColKFU"></div>
-      <div class="modal-row"><label>Spalte "KV":</label><input type="text" id="labelColKV"></div>
-      <div class="modal-row"><label>Spalte "KFE":</label><input type="text" id="labelColKFE"></div>
-      <hr>
-      <div class="modal-row"><label>Legende "oM" Kürzel:</label><input type="text" id="labelLegendOM"></div>
-      <div class="modal-row"><label>Legende "oM" Text:</label><input type="text" id="labelLegendTextOM"></div>
-      <div class="modal-row"><label>Legende "KK" Kürzel:</label><input type="text" id="labelLegendKK"></div>
-      <div class="modal-row"><label>Legende "KK" Text:</label><input type="text" id="labelLegendTextKK"></div>
-      <div class="modal-row"><label>Legende "KU" Kürzel:</label><input type="text" id="labelLegendKU"></div>
-      <div class="modal-row"><label>Legende "KU" Text:</label><input type="text" id="labelLegendTextKU"></div>
-      <div class="modal-row"><label>Legende "KFU" Kürzel:</label><input type="text" id="labelLegendKFU"></div>
-      <div class="modal-row"><label>Legende "KFU" Text:</label><input type="text" id="labelLegendTextKFU"></div>
-      <div class="modal-row"><label>Legende "KV" Kürzel:</label><input type="text" id="labelLegendKV"></div>
-      <div class="modal-row"><label>Legende "KV" Text:</label><input type="text" id="labelLegendTextKV"></div>
-      <div class="modal-row"><label>Legende "KFE" Kürzel:</label><input type="text" id="labelLegendKFE"></div>
-      <div class="modal-row"><label>Legende "KFE" Text:</label><input type="text" id="labelLegendTextKFE"></div>
-      <div class="modal-row">
-        <button type="button" onclick="resetLegendToOfficial()">Legende auf Kreis-Plön-Vorlage zurücksetzen</button>
-      </div>
-
       <h2 style="font-size:1.05em; margin-top:20px;">Datensicherung</h2>
       <p style="font-size:0.85em; color:#555;">
         Sichert alle Daten (Anwesenheit aller Kinder, Konfiguration, Unterschriften) als Datei –
@@ -924,7 +996,7 @@
 
       <div class="modal-actions">
         <button type="button" onclick="closeConfigModal()">Abbrechen</button>
-        <button type="button" onclick="saveConfigFromModal()">Speichern</button>
+        <button type="button" class="btn-primary" onclick="saveConfigFromModal()">Speichern</button>
       </div>
     </div>
   </div>
@@ -942,7 +1014,7 @@
       </div>
       <div class="modal-actions">
         <button type="button" onclick="cancelSignatureWizard()">Abbrechen</button>
-        <button type="button" id="signatureWizardSaveBtn" onclick="nextOrFinishSignatureWizard()">Speichern</button>
+        <button type="button" class="btn-primary" id="signatureWizardSaveBtn" onclick="nextOrFinishSignatureWizard()">Speichern</button>
       </div>
     </div>
   </div>
@@ -972,7 +1044,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.2.0";
+    const APP_VERSION = "1.4.0";
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -1028,7 +1100,10 @@
       try {
         const parsed = JSON.parse(raw);
         const merged = Object.assign({}, DEFAULT_CONFIG, parsed);
-        merged.labels = Object.assign({}, DEFAULT_LABELS, parsed.labels || {});
+        // Bezeichnungen sind nicht mehr über die Konfiguration anpassbar –
+        // es gelten immer die offiziellen Kreis-Plön-Texte, unabhängig davon,
+        // was möglicherweise früher einmal individuell gespeichert wurde.
+        merged.labels = DEFAULT_LABELS;
         return merged;
       } catch (e) {
         return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
@@ -1043,31 +1118,6 @@
       const config = loadConfig();
       const count = config.childCount || 5;
       return config.children.slice(0, count).filter(n => n && n.trim() !== "");
-    }
-
-    // Ersetzt automatisch (einmalig) noch nicht angepasste, alte Standard-
-    // Legendentexte durch die offiziellen Kreis-Plön-Bezeichnungen. Wurde ein
-    // Text bereits individuell geändert (weicht vom alten Standard ab), bleibt
-    // er unangetastet.
-    function migrateLegendLabelsIfNeeded() {
-      const config = loadConfig();
-      const OLD_DEFAULTS = {
-        legendTextKK: "Krankmeldung",
-        legendTextKU: "Urlaub",
-        legendTextKFU: "Fortbildung",
-        legendTextKV: "Weiteres",
-        legendTextKFE: "(Neue Spalte)"
-      };
-      let changed = false;
-      Object.keys(OLD_DEFAULTS).forEach(function(key) {
-        if (config.labels[key] === OLD_DEFAULTS[key]) {
-          config.labels[key] = DEFAULT_LABELS[key];
-          changed = true;
-        }
-      });
-      if (changed) {
-        saveConfig(config);
-      }
     }
 
     // Überträgt die konfigurierten Bezeichnungen auf Tabellenüberschriften und Legende
@@ -1158,32 +1208,6 @@
       document.getElementById("workDayFr").checked = !!wd[5];
       document.getElementById("workDaySa").checked = !!wd[6];
 
-      const l = config.labels;
-      document.getElementById("labelColTag").value = l.colTag;
-      document.getElementById("labelColDatum").value = l.colDatum;
-      document.getElementById("labelColVon").value = l.colVon;
-      document.getElementById("labelColBis").value = l.colBis;
-      document.getElementById("labelColStunden").value = l.colStunden;
-      document.getElementById("labelColBemerkung").value = l.colBemerkung;
-      document.getElementById("labelColOM").value = l.colOM;
-      document.getElementById("labelColKK").value = l.colKK;
-      document.getElementById("labelColKU").value = l.colKU;
-      document.getElementById("labelColKFU").value = l.colKFU;
-      document.getElementById("labelColKV").value = l.colKV;
-      document.getElementById("labelColKFE").value = l.colKFE;
-      document.getElementById("labelLegendOM").value = l.legendOM;
-      document.getElementById("labelLegendTextOM").value = l.legendTextOM;
-      document.getElementById("labelLegendKK").value = l.legendKK;
-      document.getElementById("labelLegendTextKK").value = l.legendTextKK;
-      document.getElementById("labelLegendKU").value = l.legendKU;
-      document.getElementById("labelLegendTextKU").value = l.legendTextKU;
-      document.getElementById("labelLegendKFU").value = l.legendKFU;
-      document.getElementById("labelLegendTextKFU").value = l.legendTextKFU;
-      document.getElementById("labelLegendKV").value = l.legendKV;
-      document.getElementById("labelLegendTextKV").value = l.legendTextKV;
-      document.getElementById("labelLegendKFE").value = l.legendKFE;
-      document.getElementById("labelLegendTextKFE").value = l.legendTextKFE;
-
       document.getElementById("configModal").classList.add("open");
     }
 
@@ -1193,20 +1217,6 @@
 
     // Füllt nur die Legenden-Felder im Konfig-Modal mit den offiziellen
     // Kreis-Plön-Bezeichnungen (noch nicht gespeichert – dafür "Speichern" nutzen).
-    function resetLegendToOfficial() {
-      document.getElementById("labelLegendKK").value = DEFAULT_LABELS.legendKK;
-      document.getElementById("labelLegendTextKK").value = DEFAULT_LABELS.legendTextKK;
-      document.getElementById("labelLegendKU").value = DEFAULT_LABELS.legendKU;
-      document.getElementById("labelLegendTextKU").value = DEFAULT_LABELS.legendTextKU;
-      document.getElementById("labelLegendKFU").value = DEFAULT_LABELS.legendKFU;
-      document.getElementById("labelLegendTextKFU").value = DEFAULT_LABELS.legendTextKFU;
-      document.getElementById("labelLegendKV").value = DEFAULT_LABELS.legendKV;
-      document.getElementById("labelLegendTextKV").value = DEFAULT_LABELS.legendTextKV;
-      document.getElementById("labelLegendKFE").value = DEFAULT_LABELS.legendKFE;
-      document.getElementById("labelLegendTextKFE").value = DEFAULT_LABELS.legendTextKFE;
-      alert("Legende auf die Kreis-Plön-Vorlage zurückgesetzt. Bitte oben oder unten auf \"Speichern\" tippen, damit es übernommen wird.");
-    }
-
     function saveConfigFromModal() {
       const childCount = parseInt(document.getElementById("configChildCount").value) || 5;
       const children = [];
@@ -1218,39 +1228,12 @@
         alert("Bitte mindestens einen Namen eintragen.");
         return;
       }
-      const labels = {
-        colTag: document.getElementById("labelColTag").value || DEFAULT_LABELS.colTag,
-        colDatum: document.getElementById("labelColDatum").value || DEFAULT_LABELS.colDatum,
-        colVon: document.getElementById("labelColVon").value || DEFAULT_LABELS.colVon,
-        colBis: document.getElementById("labelColBis").value || DEFAULT_LABELS.colBis,
-        colStunden: document.getElementById("labelColStunden").value || DEFAULT_LABELS.colStunden,
-        colBemerkung: document.getElementById("labelColBemerkung").value || DEFAULT_LABELS.colBemerkung,
-        colOM: document.getElementById("labelColOM").value || DEFAULT_LABELS.colOM,
-        colKK: document.getElementById("labelColKK").value || DEFAULT_LABELS.colKK,
-        colKU: document.getElementById("labelColKU").value || DEFAULT_LABELS.colKU,
-        colKFU: document.getElementById("labelColKFU").value || DEFAULT_LABELS.colKFU,
-        colKV: document.getElementById("labelColKV").value || DEFAULT_LABELS.colKV,
-        colKFE: document.getElementById("labelColKFE").value || DEFAULT_LABELS.colKFE,
-        legendOM: document.getElementById("labelLegendOM").value || DEFAULT_LABELS.legendOM,
-        legendTextOM: document.getElementById("labelLegendTextOM").value || DEFAULT_LABELS.legendTextOM,
-        legendKK: document.getElementById("labelLegendKK").value || DEFAULT_LABELS.legendKK,
-        legendTextKK: document.getElementById("labelLegendTextKK").value || DEFAULT_LABELS.legendTextKK,
-        legendKU: document.getElementById("labelLegendKU").value || DEFAULT_LABELS.legendKU,
-        legendTextKU: document.getElementById("labelLegendTextKU").value || DEFAULT_LABELS.legendTextKU,
-        legendKFU: document.getElementById("labelLegendKFU").value || DEFAULT_LABELS.legendKFU,
-        legendTextKFU: document.getElementById("labelLegendTextKFU").value || DEFAULT_LABELS.legendTextKFU,
-        legendKV: document.getElementById("labelLegendKV").value || DEFAULT_LABELS.legendKV,
-        legendTextKV: document.getElementById("labelLegendTextKV").value || DEFAULT_LABELS.legendTextKV,
-        legendKFE: document.getElementById("labelLegendKFE").value || DEFAULT_LABELS.legendKFE,
-        legendTextKFE: document.getElementById("labelLegendTextKFE").value || DEFAULT_LABELS.legendTextKFE
-      };
       const config = {
         children: children,
         childCount: childCount,
         defaultStart: document.getElementById("configStart").value || DEFAULT_CONFIG.defaultStart,
         defaultEnd: document.getElementById("configEnd").value || DEFAULT_CONFIG.defaultEnd,
         mealPrice: parseFloat(document.getElementById("configPrice").value) || 0,
-        labels: labels,
         reportEmail: document.getElementById("configEmail").value.trim(),
         location: document.getElementById("configLocation").value.trim() || DEFAULT_CONFIG.location,
         workDays: [
@@ -2222,25 +2205,6 @@
       if (finishedMode === "monthlyClose") {
         maybeShowBackupReminder();
         openMonthlyCloseMailReminder();
-      } else if (finishedMode === "sequential") {
-        sequentialPrintIndex++;
-        const btn = document.getElementById("sequentialPrintBtn");
-        if (sequentialPrintIndex < sequentialPrintChildren.length) {
-          // WICHTIG: window.print() darf nur direkt aus einem Tastendruck heraus
-          // aufgerufen werden, sonst blockiert/verhält sich iOS unvorhersehbar.
-          // Deshalb hier NICHT automatisch weiterdrucken, sondern den Button
-          // umbeschriften – ein Antippen löst dann einen echten, direkten
-          // Tastendruck für das nächste Kind aus.
-          const nextChild = sequentialPrintChildren[sequentialPrintIndex];
-          btn.textContent = "▶️ Weiter: " + nextChild + " drucken (" +
-            (sequentialPrintIndex + 1) + "/" + sequentialPrintChildren.length + ")";
-          btn.onclick = function() { printCurrentSequentialChild(); };
-        } else {
-          sequentialPrintIndex = -1;
-          btn.textContent = "📑 Kinder einzeln als PDF (nacheinander)";
-          btn.onclick = function() { startSequentialChildPrint(); };
-          alert("Alle Kinder wurden nacheinander zum Sichern angeboten.");
-        }
       }
     });
 
@@ -2492,36 +2456,6 @@
       printViaMainDocument(html, title, "monthlyClose");
     }
 
-    // ============================================================
-    // KINDER EINZELN NACHEINANDER ALS PDF (automatisches Durchschalten)
-    // Jedes Kind bekommt eine eigene Datei. Hinweis: Das automatische
-    // Weiterschalten zum nächsten Kind erfolgt aus dem "afterprint"-Ereignis
-    // heraus (nicht aus einem direkten Tastendruck) – auf iPadOS kann es daher
-    // vorkommen, dass ab dem zweiten Kind kein Druckdialog mehr erscheint, weil
-    // Safari das als nicht direkt vom Nutzer ausgelöst wertet. Falls das
-    // auftritt, bitte den Button für jedes Kind einzeln erneut antippen.
-    // ============================================================
-    let sequentialPrintChildren = [];
-    let sequentialPrintIndex = -1;
-
-    function startSequentialChildPrint() {
-      sequentialPrintChildren = getActiveChildren();
-      if (sequentialPrintChildren.length === 0) {
-        alert("Bitte zuerst in der Konfiguration Kindernamen eintragen.");
-        return;
-      }
-      sequentialPrintIndex = 0;
-      printCurrentSequentialChild();
-    }
-
-    function printCurrentSequentialChild() {
-      const child = sequentialPrintChildren[sequentialPrintIndex];
-      const month = document.getElementById("closeMonth").value;
-      const year = document.getElementById("closeYear").value;
-      const title = "Anwesenheitsliste_" + child + "_" + month + "-" + year;
-      printViaMainDocument(buildPrintableChildHTML(child, month, year), title, "sequential");
-    }
-
     function openMonthlyCloseMailReminder() {
       const config = loadConfig();
       const email = (config.reportEmail || "").trim();
@@ -2730,7 +2664,6 @@
     }
 
     window.addEventListener('DOMContentLoaded', function(){
-      migrateLegendLabelsIfNeeded();
       document.getElementById("appVersionText").textContent = APP_VERSION;
       applyLabels();
       populateNameSelect();
