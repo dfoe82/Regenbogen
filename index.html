@@ -518,17 +518,6 @@
     @media print {
       .no-print { display: none !important; }
     }
-    /* Kleiner Hinweis-Banner, dass alles offline/lokal läuft */
-    #offlineNotice {
-      font-size: 0.8em;
-      color: var(--color-success);
-      background: var(--color-success-light);
-      border: 1px solid #b7e4c7;
-      padding: 6px 10px;
-      border-radius: 4px;
-      margin-bottom: 12px;
-      display: inline-block;
-    }
     /* Toolbar mit Konfiguration/Übersicht-Buttons */
     #toolbar {
       display: flex;
@@ -662,7 +651,6 @@
     .calendar-day.in-range.has-data::after {
       background: #fff;
     }
-    #overviewModeStandardBtn.active-mode, #overviewModeSmartBtn.active-mode,
     #classicSubmodeSingleBtn.active-mode, #classicSubmodeMultiBtn.active-mode {
       background: var(--color-primary);
       color: #fff;
@@ -853,12 +841,6 @@
 
     <div class="modal-row" style="justify-content:center;">
       <div class="segmented-control">
-        <button type="button" id="overviewModeStandardBtn" onclick="setOverviewMode('classic')">Standard</button>
-        <button type="button" id="overviewModeSmartBtn" onclick="setOverviewMode('smart')">✨ Smart</button>
-      </div>
-    </div>
-    <div id="classicSubmodeRow" class="modal-row" style="justify-content:center; display:none;">
-      <div class="segmented-control">
         <button type="button" id="classicSubmodeSingleBtn" onclick="setClassicSubmode('single')">Einzeltag</button>
         <button type="button" id="classicSubmodeMultiBtn" onclick="setClassicSubmode('multi')">Mehrtägig</button>
       </div>
@@ -902,34 +884,14 @@
       <div id="dateRangeFields">
         <div id="overviewCalendarGrid" class="calendar-grid" style="max-width:420px; margin:0 auto;"></div>
         <p style="font-size:0.75em; color:#555; text-align:center; margin-top:4px;">
-          Grau = kein Arbeitstag laut Konfiguration &nbsp;|&nbsp; <span style="color:#c00;">●</span> = für mindestens ein Kind bereits Einträge vorhanden.
-          <br>Ersten Tag antippen, für einen Zeitraum zusätzlich den letzten Tag antippen.
+          <span style="color:#c00;">●</span> = für mindestens ein Kind bereits Einträge vorhanden.
           <br><a href="#" onclick="resetCalendarSelection(); return false;">Auswahl zurücksetzen</a>
         </p>
       </div>
     </div>
 
-    <!-- ===== Smart-Modus (bestehende Variante: Auswahl + Übernehmen-Button) ===== -->
-    <div id="overviewSmartMode">
-      <div class="modal-row" style="justify-content:center;">
-        <label for="overviewStatus">Kindertagespflegeperson:</label>
-        <select id="overviewStatus"></select>
-      </div>
-      <hr style="max-width:600px; margin:16px auto;">
-      <p style="font-size:0.85em; color:#555; text-align:center;">
-        <strong>A</strong> = anwesend. "Kein Mittagessen" über das Dropdown auswählen.
-      </p>
-      <div id="overviewChildrenList" style="max-width:600px; margin:0 auto;">
-        <!-- Zeilen pro Kind werden per JS erzeugt -->
-      </div>
-
-      <div class="modal-actions" style="justify-content:center;">
-        <button type="button" class="btn-primary" onclick="applyOverviewSelections()">Übernehmen</button>
-      </div>
-    </div>
-
-    <!-- ===== Klassisch-Modus (Einzeltag oder Mehrtägig, direkte Bearbeitung wie auf der Kinder-Seite) ===== -->
-    <div id="overviewClassicMode" style="display:none;">
+    <!-- ===== Direkte Bearbeitung (Einzeltag oder Mehrtägig, wie auf der Kinder-Seite) ===== -->
+    <div id="overviewClassicMode">
       <div class="modal-row" style="justify-content:center;">
         <label for="classicStatus">Kindertagespflegeperson:</label>
         <select id="classicStatus" onchange="applyClassicStatus()"></select>
@@ -1050,10 +1012,7 @@
     <div class="progress-ring-text"><span id="progressRingCount">0/0</span></div>
   </div>
   <p id="progressCaption" class="no-print" style="text-align:center; font-size:0.8em; color:var(--color-text-muted); margin-top:-2px;">Arbeitstage erfasst</p>
-  <div class="no-print" style="text-align:center;">
-    <span id="offlineNotice">✅ Läuft komplett lokal auf diesem iPad – keine Internetverbindung nötig, alle Daten bleiben nur auf diesem Gerät gespeichert.</span>
-  </div>
-  
+
   <!-- Tabelle in einem scrollbaren Container -->
   <div class="table-container">
     <table id="attendanceTable">
@@ -1314,7 +1273,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.15.3";
+    const APP_VERSION = "1.16.3";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1459,7 +1418,12 @@
         alert("Bitte E-Mail und Passwort eingeben.");
         return;
       }
-      firebase.auth().signInWithEmailAndPassword(email, password)
+      // Anmeldung dauerhaft speichern (übersteht App-Neustarts), statt nur für
+      // die aktuelle Sitzung – verhindert wiederholtes Neu-Anmelden.
+      firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+        .then(function() {
+          return firebase.auth().signInWithEmailAndPassword(email, password);
+        })
         .then(function() {
           document.getElementById("fbPassword").value = "";
           refreshCloudSyncUI();
@@ -1912,120 +1876,6 @@
     // Erzeugt für einen Container die Auswahlzeilen für alle aktiven Kinder:
     // A/oM-Checkboxen immer, und (falls includeChildStatus=true) zusätzlich ein
     // Dropdown pro Kind mit den Werten der Tabellenspalten KK/KU/KFU/KV/KFE.
-    // idPrefix unterscheidet die Checkbox-/Select-IDs zwischen den verschiedenen
-    // Modals (z. B. "overview" oder "backfill"), damit sich mehrere Modals nicht
-    // in die Quere kommen.
-    function renderChildSelectionRows(containerId, idPrefix, includeChildStatus) {
-      const list = document.getElementById(containerId);
-      list.innerHTML = "";
-      const children = getActiveChildren();
-      if (children.length === 0) {
-        list.innerHTML = "<p>Bitte zuerst in der Konfiguration Kindernamen eintragen.</p>";
-        return;
-      }
-      const labels = loadConfig().labels;
-      children.forEach(name => {
-        const row = document.createElement("div");
-        row.className = "overview-child-row";
-
-        const header = document.createElement("div");
-        header.className = "overview-child-header";
-
-        const nameSpan = document.createElement("span");
-        nameSpan.className = "child-name";
-        nameSpan.textContent = name;
-        header.appendChild(nameSpan);
-
-        const optionsDiv = document.createElement("div");
-        optionsDiv.className = "overview-options";
-
-        const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
-
-        const labelA = document.createElement("label");
-        const cbA = document.createElement("input");
-        cbA.type = "checkbox";
-        cbA.id = idPrefix + "A_" + safeName;
-        cbA.dataset.child = name;
-        labelA.appendChild(cbA);
-        labelA.appendChild(document.createTextNode("A"));
-        optionsDiv.appendChild(labelA);
-
-        if (!includeChildStatus) {
-          // Klassische oM-Checkbox (nur falls kein Status-Dropdown verwendet wird)
-          const labelOM = document.createElement("label");
-          const cbOM = document.createElement("input");
-          cbOM.type = "checkbox";
-          cbOM.id = idPrefix + "OM_" + safeName;
-          cbOM.dataset.child = name;
-          cbA.addEventListener("change", function() { if (cbA.checked) cbOM.checked = false; });
-          cbOM.addEventListener("change", function() { if (cbOM.checked) cbA.checked = false; });
-          labelOM.appendChild(cbOM);
-          labelOM.appendChild(document.createTextNode("oM"));
-          optionsDiv.appendChild(labelOM);
-        }
-
-        header.appendChild(optionsDiv);
-        row.appendChild(header);
-
-        if (includeChildStatus) {
-          // Status-Dropdown: "kein Mittagessen" (oM) + die ausgeschriebenen
-          // Beschreibungen für KK/KU/KFU/KV/KFE. Die Auswahl wird beim
-          // Übernehmen direkt als Text in das Bemerkung-Feld geschrieben.
-          const extraRow = document.createElement("div");
-          extraRow.className = "overview-extra-row";
-
-          const statusSelect = document.createElement("select");
-          statusSelect.id = idPrefix + "Status_" + safeName;
-          const options = [
-            { value: "", text: "--" },
-            { value: "om", text: "kein Mittagessen" },
-            { value: "kk", text: labels.legendTextKK },
-            { value: "ku", text: labels.legendTextKU },
-            { value: "kfu", text: labels.legendTextKFU },
-            { value: "kv", text: labels.legendTextKV },
-            { value: "kfe", text: labels.legendTextKFE }
-          ];
-          options.forEach(o => {
-            const opt = document.createElement("option");
-            opt.value = o.value;
-            opt.textContent = o.text;
-            statusSelect.appendChild(opt);
-          });
-          extraRow.appendChild(statusSelect);
-          row.appendChild(extraRow);
-        }
-
-        list.appendChild(row);
-      });
-    }
-
-    // Liest die aktuell getroffene Auswahl aus einem per renderChildSelectionRows
-    // erzeugten Container aus. Gibt eine Liste von Kindern zurück, bei denen
-    // A angehakt oder (falls vorhanden) ein Status-Dropdown-Wert gewählt wurde.
-    function getChildSelections(idPrefix, includeChildStatus) {
-      const result = [];
-      getActiveChildren().forEach(name => {
-        const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
-        const cbA = document.getElementById(idPrefix + "A_" + safeName);
-        const wantsA = !!(cbA && cbA.checked);
-
-        let wantsOM = false;
-        let statusValue = "";
-        if (includeChildStatus) {
-          const statusSelect = document.getElementById(idPrefix + "Status_" + safeName);
-          statusValue = statusSelect ? statusSelect.value : "";
-        } else {
-          const cbOM = document.getElementById(idPrefix + "OM_" + safeName);
-          wantsOM = !!(cbOM && cbOM.checked);
-        }
-
-        if (wantsA || wantsOM || statusValue) {
-          result.push({ name: name, wantsA: wantsA, wantsOM: wantsOM, statusValue: statusValue });
-        }
-      });
-      return result;
-    }
-
     // Befüllt das zentrale Dropdown für die Kindertagespflegeperson – mit denselben
     // Werten wie die Tabellenspalte "Bemerkung" (--, geschlossen, Feiertag, Urlaub,
     // KTPP krank). Gilt für ALLE Kinder gemeinsam (z. B. wenn die Kindertagespflege-
@@ -2163,11 +2013,10 @@
     function onCalendarDayTap(day) {
       const fromSelect = document.getElementById("overviewFrom");
       const toSelect = document.getElementById("overviewTo");
-      const isClassicSingleDay = (localStorage.getItem("overviewMode") === "classic" &&
-        (localStorage.getItem("overviewClassicSubmode") || "single") === "single");
+      const isClassicSingleDay = ((localStorage.getItem("overviewClassicSubmode") || "single") === "single");
 
       if (isClassicSingleDay) {
-        // Im Klassisch-Einzeltag-Modus ist immer nur genau ein Tag wählbar
+        // Im Einzeltag-Modus ist immer nur genau ein Tag wählbar
         calendarRangeAnchor = null;
         fromSelect.value = day;
         toSelect.value = day;
@@ -2225,40 +2074,23 @@
       document.getElementById("overviewYear").value = today.getFullYear();
       populateOverviewDayOptions();
 
-      renderChildSelectionRows("overviewChildrenList", "overview", true);
-      populateBemerkungOptions("overviewStatus");
-      document.getElementById("overviewStatus").value = "";
       populateBemerkungOptions("classicStatus");
       document.getElementById("classicStatus").value = "";
 
-      // Zuletzt genutzten Modus wiederherstellen
-      setOverviewMode(localStorage.getItem("overviewMode") || "smart");
+      // Zuletzt genutzten Untermodus (Einzeltag/Mehrtägig) wiederherstellen
       setClassicSubmode(localStorage.getItem("overviewClassicSubmode") || "single");
     }
 
     // ============================================================
-    // MODUS-UMSCHALTUNG (Übersicht): "smart" (bisherige Variante) oder
-    // "classic" (Einzeltag/Mehrtägig, direkte Bearbeitung wie Kinder-Seite).
+    // MODUS-UMSCHALTUNG (Übersicht): "Einzeltag" oder "Mehrtägig" –
+    // direkte Bearbeitung wie auf der Kinder-Seite.
     // Die letzte Wahl wird für den nächsten Aufruf gemerkt.
     // ============================================================
-    function setOverviewMode(mode) {
-      localStorage.setItem("overviewMode", mode);
-      document.getElementById("overviewModeStandardBtn").classList.toggle("active-mode", mode === "classic");
-      document.getElementById("overviewModeSmartBtn").classList.toggle("active-mode", mode === "smart");
-      document.getElementById("classicSubmodeRow").style.display = (mode === "classic") ? "flex" : "none";
-      document.getElementById("overviewSmartMode").style.display = (mode === "smart") ? "block" : "none";
-      document.getElementById("overviewClassicMode").style.display = (mode === "classic") ? "block" : "none";
-      if (mode === "classic") renderClassicContent();
-    }
-
     function setClassicSubmode(submode) {
       localStorage.setItem("overviewClassicSubmode", submode);
       document.getElementById("classicSubmodeSingleBtn").classList.toggle("active-mode", submode === "single");
       document.getElementById("classicSubmodeMultiBtn").classList.toggle("active-mode", submode === "multi");
-      // Im "Mehrtägig"-Modus ist die Kalender-Auswahl ohne Bedeutung (es wird
-      // immer der ganze Monat gezeigt) -> ausblenden.
       const isSingle = (submode === "single");
-      document.getElementById("overviewCalendarToggleRow").style.display = isSingle ? "block" : "none";
       if (isSingle) {
         // Einen zuvor gewählten Zeitraum auf einen einzelnen Tag reduzieren
         const fromSelect = document.getElementById("overviewFrom");
@@ -2269,7 +2101,7 @@
           renderCalendarGrid();
         }
       }
-      if (document.getElementById("overviewClassicMode").style.display !== "none") renderClassicContent();
+      renderClassicContent();
     }
 
     // Baut den Inhalt des Klassisch-Modus passend zum aktuellen Untermodus neu auf.
@@ -2316,8 +2148,10 @@
           container.appendChild(buildClassicDayRow(name, month, year, day));
         });
       } else {
+        const fromDay = parseInt(document.getElementById("overviewFrom").value) || 1;
+        const toDay = parseInt(document.getElementById("overviewTo").value) || fromDay;
         children.forEach(function(name) {
-          container.appendChild(buildClassicMonthTable(name, month, year));
+          container.appendChild(buildClassicMonthTable(name, month, year, fromDay, toDay));
         });
       }
     }
@@ -2336,28 +2170,13 @@
       nameEl.textContent = childName;
       row.appendChild(nameEl);
 
-      const startInput = document.createElement("input");
-      startInput.type = "time";
-      startInput.value = rowData.start || "";
-      row.appendChild(startInput);
-
-      const endInput = document.createElement("input");
-      endInput.type = "time";
-      endInput.value = rowData.end || "";
-      row.appendChild(endInput);
-
-      const hoursSpan = document.createElement("span");
-      hoursSpan.style.fontSize = "0.85em"; hoursSpan.style.color = "var(--color-text-muted)";
-      hoursSpan.textContent = calculateHours(rowData.start, rowData.end) + " Std.";
-      row.appendChild(hoursSpan);
-
       const aLabel = document.createElement("label");
       aLabel.style.display = "flex"; aLabel.style.alignItems = "center"; aLabel.style.gap = "4px";
       const aCheckbox = document.createElement("input");
       aCheckbox.type = "checkbox";
       aCheckbox.checked = !!(rowData.start && rowData.end);
       aLabel.appendChild(aCheckbox);
-      aLabel.appendChild(document.createTextNode("A"));
+      aLabel.appendChild(document.createTextNode("anwesend"));
       row.appendChild(aLabel);
 
       const remarkSelect = document.createElement("select");
@@ -2372,12 +2191,16 @@
       function persist() {
         const st = loadChildState(childName, month, year);
         const r = st.table[idx];
-        r.start = startInput.value;
-        r.end = endInput.value;
+        if (aCheckbox.checked) {
+          const cfg = loadConfig();
+          if (!r.start) r.start = cfg.defaultStart;
+          if (!r.end) r.end = cfg.defaultEnd;
+        } else {
+          r.start = "";
+          r.end = "";
+        }
         r.remark = remarkSelect.value;
         saveChildState(childName, st);
-        hoursSpan.textContent = calculateHours(startInput.value, endInput.value) + " Std.";
-        aCheckbox.checked = !!(startInput.value && endInput.value);
         showSaveToast();
         // Falls die Kinder-Seite gerade dasselbe Kind/denselben Monat zeigt, aktualisieren
         if (document.getElementById("nameSelect").value === childName &&
@@ -2387,26 +2210,14 @@
         }
       }
 
-      aCheckbox.addEventListener('change', function() {
-        if (aCheckbox.checked) {
-          const cfg = loadConfig();
-          if (!startInput.value) startInput.value = cfg.defaultStart;
-          if (!endInput.value) endInput.value = cfg.defaultEnd;
-        } else {
-          startInput.value = "";
-          endInput.value = "";
-        }
-        persist();
-      });
-      startInput.addEventListener('change', persist);
-      endInput.addEventListener('change', persist);
+      aCheckbox.addEventListener('change', persist);
       remarkSelect.addEventListener('change', persist);
 
       return row;
     }
 
     // --- Mehrtägig: komplette Monatstabelle pro Kind (wie Kinder-Seite) ---
-    function buildClassicMonthTable(childName, month, year) {
+    function buildClassicMonthTable(childName, month, year, fromDay, toDay) {
       const wrapper = document.createElement("div");
       wrapper.className = "classic-month-block";
       const heading = document.createElement("h3");
@@ -2415,6 +2226,8 @@
 
       const state = loadChildState(childName, month, year);
       const daysInMonth = new Date(year, month, 0).getDate();
+      const startDay = Math.max(1, fromDay || 1);
+      const endDay = Math.min(daysInMonth, toDay || daysInMonth);
       const weekDays = ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."];
 
       const table = document.createElement("table");
@@ -2422,7 +2235,7 @@
       table.innerHTML = "<thead><tr><th>Tag</th><th>Datum</th><th>von</th><th>bis</th><th>Std.</th><th>A</th><th style='text-align:left;'>Bemerkung</th></tr></thead>";
       const tbody = document.createElement("tbody");
 
-      for (let day = 1; day <= daysInMonth; day++) {
+      for (let day = startDay; day <= endDay; day++) {
         const idx = day - 1;
         const rowData = state.table[idx] || { start: "", end: "", remark: "" };
         const tr = document.createElement("tr");
@@ -2511,99 +2324,6 @@
       return wrapper;
     }
 
-    // Trägt A/oM, den individuellen KK/KU/KFU/KV/KFE-Status je Kind sowie die
-    // zentrale Bemerkung für die Kindertagespflegeperson für jeden Tag im
-    // gewählten Zeitraum ein (heute oder auch ein zurückliegender Zeitraum).
-    function applyOverviewSelections() {
-      try {
-        applyOverviewSelectionsInner();
-      } catch (e) {
-        alert("Fehler beim Übernehmen (bitte diesen Text an den Entwickler schicken):\n" + e.message);
-        console.error(e);
-      }
-    }
-
-    function applyOverviewSelectionsInner() {
-      const config = loadConfig();
-      const labels = config.labels;
-      const month = document.getElementById("overviewMonth").value;
-      const year = document.getElementById("overviewYear").value;
-      let fromDay = parseInt(document.getElementById("overviewFrom").value);
-      let toDay = parseInt(document.getElementById("overviewTo").value);
-      if (fromDay > toDay) { const tmp = fromDay; fromDay = toDay; toDay = tmp; }
-
-      const remarkValue = document.getElementById("overviewStatus").value;
-      const selections = getChildSelections("overview", true);
-
-      if (selections.length === 0 && !remarkValue) {
-        alert("Bitte für mindestens ein Kind A/kein Mittagessen oder einen Status auswählen, oder eine Bemerkung für die Kindertagespflegeperson wählen.");
-        return;
-      }
-
-      const statusTextByValue = {
-        kk: labels.legendTextKK,
-        ku: labels.legendTextKU,
-        kfu: labels.legendTextKFU,
-        kv: labels.legendTextKV,
-        kfe: labels.legendTextKFE,
-        om: "kein Mittagessen"
-      };
-
-      let appliedAnyDay = false;
-      const isSingleDay = (fromDay === toDay);
-      if (isSingleDay && !isWorkDay(year, month, fromDay)) {
-        const proceed = confirm("Der gewählte Tag ist laut Konfiguration kein Arbeitstag. Trotzdem übernehmen?");
-        if (!proceed) return;
-      }
-      for (let day = fromDay; day <= toDay; day++) {
-        const dayIsWorkDay = isWorkDay(year, month, day);
-        if (!dayIsWorkDay && !(isSingleDay && day === fromDay)) continue; // im Zeitraum: kein Arbeitstag -> überspringen
-        appliedAnyDay = true;
-        const idx = day - 1;
-
-        selections.forEach(({ name, wantsA, statusValue }) => {
-          const state = loadChildState(name, month, year);
-          const row = state.table[idx];
-          if (!row) return;
-          const noMeal = statusValue === "om";
-          if (wantsA || noMeal) {
-            row.start = config.defaultStart;
-            row.end = config.defaultEnd;
-            row.m = noMeal;
-          }
-          if (statusValue && statusTextByValue[statusValue]) {
-            row.remark = statusTextByValue[statusValue];
-          }
-          saveChildState(name, state);
-        });
-
-        if (remarkValue) {
-          getActiveChildren().forEach(name => {
-            const state = loadChildState(name, month, year);
-            const row = state.table[idx];
-            if (!row) return;
-            row.remark = remarkValue;
-            saveChildState(name, state);
-          });
-        }
-      }
-
-      if (!appliedAnyDay) {
-        alert("Im gewählten Zeitraum ist laut Konfiguration kein Arbeitstag enthalten – es wurde nichts übernommen.");
-        return;
-      }
-
-      // Seite zurücksetzen (heutiger Tag, leere Auswahl) für den nächsten Eintrag
-      initOverviewPage();
-
-      // Kinder-Seite immer auf den gerade bearbeiteten Monat/Jahr umschalten,
-      // damit der soeben übernommene Eintrag sofort sichtbar ist (unabhängig
-      // davon, welcher Monat dort vorher zufällig eingestellt war).
-      document.getElementById("monthSelect").value = month;
-      document.getElementById("yearSelect").value = year;
-      resetAndLoadCurrentChild();
-      alert("Übersicht wurde übernommen und auf die jeweiligen Kinder-Seiten übertragen.");
-    }
 
     // ============================================================
     // PRO-KIND-DATENSPEICHERUNG (jedes Kind hat einen eigenen Datensatz JE MONAT)
@@ -3126,8 +2846,7 @@
       const finishedMode = printMode;
       printMode = null;
       if (finishedMode === "monthlyClose") {
-        maybeShowBackupReminder();
-        openMonthlyCloseMailReminder();
+        triggerMonthlyCloseRemindersOnce();
       }
     });
 
@@ -3365,6 +3084,20 @@
       showPage("pageKinder");
     }
 
+    // Sorgt dafür, dass Backup-Erinnerung + E-Mail-Erinnerung nach einem
+    // Monatsabschluss garantiert genau einmal ausgelöst werden – normalerweise
+    // sobald man zur App zurückkehrt ("focus"), als Sicherheitsnetz zusätzlich
+    // über einen Timer, falls dieses Ereignis auf manchen Geräten ausbleibt.
+    let monthlyCloseReminderPending = false;
+    let monthlyCloseReminderFired = false;
+    function triggerMonthlyCloseRemindersOnce() {
+      if (!monthlyCloseReminderPending || monthlyCloseReminderFired) return;
+      monthlyCloseReminderFired = true;
+      monthlyCloseReminderPending = false;
+      maybeShowBackupReminder();
+      openMonthlyCloseMailReminder();
+    }
+
     function performMonthlyClose() {
       const month = document.getElementById("closeMonth").value;
       const year = document.getElementById("closeYear").value;
@@ -3376,7 +3109,13 @@
       const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
       const title = "Anwesenheitsliste_" + monthName + "_" + year;
       const html = children.map(name => buildPrintableChildHTML(name, month, year)).join("");
+      monthlyCloseReminderPending = true;
+      monthlyCloseReminderFired = false;
       printViaMainDocument(html, title, "monthlyClose");
+      // Sicherheitsnetz: falls "focus" (Rückkehr zur App) auf diesem Gerät nicht
+      // zuverlässig auslöst, wird die Erinnerung spätestens nach 6 Sekunden
+      // trotzdem gezeigt.
+      setTimeout(triggerMonthlyCloseRemindersOnce, 6000);
     }
 
     function openMonthlyCloseMailReminder() {
