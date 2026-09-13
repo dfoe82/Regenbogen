@@ -585,6 +585,53 @@
       color: #fff;
       border-color: var(--color-primary);
     }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .calendar-weekday {
+      font-size: 0.7em;
+      color: var(--color-text-muted);
+      text-align: center;
+      font-weight: bold;
+    }
+    .calendar-day {
+      padding: 8px 0;
+      text-align: center;
+      border-radius: 6px;
+      background: var(--color-bg);
+      cursor: pointer;
+      position: relative;
+      font-size: 0.9em;
+    }
+    .calendar-day.empty {
+      visibility: hidden;
+      cursor: default;
+    }
+    .calendar-day.non-work {
+      color: #b5b5b5;
+      background: #f8f8f8;
+    }
+    .calendar-day.in-range {
+      background: var(--color-primary);
+      color: #fff;
+    }
+    .calendar-day.has-data::after {
+      content: "";
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #c00;
+    }
+    .calendar-day.in-range.has-data::after {
+      background: #fff;
+    }
     #overviewModeStandardBtn.active-mode, #overviewModeSmartBtn.active-mode,
     #classicSubmodeSingleBtn.active-mode, #classicSubmodeMultiBtn.active-mode {
       background: var(--color-primary);
@@ -785,26 +832,27 @@
     <select id="overviewFrom" style="display:none;"></select>
     <select id="overviewTo" style="display:none;"></select>
 
-    <div id="dateRangeFields" class="modal-row" style="justify-content:center; display:none;">
-      <label for="overviewFromDate">Von:</label>
-      <input type="date" id="overviewFromDate">
-      <label for="overviewToDate">Bis:</label>
-      <input type="date" id="overviewToDate">
+    <div id="dateRangeFields" style="display:none;">
+      <div id="overviewCalendarGrid" class="calendar-grid" style="max-width:420px; margin:0 auto;"></div>
+      <p style="font-size:0.75em; color:#555; text-align:center; margin-top:4px;">
+        Grau = kein Arbeitstag laut Konfiguration &nbsp;|&nbsp; <span style="color:#c00;">●</span> = für mindestens ein Kind bereits Einträge vorhanden.
+        <br>Ersten Tag antippen, für einen Zeitraum zusätzlich den letzten Tag antippen.
+        <br><a href="#" onclick="resetCalendarSelection(); return false;">Auswahl zurücksetzen</a>
+      </p>
     </div>
 
     <!-- ===== Smart-Modus (bestehende Variante: Auswahl + Übernehmen-Button) ===== -->
     <div id="overviewSmartMode">
+      <div class="modal-row" style="justify-content:center;">
+        <label for="overviewStatus">Kindertagespflegeperson:</label>
+        <select id="overviewStatus"></select>
+      </div>
+      <hr style="max-width:600px; margin:16px auto;">
       <p style="font-size:0.85em; color:#555; text-align:center;">
         <strong>A</strong> = anwesend. "Kein Mittagessen" über das Dropdown auswählen.
       </p>
       <div id="overviewChildrenList" style="max-width:600px; margin:0 auto;">
         <!-- Zeilen pro Kind werden per JS erzeugt -->
-      </div>
-
-      <hr style="max-width:600px; margin:16px auto;">
-      <div class="modal-row" style="justify-content:center;">
-        <label for="overviewStatus">Kindertagespflegeperson:</label>
-        <select id="overviewStatus"></select>
       </div>
 
       <div class="modal-actions" style="justify-content:center;">
@@ -814,6 +862,11 @@
 
     <!-- ===== Klassisch-Modus (Einzeltag oder Mehrtägig, direkte Bearbeitung wie auf der Kinder-Seite) ===== -->
     <div id="overviewClassicMode" style="display:none;">
+      <div class="modal-row" style="justify-content:center;">
+        <label for="classicStatus">Kindertagespflegeperson:</label>
+        <select id="classicStatus" onchange="applyClassicStatus()"></select>
+      </div>
+      <hr style="max-width:600px; margin:16px auto;">
       <div id="classicContent"></div>
     </div>
   </div>
@@ -1186,7 +1239,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.9.1";
+    const APP_VERSION = "1.11.1";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1965,7 +2018,8 @@
         fromSelect.value = (prevFrom <= daysInMonth) ? prevFrom : 1;
         toSelect.value = (prevTo <= daysInMonth) ? prevTo : daysInMonth;
       }
-      updateDateFieldsFromSelection();
+      calendarRangeAnchor = null;
+      renderCalendarGrid();
       refreshClassicIfActive();
     }
 
@@ -1978,77 +2032,116 @@
 
     // ============================================================
     // ZEITRAUM-AUSWAHL (Übersicht): "Von"/"Bis" bleiben standardmäßig verborgen
-    // (Auswahl = heute) und werden erst nach Antippen von "🗓️ Kalender" sichtbar.
+    // (Auswahl = heute) und werden erst nach Antippen von "🗓️ Kalender" als
+    // Kalenderraster sichtbar. Erster Tipp wählt einen Einzeltag, ein zweiter
+    // Tipp auf einen anderen Tag erweitert die Auswahl zu einem Zeitraum.
     // ============================================================
-    // Baut aus Monat/Jahr + Tag ein Datum im Format YYYY-MM-DD (für <input type="date">)
-    function buildIsoDate(year, month, day) {
-      return year + "-" + String(month).padStart(2, "0") + "-" + String(day).padStart(2, "0");
-    }
+    let calendarRangeAnchor = null;
 
     function toggleCalendarFields() {
       const fields = document.getElementById("dateRangeFields");
       const isHidden = (fields.style.display === "none" || fields.style.display === "");
-      fields.style.display = isHidden ? "flex" : "none";
+      fields.style.display = isHidden ? "block" : "none";
       document.getElementById("calendarToggleBtn").classList.toggle("active-mode", isHidden);
-      if (isHidden) updateDateFieldsFromSelection();
+      if (isHidden) renderCalendarGrid();
     }
 
-    function updateDateFieldsFromSelection() {
-      const month = parseInt(document.getElementById("overviewMonth").value);
-      const year = parseInt(document.getElementById("overviewYear").value);
-      const daysInMonth = new Date(year, month, 0).getDate();
+    // Aktualisiert die "Tag:"-Anzeige über dem Kalender-Button
+    function updateDayDisplay() {
       const fromDay = parseInt(document.getElementById("overviewFrom").value);
       const toDay = parseInt(document.getElementById("overviewTo").value);
-      const minDate = buildIsoDate(year, month, 1);
-      const maxDate = buildIsoDate(year, month, daysInMonth);
-      const fromInput = document.getElementById("overviewFromDate");
-      const toInput = document.getElementById("overviewToDate");
-      fromInput.min = minDate; fromInput.max = maxDate;
-      toInput.min = minDate; toInput.max = maxDate;
-      fromInput.value = buildIsoDate(year, month, fromDay);
-      toInput.value = buildIsoDate(year, month, toDay);
-
-      // Gut sichtbare Anzeige, für welchen Tag (bzw. Zeitraum) man gerade Einträge setzt
       const dayDisplay = document.getElementById("overviewDayDisplay");
       if (dayDisplay) {
         dayDisplay.textContent = (fromDay === toDay) ? (fromDay + ".") : (fromDay + ". – " + toDay + ".");
       }
     }
 
-    // Wenn im Datumsfeld ein anderer Monat/Jahr gewählt wird, werden die
-    // Monat/Jahr-Auswahlfelder oben mit übernommen (bleibt konsistent für
-    // applyOverviewSelections()).
-    function onDateFieldChanged() {
-      const fromVal = document.getElementById("overviewFromDate").value;
-      const toVal = document.getElementById("overviewToDate").value;
-      if (!fromVal || !toVal) return;
-      const fromParts = fromVal.split("-");
-      const toParts = toVal.split("-");
-      // Bei unterschiedlichem Monat/Jahr gilt der Monat/Jahr des "Von"-Datums;
-      // das "Bis"-Datum wird auf das Monatsende dieses Monats begrenzt.
-      const year = parseInt(fromParts[0]);
-      const month = parseInt(fromParts[1]);
-      document.getElementById("overviewMonth").value = month;
-      document.getElementById("overviewYear").value = year;
-      const daysInMonth = new Date(year, month, 0).getDate();
-      let fromDay = parseInt(fromParts[2]);
-      let toDay = (parseInt(toParts[0]) === year && parseInt(toParts[1]) === month)
-        ? parseInt(toParts[2]) : daysInMonth;
-      if (fromDay > toDay) { const tmp = fromDay; fromDay = toDay; toDay = tmp; }
+    // Prüft, ob für den angegebenen Tag bei mindestens einem Kind bereits
+    // Uhrzeiten oder eine Bemerkung eingetragen sind (für den kleinen roten Punkt).
+    function dayHasAnyData(dayIndex, month, year) {
+      const children = getActiveChildren();
+      for (let i = 0; i < children.length; i++) {
+        const state = loadChildState(children[i], month, year);
+        const row = state.table[dayIndex];
+        if (row && (row.start || row.end || row.remark)) return true;
+      }
+      return false;
+    }
 
-      // Von/Bis-Auswahlfelder (intern) neu befüllen, ohne die Datumsfelder erneut zu überschreiben
+    function renderCalendarGrid() {
+      const grid = document.getElementById("overviewCalendarGrid");
+      if (!grid) return;
+      const month = parseInt(document.getElementById("overviewMonth").value);
+      const year = parseInt(document.getElementById("overviewYear").value);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const fromDay = parseInt(document.getElementById("overviewFrom").value);
+      const toDay = parseInt(document.getElementById("overviewTo").value);
+      const firstWeekday = new Date(year, month - 1, 1).getDay(); // 0=So
+      const leadingBlanks = (firstWeekday === 0) ? 6 : firstWeekday - 1; // Woche beginnt mit Montag
+
+      grid.innerHTML = "";
+      ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].forEach(function(wd) {
+        const cell = document.createElement("div");
+        cell.className = "calendar-weekday";
+        cell.textContent = wd;
+        grid.appendChild(cell);
+      });
+      for (let i = 0; i < leadingBlanks; i++) {
+        const cell = document.createElement("div");
+        cell.className = "calendar-day empty";
+        grid.appendChild(cell);
+      }
+      for (let d = 1; d <= daysInMonth; d++) {
+        const cell = document.createElement("div");
+        cell.className = "calendar-day";
+        cell.textContent = d;
+        if (!isWorkDay(year, month, d)) cell.classList.add("non-work");
+        if (d >= fromDay && d <= toDay) cell.classList.add("in-range");
+        if (dayHasAnyData(d - 1, month, year)) cell.classList.add("has-data");
+        cell.addEventListener("click", function() { onCalendarDayTap(d); });
+        grid.appendChild(cell);
+      }
+      updateDayDisplay();
+    }
+
+    function onCalendarDayTap(day) {
       const fromSelect = document.getElementById("overviewFrom");
       const toSelect = document.getElementById("overviewTo");
-      fromSelect.innerHTML = ""; toSelect.innerHTML = "";
-      for (let d = 1; d <= daysInMonth; d++) {
-        const opt1 = document.createElement("option"); opt1.value = d; opt1.textContent = d; fromSelect.appendChild(opt1);
-        const opt2 = document.createElement("option"); opt2.value = d; opt2.textContent = d; toSelect.appendChild(opt2);
+      const isClassicSingleDay = (localStorage.getItem("overviewMode") === "classic" &&
+        (localStorage.getItem("overviewClassicSubmode") || "single") === "single");
+
+      if (isClassicSingleDay) {
+        // Im Klassisch-Einzeltag-Modus ist immer nur genau ein Tag wählbar
+        calendarRangeAnchor = null;
+        fromSelect.value = day;
+        toSelect.value = day;
+      } else if (calendarRangeAnchor === null) {
+        calendarRangeAnchor = day;
+        fromSelect.value = day;
+        toSelect.value = day;
+      } else {
+        fromSelect.value = Math.min(calendarRangeAnchor, day);
+        toSelect.value = Math.max(calendarRangeAnchor, day);
+        calendarRangeAnchor = null; // nächster Tipp beginnt eine neue Auswahl
       }
-      fromSelect.value = fromDay;
-      toSelect.value = toDay;
-      updateDateFieldsFromSelection();
+      renderCalendarGrid();
       refreshClassicIfActive();
     }
+
+    // Setzt die Kalenderauswahl zurück, um einen neuen einzelnen Tag anzutippen
+    function resetCalendarSelection() {
+      calendarRangeAnchor = null;
+      const today = new Date();
+      const month = parseInt(document.getElementById("overviewMonth").value);
+      const year = parseInt(document.getElementById("overviewYear").value);
+      const isCurrentMonth = (today.getFullYear() === year && (today.getMonth() + 1) === month);
+      const day = isCurrentMonth ? today.getDate() : 1;
+      document.getElementById("overviewFrom").value = day;
+      document.getElementById("overviewTo").value = day;
+      renderCalendarGrid();
+      refreshClassicIfActive();
+    }
+
 
     // Öffnet die Übersicht immer mit dem heutigen Tag (Monat/Jahr/Von/Bis = heute).
     // Monat/Jahr können danach frei geändert werden, um einen anderen Zeitraum
@@ -2065,6 +2158,8 @@
       renderChildSelectionRows("overviewChildrenList", "overview", true);
       populateBemerkungOptions("overviewStatus");
       document.getElementById("overviewStatus").value = "";
+      populateBemerkungOptions("classicStatus");
+      document.getElementById("classicStatus").value = "";
 
       // Zuletzt genutzten Modus wiederherstellen
       setOverviewMode(localStorage.getItem("overviewMode") || "smart");
@@ -2095,11 +2190,48 @@
       const isSingle = (submode === "single");
       document.getElementById("overviewDayRow").style.display = isSingle ? "flex" : "none";
       document.getElementById("overviewCalendarToggleRow").style.display = isSingle ? "flex" : "none";
-      if (!isSingle) document.getElementById("dateRangeFields").style.display = "none";
+      if (!isSingle) {
+        document.getElementById("dateRangeFields").style.display = "none";
+      } else {
+        // Einen zuvor gewählten Zeitraum auf einen einzelnen Tag reduzieren
+        const fromSelect = document.getElementById("overviewFrom");
+        const toSelect = document.getElementById("overviewTo");
+        if (fromSelect.value !== toSelect.value) {
+          toSelect.value = fromSelect.value;
+          calendarRangeAnchor = null;
+          updateDayDisplay();
+        }
+      }
       if (document.getElementById("overviewClassicMode").style.display !== "none") renderClassicContent();
     }
 
     // Baut den Inhalt des Klassisch-Modus passend zum aktuellen Untermodus neu auf.
+    // Trägt die gewählte Kindertagespflegeperson-Bemerkung (z. B. "geschlossen")
+    // sofort für ALLE aktiven Kinder am aktuell gewählten Tag (Von-Tag) ein –
+    // gilt für beide Klassisch-Untermodi (Einzeltag/Mehrtägig) gleichermaßen.
+    function applyClassicStatus() {
+      const remarkValue = document.getElementById("classicStatus").value;
+      if (!remarkValue) return;
+      const month = parseInt(document.getElementById("overviewMonth").value);
+      const year = parseInt(document.getElementById("overviewYear").value);
+      const day = parseInt(document.getElementById("overviewFrom").value) || new Date().getDate();
+      const idx = day - 1;
+      getActiveChildren().forEach(function(name) {
+        const state = loadChildState(name, month, year);
+        const row = state.table[idx];
+        if (!row) return;
+        row.remark = remarkValue;
+        saveChildState(name, state);
+      });
+      document.getElementById("classicStatus").value = "";
+      showSaveToast();
+      renderClassicContent();
+      if (parseInt(document.getElementById("monthSelect").value) === month &&
+          parseInt(document.getElementById("yearSelect").value) === year) {
+        resetAndLoadCurrentChild();
+      }
+    }
+
     function renderClassicContent() {
       const submode = localStorage.getItem("overviewClassicSubmode") || "single";
       const container = document.getElementById("classicContent");
@@ -3416,8 +3548,6 @@
       document.getElementById("ctpInput").addEventListener('change', saveTableState);
       document.getElementById("overviewMonth").addEventListener('change', populateOverviewDayOptions);
       document.getElementById("overviewYear").addEventListener('change', populateOverviewDayOptions);
-      document.getElementById("overviewFromDate").addEventListener('change', onDateFieldChanged);
-      document.getElementById("overviewToDate").addEventListener('change', onDateFieldChanged);
       document.getElementById("closeMonth").addEventListener('change', refreshMonthClosedCheckbox);
       document.getElementById("closeYear").addEventListener('change', refreshMonthClosedCheckbox);
       initSignaturePad("signature1");
