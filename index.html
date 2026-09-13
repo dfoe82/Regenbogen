@@ -672,7 +672,6 @@
       style="display:none; font-size:1.4em; text-align:center; width:180px; letter-spacing:4px;">
     <button type="button" class="btn-primary" id="pinActionBtn" onclick="checkPin()">Entsperren</button>
     <p id="pinError" style="color:var(--color-danger); display:none; margin:0;">Falscher PIN, bitte erneut versuchen.</p>
-    <button type="button" onclick="skipPinSetup()" id="pinSkipBtn" style="display:none; font-size:0.8em; box-shadow:none; border:none; background:none; color:var(--color-text-muted); text-decoration:underline;">Ohne PIN fortfahren</button>
   </div>
 
   <!-- Toolbar -->
@@ -714,6 +713,9 @@
         <option value="2029">2029</option>
         <option value="2030">2030</option>
       </select>
+    </div>
+    <div class="modal-row" style="justify-content:center;">
+      <strong>Tag:</strong> <span id="overviewDayDisplay" style="font-weight:bold; color:var(--color-primary);">–</span>
     </div>
     <div class="modal-row" style="justify-content:center;">
       <button type="button" id="calendarToggleBtn" onclick="toggleCalendarFields()">🗓️ Kalender</button>
@@ -1050,9 +1052,13 @@
 
       <div id="cloudSyncBox" style="display:none; margin-top:10px;">
         <p style="font-size:0.8em; color:var(--color-success);" id="cloudAuthStatus"></p>
+        <p style="font-size:0.8em; color:#555;">
+          Änderungen werden jetzt automatisch synchronisiert – auf beiden Geräten angemeldet lassen,
+          dann läuft es im Hintergrund. Die Buttons unten sind nur für den Fall, dass es mal manuell angestoßen werden soll.
+        </p>
         <div class="modal-row">
-          <button type="button" class="btn-primary" onclick="uploadToCloud()">⬆️ In Cloud hochladen</button>
-          <button type="button" onclick="downloadFromCloud()">⬇️ Aus Cloud herunterladen</button>
+          <button type="button" onclick="uploadToCloud()">⬆️ Jetzt manuell hochladen</button>
+          <button type="button" onclick="downloadFromCloud()">⬇️ Jetzt manuell herunterladen</button>
         </div>
         <p style="font-size:0.8em; color:#a00;">
           Achtung: "Herunterladen" überschreibt alle aktuell auf diesem Gerät gespeicherten Daten mit dem Cloud-Stand.
@@ -1110,7 +1116,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.6.0";
+    const APP_VERSION = "1.7.3";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1124,18 +1130,8 @@
       const hasPin = !!getLocalPin();
       document.getElementById("pinSetupHint").style.display = hasPin ? "none" : "block";
       document.getElementById("pinConfirmInput").style.display = hasPin ? "none" : "block";
-      document.getElementById("pinSkipBtn").style.display = hasPin ? "none" : "inline";
       document.getElementById("pinScreenTitle").textContent = hasPin ? "Zugang" : "PIN festlegen";
       document.getElementById("pinInput").placeholder = hasPin ? "PIN eingeben" : "Neuen PIN eingeben";
-    }
-
-    function skipPinSetup() {
-      // Merkt sich, dass bewusst kein PIN gewünscht ist, damit nicht bei jedem
-      // Start erneut zur Einrichtung aufgefordert wird.
-      localStorage.setItem("localAccessPin", "");
-      localStorage.setItem("pinSetupSkipped", "1");
-      sessionStorage.setItem("pinUnlocked", "1");
-      document.getElementById("pinLockOverlay").style.display = "none";
     }
 
     function checkPin() {
@@ -1157,20 +1153,49 @@
           return;
         }
         localStorage.setItem("localAccessPin", entered);
-        sessionStorage.setItem("pinUnlocked", "1");
         document.getElementById("pinLockOverlay").style.display = "none";
+        onPinUnlocked();
         return;
       }
 
       // Normaler Entsperr-Modus
       if (entered === getLocalPin()) {
-        sessionStorage.setItem("pinUnlocked", "1");
         document.getElementById("pinLockOverlay").style.display = "none";
+        onPinUnlocked();
       } else {
         document.getElementById("pinError").textContent = "Falscher PIN, bitte erneut versuchen.";
         document.getElementById("pinError").style.display = "block";
         document.getElementById("pinInput").value = "";
         document.getElementById("pinInput").focus();
+      }
+    }
+
+    // ------------------- Automatischer Download direkt nach PIN-Eingabe -------------------
+    // Der Anmeldestatus bei Firebase ist beim Laden der Seite u. U. noch nicht
+    // sofort bekannt (das klärt sich erst kurz danach asynchron). Diese beiden
+    // Merker sorgen dafür, dass der Download unabhängig davon ausgelöst wird,
+    // ob der Anmeldestatus vor oder nach der PIN-Eingabe feststeht.
+    let pinWasUnlocked = false;
+    let authStateKnown = false;
+    let authStateUser = null;
+    let autoDownloadDone = false;
+
+    function onPinUnlocked() {
+      pinWasUnlocked = true;
+      tryAutoDownloadAfterUnlock();
+    }
+
+    function onAuthStateResolved(user) {
+      authStateKnown = true;
+      authStateUser = user;
+      tryAutoDownloadAfterUnlock();
+    }
+
+    function tryAutoDownloadAfterUnlock() {
+      if (autoDownloadDone || !pinWasUnlocked || !authStateKnown) return;
+      autoDownloadDone = true;
+      if (authStateUser) {
+        downloadFromCloud(true);
       }
     }
 
@@ -1240,6 +1265,7 @@
         .then(function() {
           document.getElementById("fbPassword").value = "";
           refreshCloudSyncUI();
+          startCloudListener();
         })
         .catch(function(e) {
           alert("Anmeldung fehlgeschlagen: " + e.message);
@@ -1248,11 +1274,12 @@
 
     function cloudSignOut() {
       if (!getFirestoreDb()) return;
+      stopCloudListener();
       firebase.auth().signOut().then(refreshCloudSyncUI);
     }
 
     // Zeigt je nach Anmeldestatus die passenden Bedienelemente in der
-    // Konfiguration an (Login-Formular vs. Hochladen/Herunterladen-Buttons).
+    // Konfiguration an (Login-Formular vs. Sync-Status/Buttons).
     function refreshCloudSyncUI() {
       const loginBox = document.getElementById("cloudLoginBox");
       const syncBox = document.getElementById("cloudSyncBox");
@@ -1262,12 +1289,57 @@
       if (user) {
         loginBox.style.display = "none";
         syncBox.style.display = "block";
-        statusText.textContent = "Angemeldet als " + user.email;
+        statusText.textContent = "🔄 Automatisch synchronisiert (angemeldet als " + user.email + ")";
       } else {
         loginBox.style.display = "block";
         syncBox.style.display = "none";
       }
     }
+
+    // ------------------- Automatische Synchronisierung -------------------
+    // Statt manuell "Hochladen"/"Herunterladen" zu tippen: Änderungen werden
+    // automatisch (mit kurzer Verzögerung, um nicht bei jedem Tastendruck zu
+    // senden) hochgeladen, und Änderungen von anderen Geräten kommen live an
+    // (Firestore-Echtzeit-Listener).
+    let autoUploadTimer = null;
+    function queueAutoUpload() {
+      const db = getFirestoreDb();
+      if (!db || !firebase.auth().currentUser) return; // nicht eingerichtet/angemeldet -> nichts tun
+      clearTimeout(autoUploadTimer);
+      autoUploadTimer = setTimeout(function() {
+        const data = collectAllDataForExport();
+        db.collection("attendanceApp").doc("sharedData").set(data)
+          .catch(function(e) { console.error("Automatisches Hochladen fehlgeschlagen:", e); });
+      }, 2000);
+    }
+
+    let cloudListenerUnsubscribe = null;
+    function startCloudListener() {
+      const db = getFirestoreDb();
+      if (!db || !firebase.auth().currentUser) return;
+      if (cloudListenerUnsubscribe) return; // läuft schon
+      cloudListenerUnsubscribe = db.collection("attendanceApp").doc("sharedData").onSnapshot(
+        function(docSnap) {
+          // Eigene, noch nicht vom Server bestätigte Schreibvorgänge ignorieren
+          // (sonst würden wir unsere eigene Änderung sofort wieder auf uns
+          // selbst anwenden).
+          if (docSnap.metadata.hasPendingWrites) return;
+          if (!docSnap.exists) return;
+          applyImportedData(docSnap.data());
+          showSaveToast();
+        },
+        function(e) { console.error("Cloud-Synchronisierung unterbrochen:", e); }
+      );
+    }
+
+    function stopCloudListener() {
+      if (cloudListenerUnsubscribe) {
+        cloudListenerUnsubscribe();
+        cloudListenerUnsubscribe = null;
+      }
+    }
+
+
 
     function uploadToCloud() {
       const db = getFirestoreDb();
@@ -1285,25 +1357,28 @@
         });
     }
 
-    function downloadFromCloud() {
+    function downloadFromCloud(silent) {
       const db = getFirestoreDb();
       if (!db || !firebase.auth().currentUser) {
-        alert("Bitte zuerst anmelden.");
+        if (!silent) alert("Bitte zuerst anmelden.");
         return;
       }
-      const confirmed = confirm("Dies überschreibt alle Daten auf diesem Gerät mit dem Stand aus der Cloud. Fortfahren?");
-      if (!confirmed) return;
+      if (!silent) {
+        const confirmed = confirm("Dies überschreibt alle Daten auf diesem Gerät mit dem Stand aus der Cloud. Fortfahren?");
+        if (!confirmed) return;
+      }
       db.collection("attendanceApp").doc("sharedData").get()
         .then(function(docSnap) {
           if (!docSnap.exists) {
-            alert("In der Cloud sind noch keine Daten vorhanden. Bitte zuerst von einem Gerät aus hochladen.");
+            if (!silent) alert("In der Cloud sind noch keine Daten vorhanden. Bitte zuerst von einem Gerät aus hochladen.");
             return;
           }
           applyImportedData(docSnap.data());
-          alert("Daten aus der Cloud übernommen.");
+          if (!silent) alert("Daten aus der Cloud übernommen.");
         })
         .catch(function(e) {
-          alert("Fehler beim Herunterladen: " + e.message);
+          if (!silent) alert("Fehler beim Herunterladen: " + e.message);
+          else console.error("Automatischer Cloud-Download fehlgeschlagen:", e);
         });
     }
 
@@ -1374,6 +1449,7 @@
 
     function saveConfig(config) {
       localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+      queueAutoUpload();
     }
 
     function getActiveChildren() {
@@ -1833,6 +1909,12 @@
       toInput.min = minDate; toInput.max = maxDate;
       fromInput.value = buildIsoDate(year, month, fromDay);
       toInput.value = buildIsoDate(year, month, toDay);
+
+      // Gut sichtbare Anzeige, für welchen Tag (bzw. Zeitraum) man gerade Einträge setzt
+      const dayDisplay = document.getElementById("overviewDayDisplay");
+      if (dayDisplay) {
+        dayDisplay.textContent = (fromDay === toDay) ? (fromDay + ".") : (fromDay + ". – " + toDay + ".");
+      }
     }
 
     // Wenn im Datumsfeld ein anderer Monat/Jahr gewählt wird, werden die
@@ -1866,6 +1948,7 @@
       }
       fromSelect.value = fromDay;
       toSelect.value = toDay;
+      updateDateFieldsFromSelection();
     }
 
     // Öffnet die Übersicht immer mit dem heutigen Tag (Monat/Jahr/Von/Bis = heute).
@@ -2036,6 +2119,7 @@
       const month = state.header.month;
       const year = state.header.year;
       localStorage.setItem(getChildStorageKey(childName, month, year), JSON.stringify(state));
+      queueAutoUpload();
     }
 
     // ============================================================
@@ -2944,11 +3028,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', function(){
-      if (sessionStorage.getItem("pinUnlocked") === "1") {
-        document.getElementById("pinLockOverlay").style.display = "none";
-      } else {
-        initPinScreen();
-      }
+      initPinScreen();
       document.getElementById("pinInput").addEventListener('keydown', function(e) {
         if (e.key === "Enter") checkPin();
       });
@@ -2956,7 +3036,14 @@
         if (e.key === "Enter") checkPin();
       });
       if (getFirestoreDb() && typeof firebase !== "undefined" && firebase.auth) {
-        firebase.auth().onAuthStateChanged(refreshCloudSyncUI);
+        firebase.auth().onAuthStateChanged(function(user) {
+          refreshCloudSyncUI();
+          if (user) startCloudListener(); else stopCloudListener();
+          onAuthStateResolved(user);
+        });
+      } else {
+        // Kein Firebase eingerichtet -> Anmeldestatus gilt sofort als "kein Nutzer"
+        onAuthStateResolved(null);
       }
       document.getElementById("appVersionText").textContent = APP_VERSION;
       applyLabels();
