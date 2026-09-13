@@ -649,8 +649,32 @@
       }
     }
   </style>
+  <!-- Firebase SDKs für die optionale Cloud-Synchronisierung zwischen Geräten.
+       Werden nur geladen, wenn Internet verfügbar ist; ohne Internet läuft die
+       App weiterhin komplett normal, nur eben ohne Synchronisierung. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
+  <!-- PIN-Sperrbildschirm: schützt den Zugriff auf die App/synchronisierten Daten.
+       Der PIN wird direkt hier auf dem jeweiligen Gerät festgelegt und nur lokal
+       gespeichert – er steht in keiner Datei, die z. B. bei GitHub landet. -->
+  <div id="pinLockOverlay" style="position:fixed; inset:0; background:var(--color-bg); z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:20px;">
+    <div style="font-size:2.5em;">🔒</div>
+    <h2 id="pinScreenTitle" style="margin:0;">Zugang</h2>
+    <p id="pinSetupHint" style="display:none; font-size:0.85em; color:var(--color-text-muted); max-width:280px; text-align:center; margin:0;">
+      Noch kein PIN für dieses Gerät festgelegt. Bitte einen PIN vergeben (nur auf diesem Gerät gespeichert).
+    </p>
+    <input type="password" id="pinInput" inputmode="numeric" autocomplete="off" placeholder="PIN eingeben"
+      style="font-size:1.4em; text-align:center; width:180px; letter-spacing:4px;">
+    <input type="password" id="pinConfirmInput" inputmode="numeric" autocomplete="off" placeholder="PIN bestätigen"
+      style="display:none; font-size:1.4em; text-align:center; width:180px; letter-spacing:4px;">
+    <button type="button" class="btn-primary" id="pinActionBtn" onclick="checkPin()">Entsperren</button>
+    <p id="pinError" style="color:var(--color-danger); display:none; margin:0;">Falscher PIN, bitte erneut versuchen.</p>
+    <button type="button" onclick="skipPinSetup()" id="pinSkipBtn" style="display:none; font-size:0.8em; box-shadow:none; border:none; background:none; color:var(--color-text-muted); text-decoration:underline;">Ohne PIN fortfahren</button>
+  </div>
+
   <!-- Toolbar -->
   <div id="bottomNav" class="no-print">
     <button type="button" class="nav-btn" data-page="pageOverview" onclick="showPage('pageOverview')">📋 Übersicht</button>
@@ -994,6 +1018,48 @@
         Achtung: Der Import überschreibt alle aktuell auf diesem Gerät gespeicherten Daten.
       </p>
 
+      <h2 style="font-size:1.05em; margin-top:20px;">Cloud-Synchronisierung</h2>
+      <p style="font-size:0.85em; color:#555;">
+        Damit mehrere Geräte (z. B. iPad und iPhone) mit denselben Daten arbeiten können.
+        Einmal pro Gerät einrichten und anmelden, danach "Hochladen"/"Herunterladen" nutzen.
+        Alle Angaben hier werden nur auf diesem Gerät gespeichert – nicht in einer Datei im Repository.
+      </p>
+      <details>
+        <summary style="cursor:pointer; font-size:0.85em; color:var(--color-primary); margin-bottom:8px;">Firebase-Projekt einrichten/ändern</summary>
+        <div class="modal-row"><label style="min-width:160px;">API-Key:</label><input type="text" id="fbApiKey"></div>
+        <div class="modal-row"><label style="min-width:160px;">Auth-Domain:</label><input type="text" id="fbAuthDomain"></div>
+        <div class="modal-row"><label style="min-width:160px;">Projekt-ID:</label><input type="text" id="fbProjectId"></div>
+        <div class="modal-row"><label style="min-width:160px;">Storage-Bucket:</label><input type="text" id="fbStorageBucket"></div>
+        <div class="modal-row"><label style="min-width:160px;">Messaging-Sender-ID:</label><input type="text" id="fbMessagingSenderId"></div>
+        <div class="modal-row"><label style="min-width:160px;">App-ID:</label><input type="text" id="fbAppId"></div>
+        <div class="modal-row">
+          <button type="button" onclick="saveFirebaseConfigFromForm()">Firebase-Konfiguration speichern</button>
+        </div>
+      </details>
+
+      <div id="cloudLoginBox" style="margin-top:10px;">
+        <div class="modal-row"><label style="min-width:80px;">E-Mail:</label><input type="text" id="fbEmail" autocomplete="username"></div>
+        <div class="modal-row"><label style="min-width:80px;">Passwort:</label><input type="password" id="fbPassword" autocomplete="current-password"></div>
+        <div class="modal-row">
+          <button type="button" class="btn-primary" onclick="cloudSignIn()">Anmelden</button>
+        </div>
+        <p style="font-size:0.75em; color:#555;">
+          Zugangsdaten werden einmalig in der Firebase-Konsole unter "Authentication" für dich (und ggf. weitere Personen) angelegt.
+        </p>
+      </div>
+
+      <div id="cloudSyncBox" style="display:none; margin-top:10px;">
+        <p style="font-size:0.8em; color:var(--color-success);" id="cloudAuthStatus"></p>
+        <div class="modal-row">
+          <button type="button" class="btn-primary" onclick="uploadToCloud()">⬆️ In Cloud hochladen</button>
+          <button type="button" onclick="downloadFromCloud()">⬇️ Aus Cloud herunterladen</button>
+        </div>
+        <p style="font-size:0.8em; color:#a00;">
+          Achtung: "Herunterladen" überschreibt alle aktuell auf diesem Gerät gespeicherten Daten mit dem Cloud-Stand.
+        </p>
+        <button type="button" onclick="cloudSignOut()" style="font-size:0.8em;">Abmelden</button>
+      </div>
+
       <div class="modal-actions">
         <button type="button" onclick="closeConfigModal()">Abbrechen</button>
         <button type="button" class="btn-primary" onclick="saveConfigFromModal()">Speichern</button>
@@ -1039,12 +1105,208 @@
   <div id="saveToast" class="save-toast no-print">✓ Gespeichert</div>
 
   <div id="monthlyCloseContainer"></div>
-  
+
   <script>
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.4.0";
+    const APP_VERSION = "1.6.0";
+
+    // ------------------- PIN-Sperre -------------------
+    // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
+    // diesem Gerät vergeben und nur in dessen localStorage gespeichert (steht
+    // also nirgends in einer Datei, die z. B. bei GitHub landen könnte).
+    function getLocalPin() {
+      return localStorage.getItem("localAccessPin") || "";
+    }
+
+    function initPinScreen() {
+      const hasPin = !!getLocalPin();
+      document.getElementById("pinSetupHint").style.display = hasPin ? "none" : "block";
+      document.getElementById("pinConfirmInput").style.display = hasPin ? "none" : "block";
+      document.getElementById("pinSkipBtn").style.display = hasPin ? "none" : "inline";
+      document.getElementById("pinScreenTitle").textContent = hasPin ? "Zugang" : "PIN festlegen";
+      document.getElementById("pinInput").placeholder = hasPin ? "PIN eingeben" : "Neuen PIN eingeben";
+    }
+
+    function skipPinSetup() {
+      // Merkt sich, dass bewusst kein PIN gewünscht ist, damit nicht bei jedem
+      // Start erneut zur Einrichtung aufgefordert wird.
+      localStorage.setItem("localAccessPin", "");
+      localStorage.setItem("pinSetupSkipped", "1");
+      sessionStorage.setItem("pinUnlocked", "1");
+      document.getElementById("pinLockOverlay").style.display = "none";
+    }
+
+    function checkPin() {
+      const hasPin = !!getLocalPin();
+      const entered = document.getElementById("pinInput").value;
+
+      if (!hasPin) {
+        // Einrichtungs-Modus: neuen PIN festlegen
+        const confirmVal = document.getElementById("pinConfirmInput").value;
+        if (!entered) {
+          document.getElementById("pinError").textContent = "Bitte einen PIN eingeben.";
+          document.getElementById("pinError").style.display = "block";
+          return;
+        }
+        if (entered !== confirmVal) {
+          document.getElementById("pinError").textContent = "Die beiden PINs stimmen nicht überein.";
+          document.getElementById("pinError").style.display = "block";
+          document.getElementById("pinConfirmInput").value = "";
+          return;
+        }
+        localStorage.setItem("localAccessPin", entered);
+        sessionStorage.setItem("pinUnlocked", "1");
+        document.getElementById("pinLockOverlay").style.display = "none";
+        return;
+      }
+
+      // Normaler Entsperr-Modus
+      if (entered === getLocalPin()) {
+        sessionStorage.setItem("pinUnlocked", "1");
+        document.getElementById("pinLockOverlay").style.display = "none";
+      } else {
+        document.getElementById("pinError").textContent = "Falscher PIN, bitte erneut versuchen.";
+        document.getElementById("pinError").style.display = "block";
+        document.getElementById("pinInput").value = "";
+        document.getElementById("pinInput").focus();
+      }
+    }
+
+    // ------------------- Cloud-Synchronisierung (Firebase Firestore + Auth) -------------------
+    // Die Firebase-Projektdaten werden ebenfalls nur lokal auf diesem Gerät
+    // gespeichert (nicht in einer Datei im Repository). Zusätzlich ist der
+    // eigentliche Datenzugriff über eine ECHTE Firebase-Anmeldung (E-Mail/
+    // Passwort) abgesichert: Die Firestore-Regeln lassen nur angemeldete
+    // Nutzer lesen/schreiben – wer nur die Projekt-ID kennt, kommt nicht rein.
+    function getLocalFirebaseConfig() {
+      const raw = localStorage.getItem("localFirebaseConfig");
+      if (!raw) return null;
+      try { return JSON.parse(raw); } catch (e) { return null; }
+    }
+
+    function saveFirebaseConfigFromForm() {
+      const config = {
+        apiKey: document.getElementById("fbApiKey").value.trim(),
+        authDomain: document.getElementById("fbAuthDomain").value.trim(),
+        projectId: document.getElementById("fbProjectId").value.trim(),
+        storageBucket: document.getElementById("fbStorageBucket").value.trim(),
+        messagingSenderId: document.getElementById("fbMessagingSenderId").value.trim(),
+        appId: document.getElementById("fbAppId").value.trim()
+      };
+      if (!config.apiKey || !config.projectId) {
+        alert("Bitte mindestens API-Key und Projekt-ID eintragen.");
+        return;
+      }
+      localStorage.setItem("localFirebaseConfig", JSON.stringify(config));
+      firestoreDb = null; // Neu initialisieren mit den neuen Werten
+      alert("Firebase-Konfiguration auf diesem Gerät gespeichert.");
+      refreshCloudSyncUI();
+    }
+
+    let firestoreDb = null;
+    function getFirestoreDb() {
+      if (typeof firebase === "undefined") return null;
+      const config = getLocalFirebaseConfig();
+      if (!config || !config.apiKey) return null;
+      try {
+        if (!firestoreDb) {
+          if (!firebase.apps || firebase.apps.length === 0) {
+            firebase.initializeApp(config);
+          }
+          firestoreDb = firebase.firestore();
+        }
+        return firestoreDb;
+      } catch (e) {
+        console.error(e);
+        return null;
+      }
+    }
+
+    function cloudSignIn() {
+      const db = getFirestoreDb(); // initialisiert bei Bedarf auch firebase.app()
+      if (!db) {
+        alert("Bitte zuerst oben die Firebase-Konfiguration eintragen und speichern.");
+        return;
+      }
+      const email = document.getElementById("fbEmail").value.trim();
+      const password = document.getElementById("fbPassword").value;
+      if (!email || !password) {
+        alert("Bitte E-Mail und Passwort eingeben.");
+        return;
+      }
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(function() {
+          document.getElementById("fbPassword").value = "";
+          refreshCloudSyncUI();
+        })
+        .catch(function(e) {
+          alert("Anmeldung fehlgeschlagen: " + e.message);
+        });
+    }
+
+    function cloudSignOut() {
+      if (!getFirestoreDb()) return;
+      firebase.auth().signOut().then(refreshCloudSyncUI);
+    }
+
+    // Zeigt je nach Anmeldestatus die passenden Bedienelemente in der
+    // Konfiguration an (Login-Formular vs. Hochladen/Herunterladen-Buttons).
+    function refreshCloudSyncUI() {
+      const loginBox = document.getElementById("cloudLoginBox");
+      const syncBox = document.getElementById("cloudSyncBox");
+      const statusText = document.getElementById("cloudAuthStatus");
+      if (!loginBox || !syncBox) return;
+      const user = (getFirestoreDb() && typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+      if (user) {
+        loginBox.style.display = "none";
+        syncBox.style.display = "block";
+        statusText.textContent = "Angemeldet als " + user.email;
+      } else {
+        loginBox.style.display = "block";
+        syncBox.style.display = "none";
+      }
+    }
+
+    function uploadToCloud() {
+      const db = getFirestoreDb();
+      if (!db || !firebase.auth().currentUser) {
+        alert("Bitte zuerst anmelden.");
+        return;
+      }
+      const data = collectAllDataForExport();
+      db.collection("attendanceApp").doc("sharedData").set(data)
+        .then(function() {
+          alert("Daten erfolgreich in die Cloud hochgeladen.");
+        })
+        .catch(function(e) {
+          alert("Fehler beim Hochladen: " + e.message);
+        });
+    }
+
+    function downloadFromCloud() {
+      const db = getFirestoreDb();
+      if (!db || !firebase.auth().currentUser) {
+        alert("Bitte zuerst anmelden.");
+        return;
+      }
+      const confirmed = confirm("Dies überschreibt alle Daten auf diesem Gerät mit dem Stand aus der Cloud. Fortfahren?");
+      if (!confirmed) return;
+      db.collection("attendanceApp").doc("sharedData").get()
+        .then(function(docSnap) {
+          if (!docSnap.exists) {
+            alert("In der Cloud sind noch keine Daten vorhanden. Bitte zuerst von einem Gerät aus hochladen.");
+            return;
+          }
+          applyImportedData(docSnap.data());
+          alert("Daten aus der Cloud übernommen.");
+        })
+        .catch(function(e) {
+          alert("Fehler beim Herunterladen: " + e.message);
+        });
+    }
+
     const CONFIG_KEY = "appConfig";
     const DEFAULT_LABELS = {
       colTag: "Tag",
@@ -1208,6 +1470,17 @@
       document.getElementById("workDayFr").checked = !!wd[5];
       document.getElementById("workDaySa").checked = !!wd[6];
 
+      const fbConfig = getLocalFirebaseConfig();
+      if (fbConfig) {
+        document.getElementById("fbApiKey").value = fbConfig.apiKey || "";
+        document.getElementById("fbAuthDomain").value = fbConfig.authDomain || "";
+        document.getElementById("fbProjectId").value = fbConfig.projectId || "";
+        document.getElementById("fbStorageBucket").value = fbConfig.storageBucket || "";
+        document.getElementById("fbMessagingSenderId").value = fbConfig.messagingSenderId || "";
+        document.getElementById("fbAppId").value = fbConfig.appId || "";
+      }
+      refreshCloudSyncUI();
+
       document.getElementById("configModal").classList.add("open");
     }
 
@@ -1318,31 +1591,7 @@
           alert("Diese Datei konnte nicht gelesen werden – ist es eine gültige Sicherungsdatei?");
           return;
         }
-        if (data.appConfig) {
-          localStorage.setItem(CONFIG_KEY, JSON.stringify(data.appConfig));
-        }
-        if (data.signatures) {
-          Object.keys(data.signatures).forEach(function(key) {
-            localStorage.setItem(key, data.signatures[key]);
-          });
-        }
-        if (data.attendance) {
-          Object.keys(data.attendance).forEach(function(key) {
-            // Neue Sicherungen enthalten bereits den vollen Schlüssel
-            // ("attendanceState_Kind_Jahr_Monat"). Ältere Sicherungen (vor der
-            // Umstellung auf pro-Monat-Speicherung) enthielten nur den
-            // Kindernamen als Schlüssel – diese werden als alter Schlüssel
-            // wiederhergestellt und beim nächsten Öffnen automatisch migriert.
-            const fullKey = key.indexOf("attendanceState_") === 0 ? key : "attendanceState_" + key;
-            localStorage.setItem(fullKey, JSON.stringify(data.attendance[key]));
-          });
-        }
-
-        // Ansicht komplett aktualisieren
-        applyLabels();
-        populateNameSelect();
-        closeConfigModal();
-        resetAndLoadCurrentChild();
+        applyImportedData(data);
         alert("Import abgeschlossen.");
       };
       reader.onerror = function() {
@@ -1350,6 +1599,37 @@
       };
       reader.readAsText(file);
       event.target.value = ""; // gleiche Datei erneut auswählbar machen
+    }
+
+    // Übernimmt ein zuvor exportiertes/aus der Cloud geladenes Datenobjekt in
+    // den lokalen Speicher dieses Geräts. Wird sowohl vom Datei-Import als auch
+    // vom Cloud-Download genutzt.
+    function applyImportedData(data) {
+      if (data.appConfig) {
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(data.appConfig));
+      }
+      if (data.signatures) {
+        Object.keys(data.signatures).forEach(function(key) {
+          localStorage.setItem(key, data.signatures[key]);
+        });
+      }
+      if (data.attendance) {
+        Object.keys(data.attendance).forEach(function(key) {
+          // Neue Sicherungen enthalten bereits den vollen Schlüssel
+          // ("attendanceState_Kind_Jahr_Monat"). Ältere Sicherungen (vor der
+          // Umstellung auf pro-Monat-Speicherung) enthielten nur den
+          // Kindernamen als Schlüssel – diese werden als alter Schlüssel
+          // wiederhergestellt und beim nächsten Öffnen automatisch migriert.
+          const fullKey = key.indexOf("attendanceState_") === 0 ? key : "attendanceState_" + key;
+          localStorage.setItem(fullKey, JSON.stringify(data.attendance[key]));
+        });
+      }
+
+      // Ansicht komplett aktualisieren
+      applyLabels();
+      populateNameSelect();
+      closeConfigModal();
+      resetAndLoadCurrentChild();
     }
 
     // ============================================================
@@ -2664,6 +2944,20 @@
     }
 
     window.addEventListener('DOMContentLoaded', function(){
+      if (sessionStorage.getItem("pinUnlocked") === "1") {
+        document.getElementById("pinLockOverlay").style.display = "none";
+      } else {
+        initPinScreen();
+      }
+      document.getElementById("pinInput").addEventListener('keydown', function(e) {
+        if (e.key === "Enter") checkPin();
+      });
+      document.getElementById("pinConfirmInput").addEventListener('keydown', function(e) {
+        if (e.key === "Enter") checkPin();
+      });
+      if (getFirestoreDb() && typeof firebase !== "undefined" && firebase.auth) {
+        firebase.auth().onAuthStateChanged(refreshCloudSyncUI);
+      }
       document.getElementById("appVersionText").textContent = APP_VERSION;
       applyLabels();
       populateNameSelect();
