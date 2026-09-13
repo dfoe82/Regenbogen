@@ -585,6 +585,56 @@
       color: #fff;
       border-color: var(--color-primary);
     }
+    #overviewModeStandardBtn.active-mode, #overviewModeSmartBtn.active-mode,
+    #classicSubmodeSingleBtn.active-mode, #classicSubmodeMultiBtn.active-mode {
+      background: var(--color-primary);
+      color: #fff;
+      border-color: var(--color-primary);
+    }
+    /* Klassisch-Modus: Einzeltag-Zeilen pro Kind */
+    .classic-day-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+    .classic-day-row-name {
+      font-weight: 700;
+      min-width: 110px;
+    }
+    .classic-day-row select {
+      flex: 1;
+      min-width: 140px;
+    }
+    /* Klassisch-Modus: Mehrtägig - Monatstabelle pro Kind */
+    .classic-month-block {
+      margin-bottom: 28px;
+    }
+    .classic-month-block h3 {
+      margin-bottom: 6px;
+    }
+    .classic-month-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85em;
+    }
+    .classic-month-table th, .classic-month-table td {
+      border: 1px solid var(--color-border);
+      padding: 4px 6px;
+      text-align: center;
+    }
+    .classic-month-table td.remark-td {
+      text-align: left;
+    }
+    .classic-month-table select {
+      width: 100%;
+    }
     .overview-extra-row {
       display: flex;
       flex-wrap: wrap;
@@ -684,6 +734,16 @@
   <!-- ===================== Seite: Übersicht (Startseite, inkl. Nachpflegen) ===================== -->
   <div id="pageOverview" class="page-section active">
     <h1 style="text-align:center;">📋 Übersicht der Kinder</h1>
+
+    <div class="modal-row" style="justify-content:center;">
+      <button type="button" id="overviewModeStandardBtn" onclick="setOverviewMode('classic')">🗂️ Standard</button>
+      <button type="button" id="overviewModeSmartBtn" onclick="setOverviewMode('smart')">✨ Smart</button>
+    </div>
+    <div id="classicSubmodeRow" class="modal-row" style="justify-content:center; display:none;">
+      <button type="button" id="classicSubmodeSingleBtn" onclick="setClassicSubmode('single')">Einzeltag</button>
+      <button type="button" id="classicSubmodeMultiBtn" onclick="setClassicSubmode('multi')">Mehrtägig</button>
+    </div>
+
     <div class="modal-row" style="justify-content:center;">
       <label for="overviewMonth">Monat / Jahr:</label>
       <select id="overviewMonth">
@@ -714,10 +774,10 @@
         <option value="2030">2030</option>
       </select>
     </div>
-    <div class="modal-row" style="justify-content:center;">
+    <div id="overviewDayRow" class="modal-row" style="justify-content:center;">
       <strong>Tag:</strong> <span id="overviewDayDisplay" style="font-weight:bold; color:var(--color-primary);">–</span>
     </div>
-    <div class="modal-row" style="justify-content:center;">
+    <div id="overviewCalendarToggleRow" class="modal-row" style="justify-content:center;">
       <button type="button" id="calendarToggleBtn" onclick="toggleCalendarFields()">🗓️ Kalender</button>
     </div>
 
@@ -732,21 +792,29 @@
       <input type="date" id="overviewToDate">
     </div>
 
-    <p style="font-size:0.85em; color:#555; text-align:center;">
-      <strong>A</strong> = anwesend. "Kein Mittagessen" über das Dropdown auswählen.
-    </p>
-    <div id="overviewChildrenList" style="max-width:600px; margin:0 auto;">
-      <!-- Zeilen pro Kind werden per JS erzeugt -->
+    <!-- ===== Smart-Modus (bestehende Variante: Auswahl + Übernehmen-Button) ===== -->
+    <div id="overviewSmartMode">
+      <p style="font-size:0.85em; color:#555; text-align:center;">
+        <strong>A</strong> = anwesend. "Kein Mittagessen" über das Dropdown auswählen.
+      </p>
+      <div id="overviewChildrenList" style="max-width:600px; margin:0 auto;">
+        <!-- Zeilen pro Kind werden per JS erzeugt -->
+      </div>
+
+      <hr style="max-width:600px; margin:16px auto;">
+      <div class="modal-row" style="justify-content:center;">
+        <label for="overviewStatus">Kindertagespflegeperson:</label>
+        <select id="overviewStatus"></select>
+      </div>
+
+      <div class="modal-actions" style="justify-content:center;">
+        <button type="button" class="btn-primary" onclick="applyOverviewSelections()">Übernehmen</button>
+      </div>
     </div>
 
-    <hr style="max-width:600px; margin:16px auto;">
-    <div class="modal-row" style="justify-content:center;">
-      <label for="overviewStatus">Kindertagespflegeperson:</label>
-      <select id="overviewStatus"></select>
-    </div>
-
-    <div class="modal-actions" style="justify-content:center;">
-      <button type="button" class="btn-primary" onclick="applyOverviewSelections()">Übernehmen</button>
+    <!-- ===== Klassisch-Modus (Einzeltag oder Mehrtägig, direkte Bearbeitung wie auf der Kinder-Seite) ===== -->
+    <div id="overviewClassicMode" style="display:none;">
+      <div id="classicContent"></div>
     </div>
   </div>
 
@@ -862,12 +930,13 @@
   <div class="table-container">
     <table id="attendanceTable">
       <colgroup>
+        <col style="width:6%">
         <col style="width:7%">
-        <col style="width:7%">
-        <col style="width:14%">
-        <col style="width:14%">
-        <col style="width:10%">
-        <col style="width:48%">
+        <col style="width:13%">
+        <col style="width:13%">
+        <col style="width:9%">
+        <col style="width:6%">
+        <col style="width:46%">
       </colgroup>
       <thead>
         <tr>
@@ -876,6 +945,7 @@
           <th id="thVon">Uhrzeit von</th>
           <th id="thBis">Uhrzeit bis</th>
           <th id="thStunden">Stunden</th>
+          <th id="thA">A</th>
           <th id="thBemerkung" style="text-align:left;">Bemerkung</th>
         </tr>
       </thead>
@@ -884,7 +954,7 @@
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="3" style="text-align:right;">zu zahlen (Mittagessen):</td>
+          <td colspan="4" style="text-align:right;">zu zahlen (Mittagessen):</td>
           <td id="sumToPay" style="text-align:left;">0,00 €</td>
           <td colspan="2">
             <input type="checkbox" id="footerBezahlt">
@@ -1116,7 +1186,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.7.3";
+    const APP_VERSION = "1.9.1";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1832,6 +1902,26 @@
     // Werten wie die Tabellenspalte "Bemerkung" (--, geschlossen, Feiertag, Urlaub,
     // KTPP krank). Gilt für ALLE Kinder gemeinsam (z. B. wenn die Kindertagespflege-
     // person krank ist), daher nur einmal zentral vorhanden statt pro Kind.
+    // Liefert die vollständige Liste der Bemerkung-Dropdown-Optionen (Kinder-
+    // Seite, Klassisch-Modus der Übersicht) – zentral an einer Stelle, damit
+    // sie überall gleich sind.
+    function getRemarkOptionsList() {
+      const labels = loadConfig().labels;
+      return [
+        { value: "", text: "--" },
+        { value: "geschlossen", text: "geschlossen" },
+        { value: "Feiertag", text: "Feiertag" },
+        { value: "KTPP Urlaub", text: "KTPP Urlaub" },
+        { value: "KTPP krank", text: "KTPP krank" },
+        { value: "kein Mittagessen", text: "kein Mittagessen" },
+        { value: labels.legendTextKK, text: labels.legendTextKK },
+        { value: labels.legendTextKU, text: labels.legendTextKU },
+        { value: labels.legendTextKFU, text: labels.legendTextKFU },
+        { value: labels.legendTextKV, text: labels.legendTextKV },
+        { value: labels.legendTextKFE, text: labels.legendTextKFE }
+      ];
+    }
+
     function populateBemerkungOptions(selectId) {
       const statusSelect = document.getElementById(selectId);
       statusSelect.innerHTML = "";
@@ -1876,6 +1966,14 @@
         toSelect.value = (prevTo <= daysInMonth) ? prevTo : daysInMonth;
       }
       updateDateFieldsFromSelection();
+      refreshClassicIfActive();
+    }
+
+    // Baut die Klassisch-Ansicht neu auf, aber nur, wenn sie gerade sichtbar ist
+    // (vermeidet unnötige Arbeit, während der Smart-Modus aktiv ist).
+    function refreshClassicIfActive() {
+      const el = document.getElementById("overviewClassicMode");
+      if (el && el.style.display !== "none") renderClassicContent();
     }
 
     // ============================================================
@@ -1949,6 +2047,7 @@
       fromSelect.value = fromDay;
       toSelect.value = toDay;
       updateDateFieldsFromSelection();
+      refreshClassicIfActive();
     }
 
     // Öffnet die Übersicht immer mit dem heutigen Tag (Monat/Jahr/Von/Bis = heute).
@@ -1966,6 +2065,251 @@
       renderChildSelectionRows("overviewChildrenList", "overview", true);
       populateBemerkungOptions("overviewStatus");
       document.getElementById("overviewStatus").value = "";
+
+      // Zuletzt genutzten Modus wiederherstellen
+      setOverviewMode(localStorage.getItem("overviewMode") || "smart");
+      setClassicSubmode(localStorage.getItem("overviewClassicSubmode") || "single");
+    }
+
+    // ============================================================
+    // MODUS-UMSCHALTUNG (Übersicht): "smart" (bisherige Variante) oder
+    // "classic" (Einzeltag/Mehrtägig, direkte Bearbeitung wie Kinder-Seite).
+    // Die letzte Wahl wird für den nächsten Aufruf gemerkt.
+    // ============================================================
+    function setOverviewMode(mode) {
+      localStorage.setItem("overviewMode", mode);
+      document.getElementById("overviewModeStandardBtn").classList.toggle("active-mode", mode === "classic");
+      document.getElementById("overviewModeSmartBtn").classList.toggle("active-mode", mode === "smart");
+      document.getElementById("classicSubmodeRow").style.display = (mode === "classic") ? "flex" : "none";
+      document.getElementById("overviewSmartMode").style.display = (mode === "smart") ? "block" : "none";
+      document.getElementById("overviewClassicMode").style.display = (mode === "classic") ? "block" : "none";
+      if (mode === "classic") renderClassicContent();
+    }
+
+    function setClassicSubmode(submode) {
+      localStorage.setItem("overviewClassicSubmode", submode);
+      document.getElementById("classicSubmodeSingleBtn").classList.toggle("active-mode", submode === "single");
+      document.getElementById("classicSubmodeMultiBtn").classList.toggle("active-mode", submode === "multi");
+      // Im "Mehrtägig"-Modus ist die Tages-Anzeige/der Kalender-Umschalter ohne
+      // Bedeutung (es wird immer der ganze Monat gezeigt) -> ausblenden.
+      const isSingle = (submode === "single");
+      document.getElementById("overviewDayRow").style.display = isSingle ? "flex" : "none";
+      document.getElementById("overviewCalendarToggleRow").style.display = isSingle ? "flex" : "none";
+      if (!isSingle) document.getElementById("dateRangeFields").style.display = "none";
+      if (document.getElementById("overviewClassicMode").style.display !== "none") renderClassicContent();
+    }
+
+    // Baut den Inhalt des Klassisch-Modus passend zum aktuellen Untermodus neu auf.
+    function renderClassicContent() {
+      const submode = localStorage.getItem("overviewClassicSubmode") || "single";
+      const container = document.getElementById("classicContent");
+      container.innerHTML = "";
+      const children = getActiveChildren();
+      if (children.length === 0) {
+        container.innerHTML = "<p>Bitte zuerst in der Konfiguration Kindernamen eintragen.</p>";
+        return;
+      }
+      const month = parseInt(document.getElementById("overviewMonth").value);
+      const year = parseInt(document.getElementById("overviewYear").value);
+      if (submode === "single") {
+        const day = parseInt(document.getElementById("overviewFrom").value) || new Date().getDate();
+        children.forEach(function(name) {
+          container.appendChild(buildClassicDayRow(name, month, year, day));
+        });
+      } else {
+        children.forEach(function(name) {
+          container.appendChild(buildClassicMonthTable(name, month, year));
+        });
+      }
+    }
+
+    // --- Einzeltag: kompakte Zeile pro Kind für genau einen Tag ---
+    function buildClassicDayRow(childName, month, year, day) {
+      const state = loadChildState(childName, month, year);
+      const idx = day - 1;
+      const rowData = state.table[idx] || { start: "", end: "", remark: "" };
+
+      const row = document.createElement("div");
+      row.className = "classic-day-row";
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "classic-day-row-name";
+      nameEl.textContent = childName;
+      row.appendChild(nameEl);
+
+      const startInput = document.createElement("input");
+      startInput.type = "time";
+      startInput.value = rowData.start || "";
+      row.appendChild(startInput);
+
+      const endInput = document.createElement("input");
+      endInput.type = "time";
+      endInput.value = rowData.end || "";
+      row.appendChild(endInput);
+
+      const hoursSpan = document.createElement("span");
+      hoursSpan.style.fontSize = "0.85em"; hoursSpan.style.color = "var(--color-text-muted)";
+      hoursSpan.textContent = calculateHours(rowData.start, rowData.end) + " Std.";
+      row.appendChild(hoursSpan);
+
+      const aLabel = document.createElement("label");
+      aLabel.style.display = "flex"; aLabel.style.alignItems = "center"; aLabel.style.gap = "4px";
+      const aCheckbox = document.createElement("input");
+      aCheckbox.type = "checkbox";
+      aCheckbox.checked = !!(rowData.start && rowData.end);
+      aLabel.appendChild(aCheckbox);
+      aLabel.appendChild(document.createTextNode("A"));
+      row.appendChild(aLabel);
+
+      const remarkSelect = document.createElement("select");
+      getRemarkOptionsList().forEach(function(o) {
+        const opt = document.createElement("option");
+        opt.value = o.value; opt.textContent = o.text;
+        remarkSelect.appendChild(opt);
+      });
+      remarkSelect.value = rowData.remark || "";
+      row.appendChild(remarkSelect);
+
+      function persist() {
+        const st = loadChildState(childName, month, year);
+        const r = st.table[idx];
+        r.start = startInput.value;
+        r.end = endInput.value;
+        r.remark = remarkSelect.value;
+        saveChildState(childName, st);
+        hoursSpan.textContent = calculateHours(startInput.value, endInput.value) + " Std.";
+        aCheckbox.checked = !!(startInput.value && endInput.value);
+        showSaveToast();
+        // Falls die Kinder-Seite gerade dasselbe Kind/denselben Monat zeigt, aktualisieren
+        if (document.getElementById("nameSelect").value === childName &&
+            parseInt(document.getElementById("monthSelect").value) === month &&
+            parseInt(document.getElementById("yearSelect").value) === year) {
+          resetAndLoadCurrentChild();
+        }
+      }
+
+      aCheckbox.addEventListener('change', function() {
+        if (aCheckbox.checked) {
+          const cfg = loadConfig();
+          if (!startInput.value) startInput.value = cfg.defaultStart;
+          if (!endInput.value) endInput.value = cfg.defaultEnd;
+        } else {
+          startInput.value = "";
+          endInput.value = "";
+        }
+        persist();
+      });
+      startInput.addEventListener('change', persist);
+      endInput.addEventListener('change', persist);
+      remarkSelect.addEventListener('change', persist);
+
+      return row;
+    }
+
+    // --- Mehrtägig: komplette Monatstabelle pro Kind (wie Kinder-Seite) ---
+    function buildClassicMonthTable(childName, month, year) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "classic-month-block";
+      const heading = document.createElement("h3");
+      heading.textContent = childName;
+      wrapper.appendChild(heading);
+
+      const state = loadChildState(childName, month, year);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const weekDays = ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."];
+
+      const table = document.createElement("table");
+      table.className = "classic-month-table";
+      table.innerHTML = "<thead><tr><th>Tag</th><th>Datum</th><th>von</th><th>bis</th><th>Std.</th><th>A</th><th style='text-align:left;'>Bemerkung</th></tr></thead>";
+      const tbody = document.createElement("tbody");
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const idx = day - 1;
+        const rowData = state.table[idx] || { start: "", end: "", remark: "" };
+        const tr = document.createElement("tr");
+
+        const wdTd = document.createElement("td");
+        wdTd.textContent = weekDays[new Date(year, month - 1, day).getDay()];
+        tr.appendChild(wdTd);
+
+        const dateTd = document.createElement("td");
+        dateTd.textContent = day;
+        tr.appendChild(dateTd);
+
+        const startTd = document.createElement("td");
+        const startInput = document.createElement("input");
+        startInput.type = "time";
+        startInput.value = rowData.start || "";
+        startTd.appendChild(startInput);
+        tr.appendChild(startTd);
+
+        const endTd = document.createElement("td");
+        const endInput = document.createElement("input");
+        endInput.type = "time";
+        endInput.value = rowData.end || "";
+        endTd.appendChild(endInput);
+        tr.appendChild(endTd);
+
+        const hoursTd = document.createElement("td");
+        hoursTd.textContent = calculateHours(rowData.start, rowData.end);
+        tr.appendChild(hoursTd);
+
+        const aTd = document.createElement("td");
+        const aCheckbox = document.createElement("input");
+        aCheckbox.type = "checkbox";
+        aCheckbox.checked = !!(rowData.start && rowData.end);
+        aTd.appendChild(aCheckbox);
+        tr.appendChild(aTd);
+
+        const remarkTd = document.createElement("td");
+        remarkTd.className = "remark-td";
+        const remarkSelect = document.createElement("select");
+        getRemarkOptionsList().forEach(function(o) {
+          const opt = document.createElement("option");
+          opt.value = o.value; opt.textContent = o.text;
+          remarkSelect.appendChild(opt);
+        });
+        remarkSelect.value = rowData.remark || "";
+        remarkTd.appendChild(remarkSelect);
+        tr.appendChild(remarkTd);
+
+        function persist() {
+          const st = loadChildState(childName, month, year);
+          const r = st.table[idx];
+          r.start = startInput.value;
+          r.end = endInput.value;
+          r.remark = remarkSelect.value;
+          saveChildState(childName, st);
+          hoursTd.textContent = calculateHours(startInput.value, endInput.value);
+          aCheckbox.checked = !!(startInput.value && endInput.value);
+          showSaveToast();
+          if (document.getElementById("nameSelect").value === childName &&
+              parseInt(document.getElementById("monthSelect").value) === month &&
+              parseInt(document.getElementById("yearSelect").value) === year) {
+            resetAndLoadCurrentChild();
+          }
+        }
+
+        aCheckbox.addEventListener('change', function() {
+          if (aCheckbox.checked) {
+            const cfg = loadConfig();
+            if (!startInput.value) startInput.value = cfg.defaultStart;
+            if (!endInput.value) endInput.value = cfg.defaultEnd;
+          } else {
+            startInput.value = "";
+            endInput.value = "";
+          }
+          persist();
+        });
+        startInput.addEventListener('change', persist);
+        endInput.addEventListener('change', persist);
+        remarkSelect.addEventListener('change', persist);
+
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+      wrapper.appendChild(table);
+      return wrapper;
     }
 
     // Trägt A/oM, den individuellen KK/KU/KFU/KV/KFE-Status je Kind sowie die
@@ -2309,6 +2653,7 @@
         row.querySelector('input[name="end"]').value = data.end;
         row.querySelector('select[name="remark"]').value = data.remark;
         row.querySelector('input[name="hours"]').value = calculateHours(data.start, data.end);
+        row.querySelector('input[name="a"]').checked = !!(data.start && data.end);
       });
       if (state.recordDate) {
         document.getElementById("recordDate").value = state.recordDate;
@@ -2360,6 +2705,7 @@
         startInput.addEventListener('change', function(){
           const hoursInput = row.querySelector('input[name="hours"]');
           hoursInput.value = calculateHours(startInput.value, endInput.value);
+          row.querySelector('input[name="a"]').checked = !!(startInput.value && endInput.value);
           updatePaymentSums();
           saveTableState();
         });
@@ -2372,6 +2718,7 @@
         endInput.addEventListener('change', function(){
           const hoursInput = row.querySelector('input[name="hours"]');
           hoursInput.value = calculateHours(startInput.value, endInput.value);
+          row.querySelector('input[name="a"]').checked = !!(startInput.value && endInput.value);
           updatePaymentSums();
           saveTableState();
         });
@@ -2384,26 +2731,35 @@
         hoursInput.readOnly = true;
         stundenCell.appendChild(hoursInput);
         row.appendChild(stundenCell);
+        const aCell = document.createElement("td");
+        aCell.style.textAlign = "center";
+        const aCheckbox = document.createElement("input");
+        aCheckbox.type = "checkbox";
+        aCheckbox.name = "a";
+        aCheckbox.addEventListener('change', function() {
+          const startInput = row.querySelector('input[name="start"]');
+          const endInput = row.querySelector('input[name="end"]');
+          const hoursInput = row.querySelector('input[name="hours"]');
+          if (aCheckbox.checked) {
+            const cfg = loadConfig();
+            if (!startInput.value) startInput.value = cfg.defaultStart;
+            if (!endInput.value) endInput.value = cfg.defaultEnd;
+          } else {
+            startInput.value = "";
+            endInput.value = "";
+          }
+          hoursInput.value = calculateHours(startInput.value, endInput.value);
+          updatePaymentSums();
+          saveTableState();
+        });
+        aCell.appendChild(aCheckbox);
+        row.appendChild(aCell);
         const bemerkungCell = document.createElement("td");
         bemerkungCell.style.textAlign = "left";
         const selectElem = document.createElement("select");
         selectElem.name = "remark";
         selectElem.style.width = "100%";
-        const config = loadConfig();
-        const labels = config.labels;
-        const options = [
-          { value: "", text: "--" },
-          { value: "geschlossen", text: "geschlossen" },
-          { value: "Feiertag", text: "Feiertag" },
-          { value: "KTPP Urlaub", text: "KTPP Urlaub" },
-          { value: "KTPP krank", text: "KTPP krank" },
-          { value: "kein Mittagessen", text: "kein Mittagessen" },
-          { value: labels.legendTextKK, text: labels.legendTextKK },
-          { value: labels.legendTextKU, text: labels.legendTextKU },
-          { value: labels.legendTextKFU, text: labels.legendTextKFU },
-          { value: labels.legendTextKV, text: labels.legendTextKV },
-          { value: labels.legendTextKFE, text: labels.legendTextKFE }
-        ];
+        const options = getRemarkOptionsList();
         options.forEach((o) => {
           const option = document.createElement("option");
           option.value = o.value;
