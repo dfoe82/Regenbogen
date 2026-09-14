@@ -66,21 +66,22 @@
     /* Einheitliche Buttons */
     button {
       font-family: var(--font-base);
-      background: var(--color-surface);
+      background: #eef0f2;
       color: var(--color-text);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-sm);
-      padding: 10px 16px;
+      border: none;
+      border-radius: 999px;
+      padding: 14px 20px;
       font-size: 0.95em;
+      font-weight: 600;
       cursor: pointer;
-      box-shadow: var(--shadow-sm);
-      transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+      box-shadow: none;
+      transition: background 0.15s ease, transform 0.05s ease;
     }
     button:active {
       transform: scale(0.98);
     }
     button:hover {
-      background: #f8fafc;
+      background: #e2e5e9;
     }
     button.btn-primary {
       background: var(--color-primary);
@@ -93,7 +94,7 @@
     }
     button.btn-danger {
       background: #fff;
-      border-color: var(--color-danger);
+      border: 1.5px solid var(--color-danger);
       color: var(--color-danger);
     }
     /* Einheitliche Formularfelder */
@@ -221,27 +222,32 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       gap: 3px;
       background: none;
       border: none;
       box-shadow: none;
-      border-radius: var(--radius-sm);
+      border-radius: 0;
       font-size: 0.72em;
-      padding: 8px 2px;
-      color: var(--color-text-muted);
+      padding: 10px 2px;
+      color: #444;
       white-space: nowrap;
     }
+    #bottomNav button span {
+      display: none;
+    }
     .nav-icon {
-      width: 22px;
-      height: 22px;
+      width: 26px;
+      height: 26px;
     }
     #bottomNav button:active {
-      background: var(--color-bg);
+      background: transparent;
+      opacity: 0.6;
     }
     #bottomNav button.active-tab {
       color: var(--color-primary);
       font-weight: 700;
-      background: var(--color-primary-light);
+      background: none;
     }
     /* Umhüllender Container für die Tabelle – sorgt für horizontales Scrollen */
     .table-container {
@@ -1194,6 +1200,15 @@
         <div class="modal-row">
           <button type="button" onclick="saveFirebaseConfigFromForm()">Firebase-Konfiguration speichern</button>
         </div>
+        <hr>
+        <p style="font-size:0.8em; color:#555;">
+          Alternativ: Konfiguration als Datei exportieren (einmalig einrichten) und auf weiteren Geräten importieren, statt die Felder erneut abzutippen.
+        </p>
+        <div class="modal-row">
+          <button type="button" onclick="exportFirebaseConfigFile()">⬇️ Als Datei exportieren</button>
+          <button type="button" onclick="document.getElementById('fbConfigFileInput').click()">⬆️ Aus Datei importieren</button>
+          <input type="file" id="fbConfigFileInput" accept="application/json,.json" style="display:none;" onchange="importFirebaseConfigFile(event)">
+        </div>
       </details>
 
       <div id="cloudLoginBox" style="margin-top:10px;">
@@ -1273,7 +1288,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.16.3";
+    const APP_VERSION = "1.18.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1385,6 +1400,64 @@
       firestoreDb = null; // Neu initialisieren mit den neuen Werten
       alert("Firebase-Konfiguration auf diesem Gerät gespeichert.");
       refreshCloudSyncUI();
+    }
+
+    // Exportiert die aktuell im Formular stehende Firebase-Konfiguration als
+    // kleine JSON-Datei – zum einmaligen Einrichten weiterer Geräte, ohne die
+    // 6 Felder dort erneut abzutippen. Enthält keine sensiblen Zugangsdaten
+    // (nur die Projekt-Konfiguration, kein Passwort).
+    function exportFirebaseConfigFile() {
+      const config = {
+        apiKey: document.getElementById("fbApiKey").value.trim(),
+        authDomain: document.getElementById("fbAuthDomain").value.trim(),
+        projectId: document.getElementById("fbProjectId").value.trim(),
+        storageBucket: document.getElementById("fbStorageBucket").value.trim(),
+        messagingSenderId: document.getElementById("fbMessagingSenderId").value.trim(),
+        appId: document.getElementById("fbAppId").value.trim()
+      };
+      if (!config.apiKey || !config.projectId) {
+        alert("Bitte zuerst mindestens API-Key und Projekt-ID eintragen (und idealerweise vorher speichern).");
+        return;
+      }
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "firebase-konfiguration.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // Liest eine zuvor exportierte Firebase-Konfigurationsdatei ein und befüllt
+    // damit die Formularfelder (noch nicht gespeichert – dafür oben auf
+    // "Firebase-Konfiguration speichern" tippen, damit es übernommen wird).
+    function importFirebaseConfigFile(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        let config;
+        try {
+          config = JSON.parse(reader.result);
+        } catch (e) {
+          alert("Diese Datei konnte nicht gelesen werden – ist es eine gültige Firebase-Konfigurationsdatei?");
+          return;
+        }
+        document.getElementById("fbApiKey").value = config.apiKey || "";
+        document.getElementById("fbAuthDomain").value = config.authDomain || "";
+        document.getElementById("fbProjectId").value = config.projectId || "";
+        document.getElementById("fbStorageBucket").value = config.storageBucket || "";
+        document.getElementById("fbMessagingSenderId").value = config.messagingSenderId || "";
+        document.getElementById("fbAppId").value = config.appId || "";
+        alert("Konfiguration aus Datei übernommen. Bitte oben auf \"Firebase-Konfiguration speichern\" tippen, damit sie aktiv wird.");
+      };
+      reader.onerror = function() {
+        alert("Datei konnte nicht gelesen werden.");
+      };
+      reader.readAsText(file);
+      event.target.value = "";
     }
 
     let firestoreDb = null;
