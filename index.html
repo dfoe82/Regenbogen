@@ -691,6 +691,68 @@
       transform: none;
     }
     /* Klassisch-Modus: Einzeltag-Zeilen pro Kind */
+    /* Warteliste */
+    .waitlist-entry {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+    .waitlist-entry-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+    .waitlist-entry-fields {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .waitlist-entry-fields .modal-row {
+      margin: 0;
+      gap: 6px;
+    }
+    .waitlist-entry-fields label {
+      min-width: 95px;
+      font-size: 0.85em;
+      color: var(--color-text-muted);
+    }
+    .waitlist-entry-fields input {
+      flex: 1;
+      min-width: 120px;
+    }
+    .waitlist-reorder {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .waitlist-reorder button {
+      padding: 6px 10px;
+      font-size: 0.8em;
+    }
+    .waitlist-notes-toggle {
+      margin-top: 10px;
+      font-size: 0.85em;
+    }
+    .waitlist-notes-box {
+      margin-top: 8px;
+    }
+    .waitlist-notes-box textarea {
+      width: 100%;
+      min-height: 90px;
+      font-family: var(--font-base);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      resize: vertical;
+    }
+    .waitlist-delete {
+      margin-top: 10px;
+      font-size: 0.8em;
+    }
     .classic-day-row {
       display: flex;
       align-items: center;
@@ -838,6 +900,10 @@
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       <span>Monatsabschluss</span>
     </button>
+    <button type="button" class="nav-btn" data-page="pageWarteliste" onclick="showPage('pageWarteliste')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Warteliste</span>
+    </button>
   </div>
 
   <!-- ===================== Seite: Übersicht (Startseite, inkl. Nachpflegen) ===================== -->
@@ -955,6 +1021,20 @@
       <button type="button" onclick="openParentMessageModal()" style="padding:14px; font-size:1em;">✉️ Nachricht für Eltern erstellen</button>
       <hr style="width:100%; margin:8px 0;">
       <button type="button" class="btn-primary" onclick="performMonthlyClose()" style="padding:14px; font-size:1.05em;">🗂️ Monatsabschluss jetzt erstellen (alle Kinder, PDF + E-Mail)</button>
+    </div>
+  </div>
+
+  <!-- ===================== Seite: Warteliste ===================== -->
+  <div id="pageWarteliste" class="page-section">
+    <h1 style="text-align:center;">📝 Warteliste</h1>
+    <div style="max-width:600px; margin:0 auto;">
+      <div class="modal-actions" style="justify-content:center;">
+        <button type="button" class="btn-primary" onclick="addWaitlistEntry()">+ Neuer Eintrag</button>
+      </div>
+      <div id="waitlistContainer"></div>
+      <p id="waitlistEmptyHint" style="text-align:center; color:var(--color-text-muted); display:none;">
+        Noch keine Einträge – oben auf "+ Neuer Eintrag" tippen.
+      </p>
     </div>
   </div>
 
@@ -1288,7 +1368,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.18.0";
+    const APP_VERSION = "1.19.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1850,11 +1930,16 @@
         exportedAt: new Date().toISOString(),
         appConfig: null,
         signatures: {},
-        attendance: {}
+        attendance: {},
+        waitlist: null
       };
       const rawConfig = localStorage.getItem(CONFIG_KEY);
       if (rawConfig) {
         try { data.appConfig = JSON.parse(rawConfig); } catch (e) { data.appConfig = null; }
+      }
+      const rawWaitlist = localStorage.getItem("waitlistEntries");
+      if (rawWaitlist) {
+        try { data.waitlist = JSON.parse(rawWaitlist); } catch (e) { data.waitlist = null; }
       }
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -1919,6 +2004,9 @@
       if (data.appConfig) {
         localStorage.setItem(CONFIG_KEY, JSON.stringify(data.appConfig));
       }
+      if (data.waitlist) {
+        localStorage.setItem("waitlistEntries", JSON.stringify(data.waitlist));
+      }
       if (data.signatures) {
         Object.keys(data.signatures).forEach(function(key) {
           localStorage.setItem(key, data.signatures[key]);
@@ -1941,6 +2029,16 @@
       populateNameSelect();
       closeConfigModal();
       resetAndLoadCurrentChild();
+      // Falls die Übersicht-Seite gerade angezeigt wird, auch diese aktualisieren
+      // (z. B. nach automatischem Cloud-Download beim App-Start) – sonst sieht
+      // man neue Einträge von einem anderen Gerät erst nach erneutem Antippen
+      // des Menüpunkts "Übersicht".
+      if (document.getElementById("pageOverview").classList.contains("active")) {
+        initOverviewPage();
+      }
+      if (document.getElementById("pageWarteliste").classList.contains("active")) {
+        renderWaitlistContent();
+      }
     }
 
     // ============================================================
@@ -3381,6 +3479,167 @@
     // ============================================================
     // SEITEN-NAVIGATION (feste untere Leiste: Übersicht / Kinder)
     // ============================================================
+    // ============================================================
+    // WARTELISTE
+    // ============================================================
+    function getWaitlistEntries() {
+      const raw = localStorage.getItem("waitlistEntries");
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveWaitlistEntries(entries) {
+      localStorage.setItem("waitlistEntries", JSON.stringify(entries));
+      queueAutoUpload();
+    }
+
+    function addWaitlistEntry() {
+      const entries = getWaitlistEntries();
+      entries.push({
+        id: Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        name: "",
+        kindName: "",
+        ort: "",
+        telefon: "",
+        startdatum: "",
+        notizen: "",
+        notesOpen: false
+      });
+      saveWaitlistEntries(entries);
+      renderWaitlistContent();
+    }
+
+    function updateWaitlistField(id, field, value) {
+      const entries = getWaitlistEntries();
+      const entry = entries.find(function(e) { return e.id === id; });
+      if (!entry) return;
+      entry[field] = value;
+      saveWaitlistEntries(entries);
+    }
+
+    function moveWaitlistEntry(id, direction) {
+      const entries = getWaitlistEntries();
+      const idx = entries.findIndex(function(e) { return e.id === id; });
+      if (idx === -1) return;
+      const newIdx = idx + direction;
+      if (newIdx < 0 || newIdx >= entries.length) return;
+      const tmp = entries[idx];
+      entries[idx] = entries[newIdx];
+      entries[newIdx] = tmp;
+      saveWaitlistEntries(entries);
+      renderWaitlistContent();
+    }
+
+    function toggleWaitlistNotes(id) {
+      const entries = getWaitlistEntries();
+      const entry = entries.find(function(e) { return e.id === id; });
+      if (!entry) return;
+      entry.notesOpen = !entry.notesOpen;
+      saveWaitlistEntries(entries);
+      renderWaitlistContent();
+    }
+
+    function deleteWaitlistEntry(id) {
+      if (!confirm("Diesen Eintrag aus der Warteliste löschen?")) return;
+      const entries = getWaitlistEntries().filter(function(e) { return e.id !== id; });
+      saveWaitlistEntries(entries);
+      renderWaitlistContent();
+    }
+
+    function renderWaitlistContent() {
+      const container = document.getElementById("waitlistContainer");
+      const emptyHint = document.getElementById("waitlistEmptyHint");
+      const entries = getWaitlistEntries();
+      container.innerHTML = "";
+      emptyHint.style.display = entries.length === 0 ? "block" : "none";
+
+      entries.forEach(function(entry, index) {
+        const block = document.createElement("div");
+        block.className = "waitlist-entry";
+
+        const top = document.createElement("div");
+        top.className = "waitlist-entry-top";
+
+        const fields = document.createElement("div");
+        fields.className = "waitlist-entry-fields";
+
+        function fieldRow(labelText, field, type) {
+          const row = document.createElement("div");
+          row.className = "modal-row";
+          const label = document.createElement("label");
+          label.textContent = labelText + ":";
+          row.appendChild(label);
+          const input = document.createElement("input");
+          input.type = type || "text";
+          input.value = entry[field] || "";
+          input.addEventListener("change", function() {
+            updateWaitlistField(entry.id, field, input.value);
+          });
+          row.appendChild(input);
+          return row;
+        }
+
+        fields.appendChild(fieldRow("Name", "name"));
+        fields.appendChild(fieldRow("Name Kind", "kindName"));
+        fields.appendChild(fieldRow("Ort", "ort"));
+        fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
+        fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
+
+        top.appendChild(fields);
+
+        const reorder = document.createElement("div");
+        reorder.className = "waitlist-reorder";
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.textContent = "▲";
+        upBtn.disabled = index === 0;
+        upBtn.addEventListener("click", function() { moveWaitlistEntry(entry.id, -1); });
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.textContent = "▼";
+        downBtn.disabled = index === entries.length - 1;
+        downBtn.addEventListener("click", function() { moveWaitlistEntry(entry.id, 1); });
+        reorder.appendChild(upBtn);
+        reorder.appendChild(downBtn);
+        top.appendChild(reorder);
+
+        block.appendChild(top);
+
+        const notesToggle = document.createElement("button");
+        notesToggle.type = "button";
+        notesToggle.className = "waitlist-notes-toggle";
+        notesToggle.textContent = entry.notesOpen ? "📝 Notizen schließen" : (entry.notizen ? "📝 Notizen anzeigen/bearbeiten" : "📝 Notiz hinzufügen");
+        notesToggle.addEventListener("click", function() { toggleWaitlistNotes(entry.id); });
+        block.appendChild(notesToggle);
+
+        if (entry.notesOpen) {
+          const notesBox = document.createElement("div");
+          notesBox.className = "waitlist-notes-box";
+          const textarea = document.createElement("textarea");
+          textarea.value = entry.notizen || "";
+          textarea.addEventListener("change", function() {
+            updateWaitlistField(entry.id, "notizen", textarea.value);
+          });
+          notesBox.appendChild(textarea);
+          block.appendChild(notesBox);
+        }
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "waitlist-delete btn-danger";
+        deleteBtn.textContent = "Eintrag löschen";
+        deleteBtn.addEventListener("click", function() { deleteWaitlistEntry(entry.id); });
+        block.appendChild(deleteBtn);
+
+        container.appendChild(block);
+      });
+    }
+
     function showPage(pageId) {
       document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
@@ -3395,6 +3654,9 @@
       }
       if (pageId === "pageMonthlyClose") {
         initMonthlyClosePage();
+      }
+      if (pageId === "pageWarteliste") {
+        renderWaitlistContent();
       }
     }
 
