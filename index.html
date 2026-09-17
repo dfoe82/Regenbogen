@@ -1057,7 +1057,7 @@
     <h1 style="text-align:center;">📝 Warteliste</h1>
     <div style="max-width:600px; margin:0 auto;">
       <div class="modal-actions" style="justify-content:center;">
-        <button type="button" class="btn-primary" onclick="addWaitlistEntry()">+ Neuer Eintrag</button>
+        <button type="button" class="btn-primary" onclick="openNewWaitlistEntryModal()">+ Neuer Eintrag</button>
       </div>
       <div class="modal-row" style="justify-content:center;">
         <label for="waitlistSortSelect">Sortieren nach:</label>
@@ -1070,6 +1070,37 @@
       <p id="waitlistEmptyHint" style="text-align:center; color:var(--color-text-muted); display:none;">
         Noch keine Einträge – oben auf "+ Neuer Eintrag" tippen.
       </p>
+    </div>
+  </div>
+
+  <!-- ===================== Neuer Warteliste-Eintrag (Modal, im Vordergrund) ===================== -->
+  <div id="newWaitlistEntryModal" class="modal-overlay no-print">
+    <div class="modal-box">
+      <h2>+ Neuer Warteliste-Eintrag</h2>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistName">Name:</label>
+        <input type="text" id="newWaitlistName">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistKindName">Name Kind:</label>
+        <input type="text" id="newWaitlistKindName">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistOrt">Ort:</label>
+        <input type="text" id="newWaitlistOrt">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistTelefon">Telefonnummer:</label>
+        <input type="tel" id="newWaitlistTelefon">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistStartdatum">Startdatum:</label>
+        <input type="date" id="newWaitlistStartdatum">
+      </div>
+      <div class="modal-actions">
+        <button type="button" onclick="closeNewWaitlistEntryModal()">Abbrechen</button>
+        <button type="button" class="btn-primary" onclick="submitNewWaitlistEntry()">Hinzufügen</button>
+      </div>
     </div>
   </div>
 
@@ -1403,7 +1434,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.20.0";
+    const APP_VERSION = "1.20.1";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -3533,21 +3564,35 @@
       queueAutoUpload();
     }
 
-    function addWaitlistEntry() {
+    function openNewWaitlistEntryModal() {
+      document.getElementById("newWaitlistName").value = "";
+      document.getElementById("newWaitlistKindName").value = "";
+      document.getElementById("newWaitlistOrt").value = "";
+      document.getElementById("newWaitlistTelefon").value = "";
+      document.getElementById("newWaitlistStartdatum").value = "";
+      document.getElementById("newWaitlistEntryModal").classList.add("open");
+    }
+
+    function closeNewWaitlistEntryModal() {
+      document.getElementById("newWaitlistEntryModal").classList.remove("open");
+    }
+
+    function submitNewWaitlistEntry() {
       const entries = getWaitlistEntries();
       entries.push({
         id: Date.now() + "_" + Math.random().toString(36).slice(2, 8),
-        name: "",
-        kindName: "",
-        ort: "",
-        telefon: "",
-        startdatum: "",
+        name: document.getElementById("newWaitlistName").value.trim(),
+        kindName: document.getElementById("newWaitlistKindName").value.trim(),
+        ort: document.getElementById("newWaitlistOrt").value.trim(),
+        telefon: document.getElementById("newWaitlistTelefon").value.trim(),
+        startdatum: document.getElementById("newWaitlistStartdatum").value,
         notizen: "",
         notesOpen: false,
         rating: 0,
         createdAt: new Date().toISOString()
       });
       saveWaitlistEntries(entries);
+      closeNewWaitlistEntryModal();
       renderWaitlistContent();
     }
 
@@ -3576,7 +3621,9 @@
       if (isNaN(d.getTime())) return "unbekannt";
       const day = String(d.getDate()).padStart(2, "0");
       const month = String(d.getMonth() + 1).padStart(2, "0");
-      return day + "." + month + "." + d.getFullYear();
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      return day + "." + month + "." + d.getFullYear() + ", " + hours + ":" + minutes + " Uhr";
     }
 
     function updateWaitlistField(id, field, value) {
