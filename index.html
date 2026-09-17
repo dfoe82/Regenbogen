@@ -709,20 +709,26 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
     .waitlist-entry-fields .modal-row {
       margin: 0;
-      gap: 6px;
+      gap: 4px;
+      flex-direction: column;
+      align-items: stretch;
     }
     .waitlist-entry-fields label {
-      min-width: 95px;
-      font-size: 0.85em;
+      font-size: 0.8em;
       color: var(--color-text-muted);
     }
     .waitlist-entry-fields input {
-      flex: 1;
-      min-width: 120px;
+      width: 100%;
+      box-sizing: border-box;
+      height: 42px;
+      text-align: left;
+      -webkit-appearance: none;
+      appearance: none;
+      font-size: 1em;
     }
     .waitlist-reorder {
       display: flex;
@@ -1368,7 +1374,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.19.0";
+    const APP_VERSION = "1.19.1";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
