@@ -695,52 +695,37 @@
     .waitlist-entry {
       background: var(--color-surface);
       border: 1px solid var(--color-border);
-      border-radius: var(--radius);
+      border-radius: var(--radius-sm);
       box-shadow: var(--shadow-sm);
-      padding: 14px 16px;
-      margin-bottom: 12px;
-    }
-    .waitlist-entry-top {
-      display: flex;
-      align-items: flex-start;
-      gap: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
     }
     .waitlist-entry-fields {
-      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
     }
     .waitlist-entry-fields .modal-row {
       margin: 0;
-      gap: 4px;
+      gap: 2px;
       flex-direction: column;
       align-items: stretch;
     }
     .waitlist-entry-fields label {
-      font-size: 0.8em;
+      font-size: 0.75em;
       color: var(--color-text-muted);
     }
     .waitlist-entry-fields input {
       width: 100%;
       box-sizing: border-box;
-      height: 42px;
+      height: 36px;
       text-align: left;
       -webkit-appearance: none;
       appearance: none;
-      font-size: 1em;
-    }
-    .waitlist-reorder {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .waitlist-reorder button {
-      padding: 6px 10px;
-      font-size: 0.8em;
+      font-size: 0.95em;
     }
     .waitlist-stars {
-      margin-top: 10px;
+      margin-top: 6px;
       display: flex;
       gap: 2px;
     }
@@ -749,7 +734,7 @@
       border: none;
       box-shadow: none;
       padding: 2px 4px;
-      font-size: 1.4em;
+      font-size: 1.3em;
       line-height: 1;
       color: #cbd5e1;
     }
@@ -757,29 +742,65 @@
       color: #f59e0b;
     }
     .waitlist-created-info {
-      margin: 6px 0 0 0;
-      font-size: 0.75em;
+      margin: 4px 0 0 0;
+      font-size: 0.72em;
       color: var(--color-text-muted);
     }
     .waitlist-notes-toggle {
-      margin-top: 10px;
-      font-size: 0.85em;
+      margin-top: 6px;
+      font-size: 0.8em;
+      padding: 8px 14px;
     }
     .waitlist-notes-box {
-      margin-top: 8px;
+      margin-top: 6px;
     }
     .waitlist-notes-box textarea {
       width: 100%;
-      min-height: 90px;
+      min-height: 70px;
       font-family: var(--font-base);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
       padding: 8px;
       resize: vertical;
+      box-sizing: border-box;
     }
     .waitlist-delete {
-      margin-top: 10px;
-      font-size: 0.8em;
+      margin-top: 6px;
+      font-size: 0.75em;
+      padding: 8px 14px;
+    }
+    .fortbildung-entry {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .fortbildung-entry .modal-row {
+      margin: 0;
+      gap: 2px;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .fortbildung-entry label {
+      font-size: 0.75em;
+      color: var(--color-text-muted);
+    }
+    .fortbildung-entry input,
+    .fortbildung-entry select {
+      width: 100%;
+      box-sizing: border-box;
+      height: 36px;
+      font-size: 0.95em;
+    }
+    .fortbildung-delete {
+      margin-top: 4px;
+      font-size: 0.75em;
+      padding: 8px 14px;
     }
     .classic-day-row {
       display: flex;
@@ -931,6 +952,10 @@
     <button type="button" class="nav-btn" data-page="pageWarteliste" onclick="showPage('pageWarteliste')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
       <span>Warteliste</span>
+    </button>
+    <button type="button" class="nav-btn" data-page="pageFortbildung" onclick="showPage('pageFortbildung')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg>
+      <span>Fortbildung</span>
     </button>
   </div>
 
@@ -1097,9 +1122,57 @@
         <label for="newWaitlistStartdatum">Startdatum:</label>
         <input type="date" id="newWaitlistStartdatum">
       </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistNotizen">Notizen:</label>
+        <textarea id="newWaitlistNotizen" style="min-height:70px; width:100%; box-sizing:border-box; font-family:var(--font-base); border:1px solid var(--color-border); border-radius:var(--radius-sm); padding:8px; resize:vertical;"></textarea>
+      </div>
       <div class="modal-actions">
         <button type="button" onclick="closeNewWaitlistEntryModal()">Abbrechen</button>
         <button type="button" class="btn-primary" onclick="submitNewWaitlistEntry()">Hinzufügen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Seite: Fortbildung ===================== -->
+  <div id="pageFortbildung" class="page-section">
+    <h1 style="text-align:center;">🎓 Fortbildung</h1>
+    <div style="max-width:600px; margin:0 auto;">
+      <div class="modal-actions" style="justify-content:center;">
+        <button type="button" class="btn-primary" onclick="openNewFortbildungEntryModal()">+ Neuer Eintrag</button>
+      </div>
+      <div id="fortbildungContainer"></div>
+      <p id="fortbildungEmptyHint" style="text-align:center; color:var(--color-text-muted); display:none;">
+        Noch keine Einträge – oben auf "+ Neuer Eintrag" tippen.
+      </p>
+    </div>
+  </div>
+
+  <!-- ===================== Neuer Fortbildung-Eintrag (Modal, im Vordergrund) ===================== -->
+  <div id="newFortbildungEntryModal" class="modal-overlay no-print">
+    <div class="modal-box">
+      <h2>+ Neue Fortbildung</h2>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newFortbildungDatum">Datum:</label>
+        <input type="date" id="newFortbildungDatum">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newFortbildungOrt">Ort:</label>
+        <input type="text" id="newFortbildungOrt">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newFortbildungName">Fortbildung:</label>
+        <input type="text" id="newFortbildungName">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newFortbildungTeilgenommen">Teilgenommen:</label>
+        <select id="newFortbildungTeilgenommen">
+          <option value="ja">Ja</option>
+          <option value="nein">Nein</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" onclick="closeNewFortbildungEntryModal()">Abbrechen</button>
+        <button type="button" class="btn-primary" onclick="submitNewFortbildungEntry()">Hinzufügen</button>
       </div>
     </div>
   </div>
@@ -1434,7 +1507,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.20.1";
+    const APP_VERSION = "1.21.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -1997,7 +2070,8 @@
         appConfig: null,
         signatures: {},
         attendance: {},
-        waitlist: null
+        waitlist: null,
+        fortbildung: null
       };
       const rawConfig = localStorage.getItem(CONFIG_KEY);
       if (rawConfig) {
@@ -2006,6 +2080,10 @@
       const rawWaitlist = localStorage.getItem("waitlistEntries");
       if (rawWaitlist) {
         try { data.waitlist = JSON.parse(rawWaitlist); } catch (e) { data.waitlist = null; }
+      }
+      const rawFortbildung = localStorage.getItem("fortbildungEntries");
+      if (rawFortbildung) {
+        try { data.fortbildung = JSON.parse(rawFortbildung); } catch (e) { data.fortbildung = null; }
       }
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -2073,6 +2151,9 @@
       if (data.waitlist) {
         localStorage.setItem("waitlistEntries", JSON.stringify(data.waitlist));
       }
+      if (data.fortbildung) {
+        localStorage.setItem("fortbildungEntries", JSON.stringify(data.fortbildung));
+      }
       if (data.signatures) {
         Object.keys(data.signatures).forEach(function(key) {
           localStorage.setItem(key, data.signatures[key]);
@@ -2104,6 +2185,9 @@
       }
       if (document.getElementById("pageWarteliste").classList.contains("active")) {
         renderWaitlistContent();
+      }
+      if (document.getElementById("pageFortbildung").classList.contains("active")) {
+        renderFortbildungContent();
       }
     }
 
@@ -3570,6 +3654,7 @@
       document.getElementById("newWaitlistOrt").value = "";
       document.getElementById("newWaitlistTelefon").value = "";
       document.getElementById("newWaitlistStartdatum").value = "";
+      document.getElementById("newWaitlistNotizen").value = "";
       document.getElementById("newWaitlistEntryModal").classList.add("open");
     }
 
@@ -3586,7 +3671,7 @@
         ort: document.getElementById("newWaitlistOrt").value.trim(),
         telefon: document.getElementById("newWaitlistTelefon").value.trim(),
         startdatum: document.getElementById("newWaitlistStartdatum").value,
-        notizen: "",
+        notizen: document.getElementById("newWaitlistNotizen").value.trim(),
         notesOpen: false,
         rating: 0,
         createdAt: new Date().toISOString()
@@ -3634,19 +3719,6 @@
       saveWaitlistEntries(entries);
     }
 
-    function moveWaitlistEntry(id, direction) {
-      const entries = getWaitlistEntries();
-      const idx = entries.findIndex(function(e) { return e.id === id; });
-      if (idx === -1) return;
-      const newIdx = idx + direction;
-      if (newIdx < 0 || newIdx >= entries.length) return;
-      const tmp = entries[idx];
-      entries[idx] = entries[newIdx];
-      entries[newIdx] = tmp;
-      saveWaitlistEntries(entries);
-      renderWaitlistContent();
-    }
-
     function toggleWaitlistNotes(id) {
       const entries = getWaitlistEntries();
       const entry = entries.find(function(e) { return e.id === id; });
@@ -3692,9 +3764,6 @@
         const block = document.createElement("div");
         block.className = "waitlist-entry";
 
-        const top = document.createElement("div");
-        top.className = "waitlist-entry-top";
-
         const fields = document.createElement("div");
         fields.className = "waitlist-entry-fields";
 
@@ -3720,25 +3789,7 @@
         fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
         fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
 
-        top.appendChild(fields);
-
-        const reorder = document.createElement("div");
-        reorder.className = "waitlist-reorder";
-        const upBtn = document.createElement("button");
-        upBtn.type = "button";
-        upBtn.textContent = "▲";
-        upBtn.disabled = index === 0;
-        upBtn.addEventListener("click", function() { moveWaitlistEntry(entry.id, -1); });
-        const downBtn = document.createElement("button");
-        downBtn.type = "button";
-        downBtn.textContent = "▼";
-        downBtn.disabled = index === sortedEntries.length - 1;
-        downBtn.addEventListener("click", function() { moveWaitlistEntry(entry.id, 1); });
-        reorder.appendChild(upBtn);
-        reorder.appendChild(downBtn);
-        top.appendChild(reorder);
-
-        block.appendChild(top);
+        block.appendChild(fields);
 
         // Sterne-Bewertung (zum Markieren favorisierter Einträge)
         const starsRow = document.createElement("div");
@@ -3788,6 +3839,128 @@
       });
     }
 
+    // ============================================================
+    // FORTBILDUNG
+    // ============================================================
+    function getFortbildungEntries() {
+      const raw = localStorage.getItem("fortbildungEntries");
+      if (!raw) return [];
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveFortbildungEntries(entries) {
+      localStorage.setItem("fortbildungEntries", JSON.stringify(entries));
+      queueAutoUpload();
+    }
+
+    function openNewFortbildungEntryModal() {
+      document.getElementById("newFortbildungDatum").value = "";
+      document.getElementById("newFortbildungOrt").value = "";
+      document.getElementById("newFortbildungName").value = "";
+      document.getElementById("newFortbildungTeilgenommen").value = "ja";
+      document.getElementById("newFortbildungEntryModal").classList.add("open");
+    }
+
+    function closeNewFortbildungEntryModal() {
+      document.getElementById("newFortbildungEntryModal").classList.remove("open");
+    }
+
+    function submitNewFortbildungEntry() {
+      const entries = getFortbildungEntries();
+      entries.push({
+        id: Date.now() + "_" + Math.random().toString(36).slice(2, 8),
+        datum: document.getElementById("newFortbildungDatum").value,
+        ort: document.getElementById("newFortbildungOrt").value.trim(),
+        fortbildung: document.getElementById("newFortbildungName").value.trim(),
+        teilgenommen: document.getElementById("newFortbildungTeilgenommen").value,
+        createdAt: new Date().toISOString()
+      });
+      saveFortbildungEntries(entries);
+      closeNewFortbildungEntryModal();
+      renderFortbildungContent();
+    }
+
+    function updateFortbildungField(id, field, value) {
+      const entries = getFortbildungEntries();
+      const entry = entries.find(function(e) { return e.id === id; });
+      if (!entry) return;
+      entry[field] = value;
+      saveFortbildungEntries(entries);
+    }
+
+    function deleteFortbildungEntry(id) {
+      if (!confirm("Diesen Fortbildungs-Eintrag löschen?")) return;
+      const entries = getFortbildungEntries().filter(function(e) { return e.id !== id; });
+      saveFortbildungEntries(entries);
+      renderFortbildungContent();
+    }
+
+    function renderFortbildungContent() {
+      const container = document.getElementById("fortbildungContainer");
+      const emptyHint = document.getElementById("fortbildungEmptyHint");
+      const entries = getFortbildungEntries();
+      container.innerHTML = "";
+      emptyHint.style.display = entries.length === 0 ? "block" : "none";
+
+      entries.forEach(function(entry) {
+        const block = document.createElement("div");
+        block.className = "fortbildung-entry";
+
+        function fieldRow(labelText, field, type) {
+          const row = document.createElement("div");
+          row.className = "modal-row";
+          const label = document.createElement("label");
+          label.textContent = labelText + ":";
+          row.appendChild(label);
+          const input = document.createElement("input");
+          input.type = type || "text";
+          input.value = entry[field] || "";
+          input.addEventListener("change", function() {
+            updateFortbildungField(entry.id, field, input.value);
+          });
+          row.appendChild(input);
+          return row;
+        }
+
+        block.appendChild(fieldRow("Datum", "datum", "date"));
+        block.appendChild(fieldRow("Ort", "ort"));
+        block.appendChild(fieldRow("Fortbildung", "fortbildung"));
+
+        const teilRow = document.createElement("div");
+        teilRow.className = "modal-row";
+        const teilLabel = document.createElement("label");
+        teilLabel.textContent = "Teilgenommen:";
+        teilRow.appendChild(teilLabel);
+        const teilSelect = document.createElement("select");
+        ["ja", "nein"].forEach(function(v) {
+          const opt = document.createElement("option");
+          opt.value = v;
+          opt.textContent = v === "ja" ? "Ja" : "Nein";
+          teilSelect.appendChild(opt);
+        });
+        teilSelect.value = entry.teilgenommen || "ja";
+        teilSelect.addEventListener("change", function() {
+          updateFortbildungField(entry.id, "teilgenommen", teilSelect.value);
+        });
+        teilRow.appendChild(teilSelect);
+        block.appendChild(teilRow);
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "fortbildung-delete btn-danger";
+        deleteBtn.textContent = "Eintrag löschen";
+        deleteBtn.addEventListener("click", function() { deleteFortbildungEntry(entry.id); });
+        block.appendChild(deleteBtn);
+
+        container.appendChild(block);
+      });
+    }
+
     function showPage(pageId) {
       document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
@@ -3805,6 +3978,9 @@
       }
       if (pageId === "pageWarteliste") {
         renderWaitlistContent();
+      }
+      if (pageId === "pageFortbildung") {
+        renderFortbildungContent();
       }
     }
 
