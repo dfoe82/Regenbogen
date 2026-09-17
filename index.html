@@ -739,6 +739,28 @@
       padding: 6px 10px;
       font-size: 0.8em;
     }
+    .waitlist-stars {
+      margin-top: 10px;
+      display: flex;
+      gap: 2px;
+    }
+    .waitlist-star {
+      background: none;
+      border: none;
+      box-shadow: none;
+      padding: 2px 4px;
+      font-size: 1.4em;
+      line-height: 1;
+      color: #cbd5e1;
+    }
+    .waitlist-star.filled {
+      color: #f59e0b;
+    }
+    .waitlist-created-info {
+      margin: 6px 0 0 0;
+      font-size: 0.75em;
+      color: var(--color-text-muted);
+    }
     .waitlist-notes-toggle {
       margin-top: 10px;
       font-size: 0.85em;
@@ -1036,6 +1058,13 @@
     <div style="max-width:600px; margin:0 auto;">
       <div class="modal-actions" style="justify-content:center;">
         <button type="button" class="btn-primary" onclick="addWaitlistEntry()">+ Neuer Eintrag</button>
+      </div>
+      <div class="modal-row" style="justify-content:center;">
+        <label for="waitlistSortSelect">Sortieren nach:</label>
+        <select id="waitlistSortSelect" onchange="setWaitlistSortBy(this.value)">
+          <option value="createdAt">Erstellungsdatum</option>
+          <option value="rating">5-Sterne-Bewertung</option>
+        </select>
       </div>
       <div id="waitlistContainer"></div>
       <p id="waitlistEmptyHint" style="text-align:center; color:var(--color-text-muted); display:none;">
@@ -1374,7 +1403,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.19.1";
+    const APP_VERSION = "1.20.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -3514,10 +3543,40 @@
         telefon: "",
         startdatum: "",
         notizen: "",
-        notesOpen: false
+        notesOpen: false,
+        rating: 0,
+        createdAt: new Date().toISOString()
       });
       saveWaitlistEntries(entries);
       renderWaitlistContent();
+    }
+
+    function setWaitlistRating(id, rating) {
+      const entries = getWaitlistEntries();
+      const entry = entries.find(function(e) { return e.id === id; });
+      if (!entry) return;
+      // Erneutes Antippen desselben Sterns setzt die Bewertung wieder zurück
+      entry.rating = (entry.rating === rating) ? 0 : rating;
+      saveWaitlistEntries(entries);
+      renderWaitlistContent();
+    }
+
+    function getWaitlistSortBy() {
+      return localStorage.getItem("waitlistSortBy") || "createdAt";
+    }
+
+    function setWaitlistSortBy(value) {
+      localStorage.setItem("waitlistSortBy", value);
+      renderWaitlistContent();
+    }
+
+    function formatWaitlistCreatedAt(isoString) {
+      if (!isoString) return "unbekannt";
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return "unbekannt";
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      return day + "." + month + "." + d.getFullYear();
     }
 
     function updateWaitlistField(id, field, value) {
@@ -3564,7 +3623,25 @@
       container.innerHTML = "";
       emptyHint.style.display = entries.length === 0 ? "block" : "none";
 
-      entries.forEach(function(entry, index) {
+      const sortBy = getWaitlistSortBy();
+      document.getElementById("waitlistSortSelect").value = sortBy;
+
+      // Sortierte Kopie für die Anzeige – die zugrunde liegende gespeicherte
+      // Reihenfolge (für die ▲/▼-Buttons) bleibt davon unberührt. Stabil
+      // sortiert, damit Einträge mit gleicher Bewertung/ohne Datum ihre
+      // bisherige Reihenfolge zueinander behalten.
+      const sortedEntries = entries.slice().sort(function(a, b) {
+        if (sortBy === "rating") {
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        // Erstellungsdatum (Standard): älteste zuerst; Einträge ohne
+        // Erstellungsdatum (aus der Zeit vor dieser Funktion) gelten als "ganz alt".
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return aTime - bTime;
+      });
+
+      sortedEntries.forEach(function(entry, index) {
         const block = document.createElement("div");
         block.className = "waitlist-entry";
 
@@ -3608,13 +3685,31 @@
         const downBtn = document.createElement("button");
         downBtn.type = "button";
         downBtn.textContent = "▼";
-        downBtn.disabled = index === entries.length - 1;
+        downBtn.disabled = index === sortedEntries.length - 1;
         downBtn.addEventListener("click", function() { moveWaitlistEntry(entry.id, 1); });
         reorder.appendChild(upBtn);
         reorder.appendChild(downBtn);
         top.appendChild(reorder);
 
         block.appendChild(top);
+
+        // Sterne-Bewertung (zum Markieren favorisierter Einträge)
+        const starsRow = document.createElement("div");
+        starsRow.className = "waitlist-stars";
+        for (let s = 1; s <= 5; s++) {
+          const starBtn = document.createElement("button");
+          starBtn.type = "button";
+          starBtn.className = "waitlist-star" + (s <= (entry.rating || 0) ? " filled" : "");
+          starBtn.textContent = s <= (entry.rating || 0) ? "★" : "☆";
+          starBtn.addEventListener("click", function() { setWaitlistRating(entry.id, s); });
+          starsRow.appendChild(starBtn);
+        }
+        block.appendChild(starsRow);
+
+        const createdInfo = document.createElement("p");
+        createdInfo.className = "waitlist-created-info";
+        createdInfo.textContent = "Erstellt am: " + formatWaitlistCreatedAt(entry.createdAt);
+        block.appendChild(createdInfo);
 
         const notesToggle = document.createElement("button");
         notesToggle.type = "button";
