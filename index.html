@@ -827,13 +827,57 @@
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
       box-shadow: var(--shadow-sm);
-      padding: 10px 12px;
+      padding: 0;
       margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .fortbildung-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .fortbildung-summary-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .fortbildung-summary-name {
+      font-weight: 600;
+      font-size: 0.95em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fortbildung-summary-meta {
+      font-size: 0.75em;
+      color: var(--color-text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fortbildung-expand-icon {
+      flex-shrink: 0;
+      font-size: 0.8em;
+      color: var(--color-text-muted);
+      transition: transform 0.15s ease;
+    }
+    .fortbildung-entry.expanded .fortbildung-expand-icon {
+      transform: rotate(180deg);
+    }
+    .fortbildung-entry-body {
+      padding: 0 12px 10px 12px;
+      border-top: 1px solid var(--color-border);
+      padding-top: 10px;
       display: flex;
       flex-direction: column;
       gap: 6px;
     }
-    .fortbildung-entry .modal-row {
+    .fortbildung-entry-body .modal-row {
       margin: 0;
       gap: 2px;
       flex-direction: column;
@@ -1625,7 +1669,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.23.0";
+    const APP_VERSION = "1.24.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -4079,6 +4123,30 @@
       renderFortbildungContent();
     }
 
+    // Merkt sich pro Eintrag, ob die Zeile gerade ausgeklappt ist. Bewusst
+    // nicht in localStorage gespeichert (rein visueller UI-Zustand für die
+    // aktuelle Sitzung), damit die Liste beim erneuten Öffnen der App wieder
+    // eingeklappt (kompakt) startet.
+    const fortbildungExpandedIds = new Set();
+
+    function toggleFortbildungExpand(id) {
+      if (fortbildungExpandedIds.has(id)) {
+        fortbildungExpandedIds.delete(id);
+      } else {
+        fortbildungExpandedIds.add(id);
+      }
+      renderFortbildungContent();
+    }
+
+    function formatFortbildungDatum(isoString) {
+      if (!isoString) return "";
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return "";
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      return day + "." + month + "." + d.getFullYear();
+    }
+
     function renderFortbildungContent() {
       const container = document.getElementById("fortbildungContainer");
       const emptyHint = document.getElementById("fortbildungEmptyHint");
@@ -4087,54 +4155,96 @@
       emptyHint.style.display = entries.length === 0 ? "block" : "none";
 
       entries.forEach(function(entry) {
+        const isExpanded = fortbildungExpandedIds.has(entry.id);
+
         const block = document.createElement("div");
-        block.className = "fortbildung-entry";
+        block.className = "fortbildung-entry" + (isExpanded ? " expanded" : "");
 
-        function fieldRow(labelText, field, type) {
-          const row = document.createElement("div");
-          row.className = "modal-row";
-          const label = document.createElement("label");
-          label.textContent = labelText + ":";
-          row.appendChild(label);
-          const input = document.createElement("input");
-          input.type = type || "text";
-          input.value = entry[field] || "";
-          input.addEventListener("change", function() {
-            updateFortbildungField(entry.id, field, input.value);
-          });
-          row.appendChild(input);
-          return row;
+        // Einzeilige Zusammenfassung – zum Auf-/Zuklappen anklickbar.
+        const summary = document.createElement("div");
+        summary.className = "fortbildung-summary";
+        summary.addEventListener("click", function() { toggleFortbildungExpand(entry.id); });
+
+        const summaryText = document.createElement("div");
+        summaryText.className = "fortbildung-summary-text";
+        const summaryName = document.createElement("div");
+        summaryName.className = "fortbildung-summary-name";
+        summaryName.textContent = entry.fortbildung || "(ohne Titel)";
+        summaryText.appendChild(summaryName);
+        const metaParts = [];
+        const datumText = formatFortbildungDatum(entry.datum);
+        if (datumText) { metaParts.push(datumText); }
+        if (entry.ort) { metaParts.push(entry.ort); }
+        metaParts.push(entry.teilgenommen === "nein" ? "nicht teilgenommen" : "teilgenommen");
+        if (metaParts.length > 0) {
+          const summaryMeta = document.createElement("div");
+          summaryMeta.className = "fortbildung-summary-meta";
+          summaryMeta.textContent = metaParts.join(" · ");
+          summaryText.appendChild(summaryMeta);
         }
+        summary.appendChild(summaryText);
 
-        block.appendChild(fieldRow("Datum", "datum", "date"));
-        block.appendChild(fieldRow("Ort", "ort"));
-        block.appendChild(fieldRow("Fortbildung", "fortbildung"));
+        const expandIcon = document.createElement("span");
+        expandIcon.className = "fortbildung-expand-icon";
+        expandIcon.textContent = "▼";
+        summary.appendChild(expandIcon);
 
-        const teilRow = document.createElement("div");
-        teilRow.className = "modal-row";
-        const teilLabel = document.createElement("label");
-        teilLabel.textContent = "Teilgenommen:";
-        teilRow.appendChild(teilLabel);
-        const teilSelect = document.createElement("select");
-        ["ja", "nein"].forEach(function(v) {
-          const opt = document.createElement("option");
-          opt.value = v;
-          opt.textContent = v === "ja" ? "Ja" : "Nein";
-          teilSelect.appendChild(opt);
-        });
-        teilSelect.value = entry.teilgenommen || "ja";
-        teilSelect.addEventListener("change", function() {
-          updateFortbildungField(entry.id, "teilgenommen", teilSelect.value);
-        });
-        teilRow.appendChild(teilSelect);
-        block.appendChild(teilRow);
+        block.appendChild(summary);
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "fortbildung-delete btn-danger";
-        deleteBtn.textContent = "Eintrag löschen";
-        deleteBtn.addEventListener("click", function() { deleteFortbildungEntry(entry.id); });
-        block.appendChild(deleteBtn);
+        if (isExpanded) {
+          const body = document.createElement("div");
+          body.className = "fortbildung-entry-body";
+
+          function fieldRow(labelText, field, type) {
+            const row = document.createElement("div");
+            row.className = "modal-row";
+            const label = document.createElement("label");
+            label.textContent = labelText + ":";
+            row.appendChild(label);
+            const input = document.createElement("input");
+            input.type = type || "text";
+            input.value = entry[field] || "";
+            input.addEventListener("change", function() {
+              updateFortbildungField(entry.id, field, input.value);
+              renderFortbildungContent();
+            });
+            row.appendChild(input);
+            return row;
+          }
+
+          body.appendChild(fieldRow("Datum", "datum", "date"));
+          body.appendChild(fieldRow("Ort", "ort"));
+          body.appendChild(fieldRow("Fortbildung", "fortbildung"));
+
+          const teilRow = document.createElement("div");
+          teilRow.className = "modal-row";
+          const teilLabel = document.createElement("label");
+          teilLabel.textContent = "Teilgenommen:";
+          teilRow.appendChild(teilLabel);
+          const teilSelect = document.createElement("select");
+          ["ja", "nein"].forEach(function(v) {
+            const opt = document.createElement("option");
+            opt.value = v;
+            opt.textContent = v === "ja" ? "Ja" : "Nein";
+            teilSelect.appendChild(opt);
+          });
+          teilSelect.value = entry.teilgenommen || "ja";
+          teilSelect.addEventListener("change", function() {
+            updateFortbildungField(entry.id, "teilgenommen", teilSelect.value);
+            renderFortbildungContent();
+          });
+          teilRow.appendChild(teilSelect);
+          body.appendChild(teilRow);
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = "fortbildung-delete btn-danger";
+          deleteBtn.textContent = "Eintrag löschen";
+          deleteBtn.addEventListener("click", function() { deleteFortbildungEntry(entry.id); });
+          body.appendChild(deleteBtn);
+
+          block.appendChild(body);
+        }
 
         container.appendChild(block);
       });
