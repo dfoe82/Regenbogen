@@ -50,6 +50,10 @@
       padding: 20px;
       padding-bottom: 90px;
       -webkit-text-size-adjust: 100%;
+      /* Grundschriftgröße wächst sanft mit der Bildschirmbreite (kleines
+         iPhone bis großes iPad/Desktop) – die meisten Komponenten sind in
+         em definiert und skalieren dadurch automatisch mit. */
+      font-size: clamp(15px, 0.85vw + 13px, 18px);
     }
     h1 {
       font-weight: 700;
@@ -697,8 +701,57 @@
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
       box-shadow: var(--shadow-sm);
-      padding: 10px 12px;
+      padding: 0;
       margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .waitlist-summary {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .waitlist-summary-text {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .waitlist-summary-name {
+      font-weight: 600;
+      font-size: 0.95em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .waitlist-summary-meta {
+      font-size: 0.75em;
+      color: var(--color-text-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .waitlist-summary-stars {
+      font-size: 0.85em;
+      color: #f59e0b;
+      white-space: nowrap;
+    }
+    .waitlist-expand-icon {
+      flex-shrink: 0;
+      font-size: 0.8em;
+      color: var(--color-text-muted);
+      transition: transform 0.15s ease;
+    }
+    .waitlist-entry.expanded .waitlist-expand-icon {
+      transform: rotate(180deg);
+    }
+    .waitlist-entry-body {
+      padding: 0 12px 10px 12px;
+      border-top: 1px solid var(--color-border);
+      padding-top: 10px;
     }
     .waitlist-entry-fields {
       display: flex;
@@ -908,6 +961,71 @@
         height: 35vh;
       }
     }
+
+    /* ============================================================
+       RESPONSIVES LAYOUT: nutzt auf größeren/breiteren Bildschirmen
+       (iPad im Querformat, größeres iPhone im Querformat, Windows-PC)
+       mehr von der verfügbaren Breite, statt starr auf schmale,
+       für ein Handy im Hochformat gedachte Maße begrenzt zu bleiben.
+       Auf kleinen Bildschirmen (Handy, Hochformat) bleibt alles wie
+       gewohnt kompakt und einspaltig.
+       ============================================================ */
+    .narrow-content {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .narrow-content-sm {
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .narrow-content-text {
+      max-width: 500px;
+      margin: 0 auto 16px auto;
+    }
+    .calendar-grid-wrap {
+      max-width: 420px;
+      margin: 0 auto;
+    }
+    @media (min-width: 640px) {
+      body { padding-left: 28px; padding-right: 28px; }
+      .narrow-content { max-width: 760px; }
+      .narrow-content-sm { max-width: 480px; }
+      .narrow-content-text { max-width: 620px; }
+      .calendar-grid-wrap { max-width: 520px; }
+      .modal-box { max-width: 580px; }
+      #waitlistContainer, #fortbildungContainer { column-count: 2; column-gap: 14px; }
+    }
+    @media (min-width: 1000px) {
+      body { padding-left: 40px; padding-right: 40px; }
+      .narrow-content { max-width: 980px; }
+      .narrow-content-sm { max-width: 540px; }
+      .narrow-content-text { max-width: 680px; }
+      .calendar-grid-wrap { max-width: 560px; }
+      .modal-box { max-width: 660px; }
+      #waitlistContainer, #fortbildungContainer { column-count: 3; }
+      #headerContainer { flex-wrap: nowrap; }
+    }
+    @media (min-width: 1300px) {
+      .narrow-content { max-width: 1180px; }
+    }
+    /* Warteliste/Fortbildung-Einträge in Mehrspalten-Layouts (column-count
+       oben) sauber pro Eintrag umbrechen lassen, damit ein Eintrag nicht
+       mitten durch zwei Spalten geteilt wird. */
+    #waitlistContainer .waitlist-entry,
+    #fortbildungContainer .fortbildung-entry {
+      display: inline-block;
+      width: 100%;
+      break-inside: avoid;
+      -webkit-column-break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    /* Kurze Handys/Tablets im Querformat: wenig Höhe verfügbar – Ränder
+       etwas reduzieren, damit mehr vom Inhalt ohne Scrollen sichtbar ist. */
+    @media (orientation: landscape) and (max-height: 500px) {
+      body { padding-top: 12px; padding-bottom: 76px; }
+      #bottomNav button { padding: 6px 2px; }
+      .nav-icon { width: 22px; height: 22px; }
+    }
   </style>
   <!-- Firebase SDKs für die optionale Cloud-Synchronisierung zwischen Geräten.
        Werden nur geladen, wenn Internet verfügbar ist; ohne Internet läuft die
@@ -941,10 +1059,6 @@
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
       <span>Übersicht</span>
     </button>
-    <button type="button" onclick="openConfigModal()">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <span>Konfiguration</span>
-    </button>
     <button type="button" class="nav-btn" data-page="pageMonthlyClose" onclick="showPage('pageMonthlyClose')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       <span>Monatsabschluss</span>
@@ -956,6 +1070,10 @@
     <button type="button" class="nav-btn" data-page="pageFortbildung" onclick="showPage('pageFortbildung')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg>
       <span>Fortbildung</span>
+    </button>
+    <button type="button" onclick="openConfigModal()">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Konfiguration</span>
     </button>
   </div>
 
@@ -1007,7 +1125,7 @@
       <select id="overviewTo" style="display:none;"></select>
 
       <div id="dateRangeFields">
-        <div id="overviewCalendarGrid" class="calendar-grid" style="max-width:420px; margin:0 auto;"></div>
+        <div id="overviewCalendarGrid" class="calendar-grid calendar-grid-wrap"></div>
         <p style="font-size:0.75em; color:#555; text-align:center; margin-top:4px;">
           <span style="color:#c00;">●</span> = für mindestens ein Kind bereits Einträge vorhanden.
           <br><a href="#" onclick="resetCalendarSelection(); return false;">Auswahl zurücksetzen</a>
@@ -1021,7 +1139,7 @@
         <label for="classicStatus">Kindertagespflegeperson:</label>
         <select id="classicStatus" onchange="applyClassicStatus()"></select>
       </div>
-      <hr style="max-width:600px; margin:16px auto;">
+      <hr class="narrow-content" style="margin-top:16px; margin-bottom:16px;">
       <div id="classicContent"></div>
     </div>
   </div>
@@ -1059,7 +1177,7 @@
         <option value="2030">2030</option>
       </select>
     </div>
-    <p style="font-size:0.85em; color:#555; text-align:center; max-width:500px; margin:0 auto 16px auto;">
+    <p class="narrow-content-text" style="font-size:0.85em; color:#555; text-align:center;">
       Alle Aktionen unten beziehen sich auf den oben gewählten Monat. Öffnet sich immer mit dem aktuellen Monat.
     </p>
     <div class="modal-row" style="justify-content:center;">
@@ -1068,7 +1186,7 @@
     <p style="font-size:0.8em; color:#555; text-align:center; margin-top:-4px;">
       Sperrt die Eingabefelder auf der Kinder-Seite für diesen Monat gegen versehentliches Ändern.
     </p>
-    <div style="display:flex; flex-direction:column; gap:12px; max-width:400px; margin:0 auto;">
+    <div class="narrow-content-sm" style="display:flex; flex-direction:column; gap:12px;">
       <button type="button" onclick="goToKinderPageForCloseMonth()" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
       <button type="button" onclick="startSignatureWizard()" style="padding:14px; font-size:1em;">✍️ Unterschrift einholen</button>
       <button type="button" onclick="openParentMessageModal()" style="padding:14px; font-size:1em;">✉️ Nachricht für Eltern erstellen</button>
@@ -1080,7 +1198,7 @@
   <!-- ===================== Seite: Warteliste ===================== -->
   <div id="pageWarteliste" class="page-section">
     <h1 style="text-align:center;">📝 Warteliste</h1>
-    <div style="max-width:600px; margin:0 auto;">
+    <div class="narrow-content">
       <div class="modal-actions" style="justify-content:center;">
         <button type="button" class="btn-primary" onclick="openNewWaitlistEntryModal()">+ Neuer Eintrag</button>
       </div>
@@ -1136,7 +1254,7 @@
   <!-- ===================== Seite: Fortbildung ===================== -->
   <div id="pageFortbildung" class="page-section">
     <h1 style="text-align:center;">🎓 Fortbildung</h1>
-    <div style="max-width:600px; margin:0 auto;">
+    <div class="narrow-content">
       <div class="modal-actions" style="justify-content:center;">
         <button type="button" class="btn-primary" onclick="openNewFortbildungEntryModal()">+ Neuer Eintrag</button>
       </div>
@@ -1507,7 +1625,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.21.0";
+    const APP_VERSION = "1.23.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -3728,6 +3846,21 @@
       renderWaitlistContent();
     }
 
+    // Merkt sich pro Eintrag, ob die Zeile gerade ausgeklappt ist. Bewusst
+    // nicht in localStorage gespeichert (rein visueller UI-Zustand für die
+    // aktuelle Sitzung), damit die Liste beim erneuten Öffnen der App wieder
+    // eingeklappt (kompakt) startet.
+    const waitlistExpandedIds = new Set();
+
+    function toggleWaitlistExpand(id) {
+      if (waitlistExpandedIds.has(id)) {
+        waitlistExpandedIds.delete(id);
+      } else {
+        waitlistExpandedIds.add(id);
+      }
+      renderWaitlistContent();
+    }
+
     function deleteWaitlistEntry(id) {
       if (!confirm("Diesen Eintrag aus der Warteliste löschen?")) return;
       const entries = getWaitlistEntries().filter(function(e) { return e.id !== id; });
@@ -3761,79 +3894,125 @@
       });
 
       sortedEntries.forEach(function(entry, index) {
+        const isExpanded = waitlistExpandedIds.has(entry.id);
+
         const block = document.createElement("div");
-        block.className = "waitlist-entry";
+        block.className = "waitlist-entry" + (isExpanded ? " expanded" : "");
 
-        const fields = document.createElement("div");
-        fields.className = "waitlist-entry-fields";
+        // Einzeilige Zusammenfassung – zum Auf-/Zuklappen anklickbar.
+        const summary = document.createElement("div");
+        summary.className = "waitlist-summary";
+        summary.addEventListener("click", function() { toggleWaitlistExpand(entry.id); });
 
-        function fieldRow(labelText, field, type) {
-          const row = document.createElement("div");
-          row.className = "modal-row";
-          const label = document.createElement("label");
-          label.textContent = labelText + ":";
-          row.appendChild(label);
-          const input = document.createElement("input");
-          input.type = type || "text";
-          input.value = entry[field] || "";
-          input.addEventListener("change", function() {
-            updateWaitlistField(entry.id, field, input.value);
-          });
-          row.appendChild(input);
-          return row;
+        const summaryText = document.createElement("div");
+        summaryText.className = "waitlist-summary-text";
+        const summaryName = document.createElement("div");
+        summaryName.className = "waitlist-summary-name";
+        summaryName.textContent = entry.name || entry.kindName || "(ohne Namen)";
+        summaryText.appendChild(summaryName);
+        const metaParts = [];
+        if (entry.name && entry.kindName) { metaParts.push("Kind: " + entry.kindName); }
+        if (entry.ort) { metaParts.push(entry.ort); }
+        if (metaParts.length > 0) {
+          const summaryMeta = document.createElement("div");
+          summaryMeta.className = "waitlist-summary-meta";
+          summaryMeta.textContent = metaParts.join(" · ");
+          summaryText.appendChild(summaryMeta);
+        }
+        summary.appendChild(summaryText);
+
+        if (entry.rating) {
+          const summaryStars = document.createElement("div");
+          summaryStars.className = "waitlist-summary-stars";
+          summaryStars.textContent = "★".repeat(entry.rating);
+          summary.appendChild(summaryStars);
         }
 
-        fields.appendChild(fieldRow("Name", "name"));
-        fields.appendChild(fieldRow("Name Kind", "kindName"));
-        fields.appendChild(fieldRow("Ort", "ort"));
-        fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
-        fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
+        const expandIcon = document.createElement("span");
+        expandIcon.className = "waitlist-expand-icon";
+        expandIcon.textContent = "▼";
+        summary.appendChild(expandIcon);
 
-        block.appendChild(fields);
+        block.appendChild(summary);
 
-        // Sterne-Bewertung (zum Markieren favorisierter Einträge)
-        const starsRow = document.createElement("div");
-        starsRow.className = "waitlist-stars";
-        for (let s = 1; s <= 5; s++) {
-          const starBtn = document.createElement("button");
-          starBtn.type = "button";
-          starBtn.className = "waitlist-star" + (s <= (entry.rating || 0) ? " filled" : "");
-          starBtn.textContent = s <= (entry.rating || 0) ? "★" : "☆";
-          starBtn.addEventListener("click", function() { setWaitlistRating(entry.id, s); });
-          starsRow.appendChild(starBtn);
+        if (isExpanded) {
+          const body = document.createElement("div");
+          body.className = "waitlist-entry-body";
+
+          const fields = document.createElement("div");
+          fields.className = "waitlist-entry-fields";
+
+          function fieldRow(labelText, field, type) {
+            const row = document.createElement("div");
+            row.className = "modal-row";
+            const label = document.createElement("label");
+            label.textContent = labelText + ":";
+            row.appendChild(label);
+            const input = document.createElement("input");
+            input.type = type || "text";
+            input.value = entry[field] || "";
+            input.addEventListener("change", function() {
+              updateWaitlistField(entry.id, field, input.value);
+              renderWaitlistContent();
+            });
+            row.appendChild(input);
+            return row;
+          }
+
+          fields.appendChild(fieldRow("Name", "name"));
+          fields.appendChild(fieldRow("Name Kind", "kindName"));
+          fields.appendChild(fieldRow("Ort", "ort"));
+          fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
+          fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
+
+          body.appendChild(fields);
+
+          // Sterne-Bewertung (zum Markieren favorisierter Einträge)
+          const starsRow = document.createElement("div");
+          starsRow.className = "waitlist-stars";
+          for (let s = 1; s <= 5; s++) {
+            const starBtn = document.createElement("button");
+            starBtn.type = "button";
+            starBtn.className = "waitlist-star" + (s <= (entry.rating || 0) ? " filled" : "");
+            starBtn.textContent = s <= (entry.rating || 0) ? "★" : "☆";
+            starBtn.addEventListener("click", function() { setWaitlistRating(entry.id, s); });
+            starsRow.appendChild(starBtn);
+          }
+          body.appendChild(starsRow);
+
+          const createdInfo = document.createElement("p");
+          createdInfo.className = "waitlist-created-info";
+          createdInfo.textContent = "Erstellt am: " + formatWaitlistCreatedAt(entry.createdAt);
+          body.appendChild(createdInfo);
+
+          const notesToggle = document.createElement("button");
+          notesToggle.type = "button";
+          notesToggle.className = "waitlist-notes-toggle";
+          notesToggle.textContent = entry.notesOpen ? "📝 Notizen schließen" : (entry.notizen ? "📝 Notizen anzeigen/bearbeiten" : "📝 Notiz hinzufügen");
+          notesToggle.addEventListener("click", function() { toggleWaitlistNotes(entry.id); });
+          body.appendChild(notesToggle);
+
+          if (entry.notesOpen) {
+            const notesBox = document.createElement("div");
+            notesBox.className = "waitlist-notes-box";
+            const textarea = document.createElement("textarea");
+            textarea.value = entry.notizen || "";
+            textarea.addEventListener("change", function() {
+              updateWaitlistField(entry.id, "notizen", textarea.value);
+            });
+            notesBox.appendChild(textarea);
+            body.appendChild(notesBox);
+          }
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.type = "button";
+          deleteBtn.className = "waitlist-delete btn-danger";
+          deleteBtn.textContent = "Eintrag löschen";
+          deleteBtn.addEventListener("click", function() { deleteWaitlistEntry(entry.id); });
+          body.appendChild(deleteBtn);
+
+          block.appendChild(body);
         }
-        block.appendChild(starsRow);
-
-        const createdInfo = document.createElement("p");
-        createdInfo.className = "waitlist-created-info";
-        createdInfo.textContent = "Erstellt am: " + formatWaitlistCreatedAt(entry.createdAt);
-        block.appendChild(createdInfo);
-
-        const notesToggle = document.createElement("button");
-        notesToggle.type = "button";
-        notesToggle.className = "waitlist-notes-toggle";
-        notesToggle.textContent = entry.notesOpen ? "📝 Notizen schließen" : (entry.notizen ? "📝 Notizen anzeigen/bearbeiten" : "📝 Notiz hinzufügen");
-        notesToggle.addEventListener("click", function() { toggleWaitlistNotes(entry.id); });
-        block.appendChild(notesToggle);
-
-        if (entry.notesOpen) {
-          const notesBox = document.createElement("div");
-          notesBox.className = "waitlist-notes-box";
-          const textarea = document.createElement("textarea");
-          textarea.value = entry.notizen || "";
-          textarea.addEventListener("change", function() {
-            updateWaitlistField(entry.id, "notizen", textarea.value);
-          });
-          notesBox.appendChild(textarea);
-          block.appendChild(notesBox);
-        }
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "waitlist-delete btn-danger";
-        deleteBtn.textContent = "Eintrag löschen";
-        deleteBtn.addEventListener("click", function() { deleteWaitlistEntry(entry.id); });
-        block.appendChild(deleteBtn);
 
         container.appendChild(block);
       });
