@@ -1680,13 +1680,13 @@
   <div id="parentMessageModal" class="modal-overlay no-print">
     <div class="modal-box" style="max-width:600px;">
       <h2>✉️ Nachricht für Eltern</h2>
-      <p style="font-size:0.85em; color:#555;">
-        Ein Text je Kind, für den auf der Seite "Kinder" aktuell gewählten Monat/Jahr.
-      </p>
+      <p id="parentMessageMonthLabel" style="font-size:0.9em; font-weight:600; margin-bottom:2px;"></p>
+      <p id="parentMessageArchiveInfo" style="font-size:0.8em; color:var(--color-text-muted); margin-top:0;"></p>
       <div id="parentMessageList">
         <!-- Ein Block pro Kind wird per JS erzeugt -->
       </div>
       <div class="modal-actions">
+        <button type="button" onclick="recalcAndArchiveParentMessages()">🔄 Neu berechnen</button>
         <button type="button" onclick="closeParentMessageModal()">Schließen</button>
       </div>
     </div>
@@ -1701,7 +1701,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.25.0";
+    const APP_VERSION = "1.26.0";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -2343,7 +2343,9 @@
         signatures: {},
         attendance: {},
         waitlist: null,
-        fortbildung: null
+        fortbildung: null,
+        closedMonths: null,
+        parentMessageArchive: null
       };
       const rawConfig = localStorage.getItem(CONFIG_KEY);
       if (rawConfig) {
@@ -2356,6 +2358,14 @@
       const rawFortbildung = localStorage.getItem("fortbildungEntries");
       if (rawFortbildung) {
         try { data.fortbildung = JSON.parse(rawFortbildung); } catch (e) { data.fortbildung = null; }
+      }
+      const rawClosedMonths = localStorage.getItem("closedMonths");
+      if (rawClosedMonths) {
+        try { data.closedMonths = JSON.parse(rawClosedMonths); } catch (e) { data.closedMonths = null; }
+      }
+      const rawParentMessageArchive = localStorage.getItem("parentMessageArchive");
+      if (rawParentMessageArchive) {
+        try { data.parentMessageArchive = JSON.parse(rawParentMessageArchive); } catch (e) { data.parentMessageArchive = null; }
       }
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -2425,6 +2435,12 @@
       }
       if (data.fortbildung) {
         localStorage.setItem("fortbildungEntries", JSON.stringify(data.fortbildung));
+      }
+      if (data.closedMonths) {
+        localStorage.setItem("closedMonths", JSON.stringify(data.closedMonths));
+      }
+      if (data.parentMessageArchive) {
+        localStorage.setItem("parentMessageArchive", JSON.stringify(data.parentMessageArchive));
       }
       if (data.signatures) {
         Object.keys(data.signatures).forEach(function(key) {
@@ -3090,6 +3106,39 @@
       localStorage.setItem("closedMonths", JSON.stringify(map));
     }
 
+    // ============================================================
+    // ARCHIV DER "NACHRICHT FÜR ELTERN"-TEXTE
+    // Einmal erzeugte Texte bleiben unverändert abrufbar/kopierbar – auch im
+    // Folgemonat und auch falls sich die zugrunde liegenden Anwesenheitsdaten
+    // (z. B. bei einer nachträglichen Korrektur) später ändern sollten.
+    // ============================================================
+    function getParentMessageArchive() {
+      const raw = localStorage.getItem("parentMessageArchive");
+      if (!raw) return {};
+      try {
+        const parsed = JSON.parse(raw);
+        return (parsed && typeof parsed === "object") ? parsed : {};
+      } catch (e) { return {}; }
+    }
+
+    function archiveParentMessages(year, month, messages) {
+      const archive = getParentMessageArchive();
+      const key = year + "-" + String(month).padStart(2, "0");
+      archive[key] = { createdAt: new Date().toISOString(), messages: messages };
+      localStorage.setItem("parentMessageArchive", JSON.stringify(archive));
+      queueAutoUpload();
+    }
+
+    function formatArchiveTimestamp(isoString) {
+      const d = new Date(isoString);
+      if (isNaN(d.getTime())) return "unbekannt";
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      return day + "." + month + "." + d.getFullYear() + ", " + hours + ":" + minutes + " Uhr";
+    }
+
     // Sperrt/entsperrt die Eingabefelder auf der Kinder-Seite je nachdem, ob
     // der dort aktuell angezeigte Monat als abgeschlossen markiert ist.
     function applyMonthLockState() {
@@ -3465,10 +3514,10 @@
     const MONTH_NAMES_DE = ["Januar", "Februar", "März", "April", "Mai", "Juni",
       "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
-    function buildParentMessageText(childName) {
+    function buildParentMessageText(childName, month, year) {
       const config = loadConfig();
-      const month = document.getElementById("closeMonth").value;
-      const year = document.getElementById("closeYear").value;
+      if (!month) month = document.getElementById("closeMonth").value;
+      if (!year) year = document.getElementById("closeYear").value;
       const state = loadChildState(childName, month, year);
       let presentDays = 0, omDays = 0;
       state.table.forEach(function(row) {
@@ -3481,15 +3530,65 @@
         " insgesamt " + toPay.toFixed(2).replace(".", ",") + " € für das Mittagessen zu zahlen.\n\nVielen Dank!";
     }
 
-    // Erzeugt für JEDES konfigurierte Kind einen eigenen Nachrichten-Block
-    // (eigenes Textfeld + eigene Kopieren-/Teilen-Buttons).
+    // Merkt sich, für welchen Monat/Jahr das Nachrichten-Modal aktuell geöffnet
+    // ist (für den "Neu berechnen"-Button und das erneute Rendern).
+    let parentMessageContext = { month: null, year: null };
+
+    // Öffnet das Nachrichten-Modal für den auf der Monatsabschluss-Seite
+    // gewählten Monat/Jahr. Wurden die Texte für diesen Monat schon einmal
+    // erzeugt, werden GENAU diese archivierten Texte wieder angezeigt (auch
+    // im Folgemonat und auch, falls sich zugrunde liegende Daten inzwischen
+    // geändert haben) – sonst werden sie jetzt einmalig berechnet und archiviert.
     function openParentMessageModal() {
+      const month = document.getElementById("closeMonth").value;
+      const year = document.getElementById("closeYear").value;
+      parentMessageContext = { month: month, year: year };
+      renderParentMessageModalContent();
+      document.getElementById("parentMessageModal").classList.add("open");
+    }
+
+    // Erzeugt für JEDES konfigurierte Kind einen eigenen Nachrichten-Block
+    // (eigenes Textfeld + eigene Kopieren-/Teilen-Buttons), auf Basis der
+    // archivierten bzw. (falls noch nicht vorhanden) neu berechneten Texte.
+    function renderParentMessageModalContent() {
+      const month = parentMessageContext.month;
+      const year = parentMessageContext.year;
       const children = getActiveChildren();
       const list = document.getElementById("parentMessageList");
+      const infoEl = document.getElementById("parentMessageArchiveInfo");
+      const monthLabelEl = document.getElementById("parentMessageMonthLabel");
       list.innerHTML = "";
+
+      const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
+      monthLabelEl.textContent = "Für " + monthName + " " + year + ":";
+
       if (children.length === 0) {
         list.innerHTML = "<p>Bitte zuerst in der Konfiguration Kindernamen eintragen.</p>";
+        infoEl.textContent = "";
+        return;
       }
+
+      const archive = getParentMessageArchive();
+      const key = year + "-" + String(month).padStart(2, "0");
+      const archived = archive[key];
+      const messages = archived ? Object.assign({}, archived.messages) : {};
+
+      // Für neu hinzugekommene Kinder (noch nicht im Archiv) jetzt live berechnen.
+      let addedMissing = false;
+      children.forEach(function(name) {
+        if (!messages[name]) {
+          messages[name] = buildParentMessageText(name, month, year);
+          addedMissing = true;
+        }
+      });
+
+      if (!archived || addedMissing) {
+        archiveParentMessages(year, month, messages);
+      }
+      const finalArchive = getParentMessageArchive()[key];
+      infoEl.textContent = "📦 Archiviert am " + formatArchiveTimestamp(finalArchive.createdAt) +
+        " – bleibt unverändert abrufbar und kopierbar, auch im Folgemonat.";
+
       children.forEach(function(name) {
         const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
         const block = document.createElement("div");
@@ -3503,7 +3602,7 @@
         textarea.id = "parentMsg_" + safeName;
         textarea.rows = 6;
         textarea.readOnly = true;
-        textarea.value = buildParentMessageText(name);
+        textarea.value = messages[name];
         block.appendChild(textarea);
 
         const actions = document.createElement("div");
@@ -3526,7 +3625,24 @@
         block.appendChild(actions);
         list.appendChild(block);
       });
-      document.getElementById("parentMessageModal").classList.add("open");
+    }
+
+    // Berechnet die Texte für den aktuell im Modal gezeigten Monat bewusst neu
+    // (z. B. nach einer nachträglichen Korrektur der Anwesenheitsdaten) und
+    // überschreibt die bisher archivierte Version.
+    function recalcAndArchiveParentMessages() {
+      const month = parentMessageContext.month;
+      const year = parentMessageContext.year;
+      if (!month || !year) return;
+      const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
+      if (!confirm("Nachrichten für " + monthName + " " + year + " neu berechnen und die archivierte Version überschreiben?")) return;
+      const children = getActiveChildren();
+      const messages = {};
+      children.forEach(function(name) {
+        messages[name] = buildParentMessageText(name, month, year);
+      });
+      archiveParentMessages(year, month, messages);
+      renderParentMessageModalContent();
     }
 
     function closeParentMessageModal() {
