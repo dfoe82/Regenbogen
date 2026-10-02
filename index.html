@@ -147,7 +147,12 @@
     /* Manueller Ausweg aus der Druckansicht, falls die automatische Rückkehr
        (ausgelöst durch das Fokus-Ereignis beim Zurückkehren aus dem
        Drucken-Dialog) auf einem Gerät nicht zuverlässig greift. Standardmäßig
-       unsichtbar, wird nur während der Druckansicht per JS eingeblendet. */
+       unsichtbar. Wichtig: Der Button erscheint bewusst NICHT sofort beim
+       Start des Druckvorgangs (dafür zusätzlich die Klasse "show-exit-btn"
+       nötig, die erst mit kurzer Verzögerung per JS gesetzt wird) – ein sofort
+       sichtbares, fest positioniertes Element könnte sich sonst mit dem
+       nativen Drucken-/Teilen-Dialog von iPadOS überlappen und dessen eigene
+       Drucken-Schaltfläche verdecken bzw. Taps darauf abfangen.*/
     #exitPrintModeBtn {
       display: none;
       position: fixed;
@@ -156,15 +161,15 @@
       z-index: 3000;
       box-shadow: var(--shadow-md);
     }
-    body.monthly-close-mode #exitPrintModeBtn {
+    body.monthly-close-mode.show-exit-btn #exitPrintModeBtn {
       display: block !important;
     }
     @media print {
-      /* Gleiche Selektor-Spezifität wie "body.monthly-close-mode #exitPrintModeBtn"
-         oben, aber später in der Stylesheet-Reihenfolge definiert, damit diese
-         Regel beim tatsächlichen Ausdruck/PDF gewinnt – der Button darf dort
-         nie erscheinen. */
-      body.monthly-close-mode #exitPrintModeBtn {
+      /* Gleiche Selektor-Spezifität wie "body.monthly-close-mode.show-exit-btn
+         #exitPrintModeBtn" oben, aber später in der Stylesheet-Reihenfolge
+         definiert, damit diese Regel beim tatsächlichen Ausdruck/PDF gewinnt –
+         der Button darf dort nie erscheinen. */
+      body.monthly-close-mode.show-exit-btn #exitPrintModeBtn {
         display: none !important;
       }
     }
@@ -1754,7 +1759,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.28.1";
+    const APP_VERSION = "1.28.2";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -3572,6 +3577,19 @@
       document.title = docTitle;
       printMode = mode;
       window.print();
+      // Den manuellen "✕ Fertig"-Button bewusst erst mit kurzer Verzögerung
+      // einblenden (nicht sofort zusammen mit "monthly-close-mode") – direkt
+      // beim Aufruf von window.print() braucht iPadOS/Safari einen Moment,
+      // um den eigenen Drucken-/Teilen-Dialog aufzubauen, und ein sofort
+      // sichtbares, fest positioniertes Element auf unserer Seite könnte
+      // sich mit dessen eigener Drucken-Schaltfläche überlappen bzw. Taps
+      // darauf abfangen (das hatte in einer früheren Version dazu geführt,
+      // dass der native Drucken-Dialog gar nicht mehr richtig bedienbar war).
+      setTimeout(function() {
+        if (document.body.classList.contains("monthly-close-mode")) {
+          document.body.classList.add("show-exit-btn");
+        }
+      }, 1500);
       // Sicherheitsnetz: Auf manchen Geräten/Abläufen (z. B. Drucken-Dialog
       // abbrechen, "In Dateien sichern" statt drucken, o. ä.) feuert das
       // "focus"-Ereignis beim Zurückkehren nicht zuverlässig – ohne dieses
@@ -3595,6 +3613,7 @@
     function exitPrintMode() {
       if (!document.body.classList.contains("monthly-close-mode")) return;
       document.body.classList.remove("monthly-close-mode");
+      document.body.classList.remove("show-exit-btn");
       document.title = "Anwesenheitsliste";
       const finishedMode = printMode;
       printMode = null;
