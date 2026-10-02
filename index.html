@@ -1759,7 +1759,7 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.28.2";
+    const APP_VERSION = "1.28.3";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -3590,25 +3590,15 @@
           document.body.classList.add("show-exit-btn");
         }
       }, 1500);
-      // Sicherheitsnetz: Auf manchen Geräten/Abläufen (z. B. Drucken-Dialog
-      // abbrechen, "In Dateien sichern" statt drucken, o. ä.) feuert das
-      // "focus"-Ereignis beim Zurückkehren nicht zuverlässig – ohne dieses
-      // Netz bliebe man dann dauerhaft in der Druckansicht gefangen. Nach
-      // spätestens 20 Sekunden wird die Druckansicht deshalb automatisch
-      // verlassen (betrifft nur die Anzeige dieser Seite, nicht den bereits
-      // angestoßenen nativen Druckvorgang selbst).
-      setTimeout(function() {
-        if (document.body.classList.contains("monthly-close-mode")) {
-          exitPrintMode();
-        }
-      }, 20000);
     }
 
     // Verlässt die Druckansicht wieder und zeigt die normale App-Oberfläche.
-    // Wird sowohl automatisch (Fokus-Ereignis / Sicherheitsnetz-Timer) als auch
-    // manuell über den Button "✕ Fertig" aufgerufen, falls man einmal nicht
-    // automatisch zurückkommt. Der Container-Inhalt wird dabei bewusst NICHT
-    // geleert – der nächste Druckvorgang überschreibt ihn ohnehin, und
+    // Wird sowohl automatisch (Fokus-Ereignis, Rückkehr aus dem Drucken-
+    // Dialog) als auch manuell über den Button "✕ Fertig" aufgerufen, falls
+    // man einmal nicht automatisch zurückkommt. Bewusst KEIN automatischer
+    // Timer, der die Ansicht von selbst verlässt – das würde den noch
+    // laufenden Druckvorgang stören. Der Container-Inhalt wird dabei bewusst
+    // NICHT geleert – der nächste Druckvorgang überschreibt ihn ohnehin, und
     // vorzeitiges Leeren könnte eine noch sichtbare Vorschau leeren.
     function exitPrintMode() {
       if (!document.body.classList.contains("monthly-close-mode")) return;
@@ -3624,9 +3614,9 @@
 
     // Wird ausgeführt, sobald das Hauptfenster nach dem Drucken/Freigeben wieder
     // den Fokus bekommt (Nutzer ist zur App zurückgekehrt) – der normale,
-    // schnellste Weg zurück. Siehe exitPrintMode() für Details sowie die
-    // Sicherheitsnetze (Timer, manueller Button), falls dieses Ereignis einmal
-    // nicht feuert.
+    // schnellste Weg zurück. Siehe exitPrintMode() für Details sowie den
+    // manuellen "✕ Fertig"-Button als Rückfallebene, falls dieses Ereignis
+    // einmal nicht feuert.
     window.addEventListener("focus", exitPrintMode);
 
     // Öffnet den nativen Drucken-Dialog von iPadOS/Safari mit der offiziellen
