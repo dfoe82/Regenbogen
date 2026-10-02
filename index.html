@@ -138,11 +138,35 @@
     #monthlyCloseContainer {
       display: none;
     }
-    body.monthly-close-mode > *:not(#monthlyCloseContainer) {
+    body.monthly-close-mode > *:not(#monthlyCloseContainer):not(#exitPrintModeBtn) {
       display: none !important;
     }
     body.monthly-close-mode #monthlyCloseContainer {
       display: block;
+    }
+    /* Manueller Ausweg aus der Druckansicht, falls die automatische Rückkehr
+       (ausgelöst durch das Fokus-Ereignis beim Zurückkehren aus dem
+       Drucken-Dialog) auf einem Gerät nicht zuverlässig greift. Standardmäßig
+       unsichtbar, wird nur während der Druckansicht per JS eingeblendet. */
+    #exitPrintModeBtn {
+      display: none;
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 3000;
+      box-shadow: var(--shadow-md);
+    }
+    body.monthly-close-mode #exitPrintModeBtn {
+      display: block !important;
+    }
+    @media print {
+      /* Gleiche Selektor-Spezifität wie "body.monthly-close-mode #exitPrintModeBtn"
+         oben, aber später in der Stylesheet-Reihenfolge definiert, damit diese
+         Regel beim tatsächlichen Ausdruck/PDF gewinnt – der Button darf dort
+         nie erscheinen. */
+      body.monthly-close-mode #exitPrintModeBtn {
+        display: none !important;
+      }
     }
     /* Kurze Speicherbestätigung ("✓ Gespeichert") */
     .save-toast {
@@ -946,6 +970,23 @@
       flex: 1;
       min-width: 140px;
     }
+    .classic-day-row-hint {
+      font-size: 0.75em;
+      color: var(--color-text-muted);
+      font-style: italic;
+      white-space: nowrap;
+    }
+    /* Tage, die laut Konfiguration kein Arbeitstag sind (z. B. nicht
+       ausgewähltes Wochenende) – Eingaben dafür sind gesperrt, hier nur
+       dezent gegenüber den normalen Arbeitstagen abgesetzt. */
+    .classic-day-row.non-work-row {
+      background: #f8f8f8;
+      opacity: 0.75;
+    }
+    tr.non-work-row td {
+      background: #f8f8f8;
+      color: #999;
+    }
     /* Klassisch-Modus: Mehrtägig - Monatstabelle pro Kind */
     .classic-month-block {
       margin-bottom: 28px;
@@ -1264,6 +1305,7 @@
     </p>
     <div class="narrow-content-sm" style="display:flex; flex-direction:column; gap:12px;">
       <button type="button" onclick="goToKinderPageForCloseMonth()" style="padding:14px; font-size:1em;">👶 Kinder (Monatstabellen ansehen/bearbeiten)</button>
+      <button type="button" onclick="goToAllChildrenTablesPageForCloseMonth()" style="padding:14px; font-size:1em;">📋 Alle Kinder nacheinander (Monatstabellen ansehen/bearbeiten)</button>
       <button type="button" onclick="startSignatureWizard()" style="padding:14px; font-size:1em;">✍️ Unterschrift einholen</button>
       <button type="button" onclick="openParentMessageModal()" style="padding:14px; font-size:1em;">✉️ Nachricht für Eltern erstellen</button>
       <hr style="width:100%; margin:8px 0;">
@@ -1522,6 +1564,16 @@
   </div>
   <!-- Ende Seite: Kinder -->
 
+  <!-- ===================== Seite: Alle Kinder (Monatstabellen hintereinander) ===================== -->
+  <div id="pageAllChildrenTables" class="page-section">
+    <div class="no-print" style="margin-bottom:10px;">
+      <button type="button" onclick="showPage('pageMonthlyClose')">← Zurück zum Monatsabschluss</button>
+    </div>
+    <h1 id="allChildrenTablesHeading" style="text-align:center;"></h1>
+    <div id="allChildrenTablesContainer"></div>
+  </div>
+  <!-- Ende Seite: Alle Kinder -->
+
   <!-- ===================== Konfigurations-Modal ===================== -->
   <div id="configModal" class="modal-overlay no-print">
     <div class="modal-box">
@@ -1696,12 +1748,13 @@
   <div id="saveToast" class="save-toast no-print">✓ Gespeichert</div>
 
   <div id="monthlyCloseContainer"></div>
+  <button type="button" id="exitPrintModeBtn" class="no-print btn-primary" onclick="exitPrintMode()">✕ Fertig</button>
 
   <script>
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.26.0";
+    const APP_VERSION = "1.28.1";
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -2078,6 +2131,15 @@
       const weekday = new Date(parseInt(year), parseInt(month) - 1, day).getDay();
       const workDays = config.workDays || DEFAULT_CONFIG.workDays;
       return !!workDays[weekday];
+    }
+
+    // Ein Tag ist für Eingaben gesperrt, wenn der Monat als abgeschlossen
+    // markiert ist ODER der Tag laut Konfiguration gar kein Arbeitstag ist
+    // (z. B. ein nicht ausgewähltes Wochenende). Zentrale Stelle, damit diese
+    // Regel überall gleich angewendet wird (Kinder-Seite, Übersicht Einzeltag/
+    // Mehrtägig, Berechnung des zu zahlenden Betrags).
+    function isDayLocked(year, month, day) {
+      return isMonthClosed(year, month) || !isWorkDay(year, month, day);
     }
 
     function loadConfig() {
@@ -2477,6 +2539,9 @@
       if (document.getElementById("pageFortbildung").classList.contains("active")) {
         renderFortbildungContent();
       }
+      if (document.getElementById("pageAllChildrenTables").classList.contains("active")) {
+        initAllChildrenTablesPage();
+      }
     }
 
     // ============================================================
@@ -2771,9 +2836,11 @@
       const state = loadChildState(childName, month, year);
       const idx = day - 1;
       const rowData = state.table[idx] || { start: "", end: "", remark: "" };
+      const nonWork = !isWorkDay(year, month, day);
+      const locked = isDayLocked(year, month, day);
 
       const row = document.createElement("div");
-      row.className = "classic-day-row";
+      row.className = "classic-day-row" + (nonWork ? " non-work-row" : "");
 
       const nameEl = document.createElement("div");
       nameEl.className = "classic-day-row-name";
@@ -2785,6 +2852,7 @@
       const aCheckbox = document.createElement("input");
       aCheckbox.type = "checkbox";
       aCheckbox.checked = !!(rowData.start && rowData.end);
+      aCheckbox.disabled = locked;
       aLabel.appendChild(aCheckbox);
       aLabel.appendChild(document.createTextNode("anwesend"));
       row.appendChild(aLabel);
@@ -2796,9 +2864,18 @@
         remarkSelect.appendChild(opt);
       });
       remarkSelect.value = rowData.remark || "";
+      remarkSelect.disabled = locked;
       row.appendChild(remarkSelect);
 
+      if (nonWork) {
+        const hint = document.createElement("span");
+        hint.className = "classic-day-row-hint";
+        hint.textContent = "kein Arbeitstag";
+        row.appendChild(hint);
+      }
+
       function persist() {
+        if (locked) return;
         const st = loadChildState(childName, month, year);
         const r = st.table[idx];
         if (aCheckbox.checked) {
@@ -2848,7 +2925,10 @@
       for (let day = startDay; day <= endDay; day++) {
         const idx = day - 1;
         const rowData = state.table[idx] || { start: "", end: "", remark: "" };
+        const nonWork = !isWorkDay(year, month, day);
+        const locked = isDayLocked(year, month, day);
         const tr = document.createElement("tr");
+        if (nonWork) tr.classList.add("non-work-row");
 
         const wdTd = document.createElement("td");
         wdTd.textContent = weekDays[new Date(year, month - 1, day).getDay()];
@@ -2862,6 +2942,7 @@
         const startInput = document.createElement("input");
         startInput.type = "time";
         startInput.value = rowData.start || "";
+        startInput.disabled = locked;
         startTd.appendChild(startInput);
         tr.appendChild(startTd);
 
@@ -2869,6 +2950,7 @@
         const endInput = document.createElement("input");
         endInput.type = "time";
         endInput.value = rowData.end || "";
+        endInput.disabled = locked;
         endTd.appendChild(endInput);
         tr.appendChild(endTd);
 
@@ -2880,6 +2962,7 @@
         const aCheckbox = document.createElement("input");
         aCheckbox.type = "checkbox";
         aCheckbox.checked = !!(rowData.start && rowData.end);
+        aCheckbox.disabled = locked;
         aTd.appendChild(aCheckbox);
         tr.appendChild(aTd);
 
@@ -2892,10 +2975,12 @@
           remarkSelect.appendChild(opt);
         });
         remarkSelect.value = rowData.remark || "";
+        remarkSelect.disabled = locked;
         remarkTd.appendChild(remarkSelect);
         tr.appendChild(remarkTd);
 
         function persist() {
+          if (locked) return;
           const st = loadChildState(childName, month, year);
           const r = st.table[idx];
           r.start = startInput.value;
@@ -3030,10 +3115,16 @@
     // Aktualisiert den zu zahlenden Betrag (Anwesenheitstage abzüglich Tage
     // mit "kein Mittagessen" × Preis)
     function updatePaymentSums() {
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
       const rows = document.querySelectorAll('#tableBody tr');
       let presentDays = 0;
       let omDays = 0;
-      rows.forEach(row => {
+      rows.forEach((row, i) => {
+        const day = i + 1;
+        // Nur an konfigurierten Arbeitstagen zählen – ein versehentlich an einem
+        // Wochenende/Nicht-Arbeitstag eingetragener Eintrag darf nicht berechnet werden.
+        if (!isWorkDay(year, month, day)) return;
         const start = row.querySelector('input[name="start"]').value;
         const end = row.querySelector('input[name="end"]').value;
         const remarkVal = row.querySelector('select[name="remark"]').value;
@@ -3146,10 +3237,15 @@
       const year = document.getElementById("yearSelect").value;
       const closed = isMonthClosed(year, month);
       const rows = document.querySelectorAll('#tableBody tr');
-      rows.forEach(row => {
-        row.querySelector('input[name="start"]').disabled = closed;
-        row.querySelector('input[name="end"]').disabled = closed;
-        row.querySelector('select[name="remark"]').disabled = closed;
+      rows.forEach((row, i) => {
+        const day = i + 1;
+        const nonWork = !isWorkDay(year, month, day);
+        const locked = closed || nonWork;
+        row.querySelector('input[name="start"]').disabled = locked;
+        row.querySelector('input[name="end"]').disabled = locked;
+        row.querySelector('select[name="remark"]').disabled = locked;
+        row.querySelector('input[name="a"]').disabled = locked;
+        row.classList.toggle("non-work-row", nonWork);
       });
       const banner = document.getElementById("monthLockBanner");
       if (banner) banner.style.display = closed ? "block" : "none";
@@ -3476,13 +3572,27 @@
       document.title = docTitle;
       printMode = mode;
       window.print();
+      // Sicherheitsnetz: Auf manchen Geräten/Abläufen (z. B. Drucken-Dialog
+      // abbrechen, "In Dateien sichern" statt drucken, o. ä.) feuert das
+      // "focus"-Ereignis beim Zurückkehren nicht zuverlässig – ohne dieses
+      // Netz bliebe man dann dauerhaft in der Druckansicht gefangen. Nach
+      // spätestens 20 Sekunden wird die Druckansicht deshalb automatisch
+      // verlassen (betrifft nur die Anzeige dieser Seite, nicht den bereits
+      // angestoßenen nativen Druckvorgang selbst).
+      setTimeout(function() {
+        if (document.body.classList.contains("monthly-close-mode")) {
+          exitPrintMode();
+        }
+      }, 20000);
     }
 
-    // Wird ausgeführt, sobald das Hauptfenster nach dem Drucken/Freigeben wieder
-    // den Fokus bekommt (Nutzer ist zur App zurückgekehrt). Der Container-Inhalt
-    // wird dabei bewusst NICHT geleert – der nächste Druckvorgang überschreibt ihn
-    // ohnehin, und vorzeitiges Leeren könnte eine noch sichtbare Vorschau leeren.
-    window.addEventListener("focus", function() {
+    // Verlässt die Druckansicht wieder und zeigt die normale App-Oberfläche.
+    // Wird sowohl automatisch (Fokus-Ereignis / Sicherheitsnetz-Timer) als auch
+    // manuell über den Button "✕ Fertig" aufgerufen, falls man einmal nicht
+    // automatisch zurückkommt. Der Container-Inhalt wird dabei bewusst NICHT
+    // geleert – der nächste Druckvorgang überschreibt ihn ohnehin, und
+    // vorzeitiges Leeren könnte eine noch sichtbare Vorschau leeren.
+    function exitPrintMode() {
       if (!document.body.classList.contains("monthly-close-mode")) return;
       document.body.classList.remove("monthly-close-mode");
       document.title = "Anwesenheitsliste";
@@ -3491,7 +3601,14 @@
       if (finishedMode === "monthlyClose") {
         triggerMonthlyCloseRemindersOnce();
       }
-    });
+    }
+
+    // Wird ausgeführt, sobald das Hauptfenster nach dem Drucken/Freigeben wieder
+    // den Fokus bekommt (Nutzer ist zur App zurückgekehrt) – der normale,
+    // schnellste Weg zurück. Siehe exitPrintMode() für Details sowie die
+    // Sicherheitsnetze (Timer, manueller Button), falls dieses Ereignis einmal
+    // nicht feuert.
+    window.addEventListener("focus", exitPrintMode);
 
     // Öffnet den nativen Drucken-Dialog von iPadOS/Safari mit der offiziellen
     // Formularvorlage (Kreis Plön) für das aktuell gewählte Kind.
@@ -3520,7 +3637,10 @@
       if (!year) year = document.getElementById("closeYear").value;
       const state = loadChildState(childName, month, year);
       let presentDays = 0, omDays = 0;
-      state.table.forEach(function(row) {
+      state.table.forEach(function(row, idx) {
+        const day = idx + 1;
+        // Nur an konfigurierten Arbeitstagen zählen (siehe updatePaymentSums).
+        if (!isWorkDay(year, month, day)) return;
         if (row.start && row.end) presentDays++;
         if (row.remark === "kein Mittagessen" || row.m) omDays++;
       });
@@ -3792,6 +3912,42 @@
       document.getElementById("yearSelect").value = document.getElementById("closeYear").value;
       resetAndLoadCurrentChild();
       showPage("pageKinder");
+    }
+
+    // Merkt sich, für welchen Monat/Jahr die Seite "Alle Kinder" aktuell
+    // aufgebaut ist (für erneutes Rendern, z. B. nach einer Änderung).
+    let allChildrenTablesContext = { month: null, year: null };
+
+    function goToAllChildrenTablesPageForCloseMonth() {
+      allChildrenTablesContext = {
+        month: document.getElementById("closeMonth").value,
+        year: document.getElementById("closeYear").value
+      };
+      showPage("pageAllChildrenTables");
+    }
+
+    // Baut für JEDES aktive Kind die komplette Monatstabelle (gleicher Aufbau
+    // wie "Monatstabellen ansehen" auf der Kinder-Seite) und hängt sie
+    // hintereinander in die Seite "Alle Kinder" – zum Durchscrollen/Bearbeiten
+    // ohne zwischen den Kindern über das Dropdown wechseln zu müssen.
+    function initAllChildrenTablesPage() {
+      const month = parseInt(allChildrenTablesContext.month);
+      const year = parseInt(allChildrenTablesContext.year);
+      const monthName = MONTH_NAMES_DE[month - 1] || month;
+      document.getElementById("allChildrenTablesHeading").textContent =
+        "👶 Alle Kinder – " + monthName + " " + year;
+
+      const container = document.getElementById("allChildrenTablesContainer");
+      container.innerHTML = "";
+      const children = getActiveChildren();
+      if (children.length === 0) {
+        container.innerHTML = "<p style='text-align:center;'>Bitte zuerst in der Konfiguration Kindernamen eintragen.</p>";
+        return;
+      }
+      const daysInMonth = new Date(year, month, 0).getDate();
+      children.forEach(function(name) {
+        container.appendChild(buildClassicMonthTable(name, month, year, 1, daysInMonth));
+      });
     }
 
     // Sorgt dafür, dass Backup-Erinnerung + E-Mail-Erinnerung nach einem
@@ -4482,9 +4638,10 @@
     function showPage(pageId) {
       document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
-      // "Kinder" ist inhaltlich ein Unterpunkt von "Monatsabschluss" (dort erreichbar,
-      // nicht mehr direkt im Hauptmenü) – daher bleibt der Monatsabschluss-Tab aktiv markiert.
-      const activeTabId = (pageId === "pageKinder") ? "pageMonthlyClose" : pageId;
+      // "Kinder" und "Alle Kinder" sind inhaltlich Unterpunkte von "Monatsabschluss"
+      // (dort erreichbar, nicht mehr direkt im Hauptmenü) – daher bleibt der
+      // Monatsabschluss-Tab aktiv markiert.
+      const activeTabId = (pageId === "pageKinder" || pageId === "pageAllChildrenTables") ? "pageMonthlyClose" : pageId;
       document.querySelectorAll("#bottomNav .nav-btn").forEach(btn => {
         btn.classList.toggle("active-tab", btn.dataset.page === activeTabId);
       });
@@ -4499,6 +4656,9 @@
       }
       if (pageId === "pageFortbildung") {
         renderFortbildungContent();
+      }
+      if (pageId === "pageAllChildrenTables") {
+        initAllChildrenTablesPage();
       }
     }
 
