@@ -1129,8 +1129,8 @@
     .classic-month-table td.remark-td { text-align: center; }
     .classic-month-table { max-width: 620px; margin-left: auto; margin-right: auto; }
     .classic-month-table td { overflow: hidden; }
-    .classic-month-table input[type="time"] { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; padding: 0 2px; font-size: 0.9em; height: 36px; text-align: center; -webkit-appearance: none; appearance: none; display: block; margin: 0 auto; }
-    .classic-month-table input[type="time"]::-webkit-date-and-time-value { text-align: center; min-width: 0; margin: 0; }
+    .classic-month-table input[type="time"] { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; padding: 0 2px; font-size: 0.9em; min-height: 36px; display: block; margin: 0 auto; }
+    .classic-month-table input[type="time"]::-webkit-date-and-time-value { text-align: center; min-width: 0; margin: 0 auto; }
     .classic-month-table input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
     .classic-month-table input[type="checkbox"] { width: 20px; height: 20px; }
     button.remark-btn { width: 100%; white-space: nowrap; overflow: hidden; min-height: 36px; padding: 0; border-radius: 8px; font-size: 0.82em; font-weight: 700; color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; gap: 1px; }
@@ -2011,11 +2011,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.37.1";
+    const APP_VERSION = "1.37.2";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.37.2", date: "08.10.2026", items: ["Mehrtägig: Uhrzeit in den Von-/Bis-Feldern wieder vertikal zentriert (iPad/iPhone)"] },
       { v: "1.37.1", date: "08.10.2026", items: ["Mehrtägig im Querformat (iPad): Von-/Bis-Felder nicht mehr zu groß, Tabelle begrenzt und zentriert, keine Überlappung"] },
       { v: "1.37.0", date: "08.10.2026", items: ["Neu: Mittagessen-Guthaben (Vorauszahlung der Eltern) pro Kind im Monatsabschluss – Einzahlungen erfassen, Verbrauch wird automatisch verrechnet", "Nachricht für Eltern berücksichtigt das Guthaben", "Guthaben ist in Export/Import und Cloud-Sync enthalten"] },
       { v: "1.36.0", date: "08.10.2026", items: ["Mehrtägig (Übersicht): Bemerkung als Kürzel-Feld mit Auswahlfenster statt Dropdown, Tabelle passt jetzt ohne seitliches Scrollen auf das Handy"] },
