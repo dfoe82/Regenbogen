@@ -165,8 +165,9 @@
     .vh-entry { margin-bottom: 12px; }
     .vh-head { font-weight: 700; font-size: 0.9em; color: var(--color-primary-dark); }
     .vh-entry ul { margin: 4px 0 0; padding-left: 18px; font-size: 0.85em; color: var(--color-text); }
+    .fb-import-box { border: 1px dashed #c7cdfa; background: var(--color-primary-light); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
     /* Einheitliche Formularfelder */
-    select, input[type="text"], input[type="number"], input[type="date"],
+    select, input[type="text"], input[type="password"], input[type="number"], input[type="date"],
     input[type="time"], textarea {
       font-family: var(--font-base);
       border: 1px solid var(--color-border);
@@ -1787,6 +1788,18 @@
         Einmal pro Gerät einrichten und anmelden, danach "Hochladen"/"Herunterladen" nutzen.
         Alle Angaben hier werden nur auf diesem Gerät gespeichert – nicht in einer Datei im Repository.
       </p>
+      <div class="fb-import-box">
+        <div style="font-weight:700; margin-bottom:4px;">📥 Firebase-Zugang importieren</div>
+        <p style="font-size:0.8em; color:#555; margin:0 0 8px;">Aus einer Datei (JSON oder config.local.js) oder per Einfügen des Codes aus der Firebase-Konsole. Wird sofort gespeichert.</p>
+        <div class="modal-row" style="margin-bottom:8px;">
+          <button type="button" onclick="document.getElementById('fbConfigFileInput2').click()">📄 Datei wählen</button>
+          <input type="file" id="fbConfigFileInput2" accept=".json,.js,.txt,application/json,text/plain,text/javascript" style="display:none;" onchange="importFirebaseConfigFile(event)">
+        </div>
+        <textarea id="fbPasteText" rows="3" placeholder="…oder hier den Text einfügen (apiKey, projectId, …)" style="width:100%;"></textarea>
+        <div class="modal-row" style="margin-top:8px; margin-bottom:0;">
+          <button type="button" class="btn-primary" onclick="importFirebaseConfigFromPastedText()">Aus Text übernehmen</button>
+        </div>
+      </div>
       <details>
         <summary style="cursor:pointer; font-size:0.85em; color:var(--color-primary); margin-bottom:8px;">Firebase-Projekt einrichten/ändern</summary>
         <div class="modal-row"><label style="min-width:160px;">API-Key:</label><input type="text" id="fbApiKey"></div>
@@ -1805,7 +1818,7 @@
         <div class="modal-row">
           <button type="button" onclick="exportFirebaseConfigFile()">⬇️ Als Datei exportieren</button>
           <button type="button" onclick="document.getElementById('fbConfigFileInput').click()">⬆️ Aus Datei importieren</button>
-          <input type="file" id="fbConfigFileInput" accept="application/json,.json" style="display:none;" onchange="importFirebaseConfigFile(event)">
+          <input type="file" id="fbConfigFileInput" accept=".json,.js,.txt,application/json,text/plain,text/javascript" style="display:none;" onchange="importFirebaseConfigFile(event)">
         </div>
       </details>
 
@@ -1894,11 +1907,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.33.0";
+    const APP_VERSION = "1.34.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.34.0", date: "08.10.2026", items: ["Firebase-Zugang importieren: aus Datei (JSON/config.local.js) oder per Text einfügen, wird sofort gespeichert", "Passwortfeld im Cloud-Login passend gestaltet"] },
       { v: "1.33.0", date: "08.10.2026", items: ["Versionshistorie in der Konfiguration", "Hauptdatei heißt jetzt index.html"] },
       { v: "1.32.0", date: "08.10.2026", items: ["Konfiguration aufgeräumt: aufklappbare Bereiche, fester Speichern-Balken"] },
       { v: "1.31.0", date: "08.10.2026", items: ["Urlaub der Kindertagespflegeperson in der Konfiguration, im Kalender farbig markiert"] },
@@ -2028,7 +2042,7 @@
       try { return JSON.parse(raw); } catch (e) { return null; }
     }
 
-    function saveFirebaseConfigFromForm() {
+    function saveFirebaseConfigFromForm(silent) {
       const config = {
         apiKey: document.getElementById("fbApiKey").value.trim(),
         authDomain: document.getElementById("fbAuthDomain").value.trim(),
@@ -2039,12 +2053,13 @@
       };
       if (!config.apiKey || !config.projectId) {
         alert("Bitte mindestens API-Key und Projekt-ID eintragen.");
-        return;
+        return false;
       }
       localStorage.setItem("localFirebaseConfig", JSON.stringify(config));
       firestoreDb = null; // Neu initialisieren mit den neuen Werten
-      alert("Firebase-Konfiguration auf diesem Gerät gespeichert.");
+      if (silent !== true) alert("Firebase-Konfiguration auf diesem Gerät gespeichert.");
       refreshCloudSyncUI();
+      return true;
     }
 
     // Exportiert die aktuell im Formular stehende Firebase-Konfiguration als
@@ -2075,34 +2090,69 @@
       URL.revokeObjectURL(url);
     }
 
-    // Liest eine zuvor exportierte Firebase-Konfigurationsdatei ein und befüllt
-    // damit die Formularfelder (noch nicht gespeichert – dafür oben auf
-    // "Firebase-Konfiguration speichern" tippen, damit es übernommen wird).
+    // Liest Firebase-Zugangsdaten aus Text. Akzeptiert (a) die exportierte
+    // JSON-Datei, (b) den Code-Schnipsel aus der Firebase-Konsole
+    // ("const firebaseConfig = { apiKey: "...", ... }") und (c) eine config.local.js.
+    function parseFirebaseConfigText(text) {
+      const keys = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId", "email"];
+      let obj = null;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed && typeof parsed === "object") obj = parsed.firebaseConfig || parsed;
+      } catch (e) { obj = null; }
+      if (!obj) {
+        obj = {};
+        keys.forEach(function(k) {
+          const m = text.match(new RegExp("[\"']?" + k + "[\"']?\\s*:\\s*[\"']([^\"']+)[\"']"));
+          if (m) obj[k] = m[1].trim();
+        });
+      }
+      if (!obj || !obj.apiKey || !obj.projectId) return null;
+      return obj;
+    }
+
+    // Übernimmt die Werte in die Felder UND speichert sie sofort auf diesem Gerät.
+    function applyImportedFirebaseConfig(config) {
+      document.getElementById("fbApiKey").value = config.apiKey || "";
+      document.getElementById("fbAuthDomain").value = config.authDomain || "";
+      document.getElementById("fbProjectId").value = config.projectId || "";
+      document.getElementById("fbStorageBucket").value = config.storageBucket || "";
+      document.getElementById("fbMessagingSenderId").value = config.messagingSenderId || "";
+      document.getElementById("fbAppId").value = config.appId || "";
+      if (config.email && document.getElementById("fbEmail")) document.getElementById("fbEmail").value = config.email;
+      if (saveFirebaseConfigFromForm(true)) {
+        alert("Firebase-Zugang importiert und auf diesem Gerät gespeichert.\nJetzt unten mit E-Mail und Passwort anmelden.");
+      }
+    }
+
     function importFirebaseConfigFile(event) {
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       const reader = new FileReader();
       reader.onload = function() {
-        let config;
-        try {
-          config = JSON.parse(reader.result);
-        } catch (e) {
-          alert("Diese Datei konnte nicht gelesen werden – ist es eine gültige Firebase-Konfigurationsdatei?");
+        const config = parseFirebaseConfigText(String(reader.result || ""));
+        if (!config) {
+          alert("In dieser Datei wurden keine Firebase-Zugangsdaten (apiKey und projectId) gefunden.");
           return;
         }
-        document.getElementById("fbApiKey").value = config.apiKey || "";
-        document.getElementById("fbAuthDomain").value = config.authDomain || "";
-        document.getElementById("fbProjectId").value = config.projectId || "";
-        document.getElementById("fbStorageBucket").value = config.storageBucket || "";
-        document.getElementById("fbMessagingSenderId").value = config.messagingSenderId || "";
-        document.getElementById("fbAppId").value = config.appId || "";
-        alert("Konfiguration aus Datei übernommen. Bitte oben auf \"Firebase-Konfiguration speichern\" tippen, damit sie aktiv wird.");
+        applyImportedFirebaseConfig(config);
       };
       reader.onerror = function() {
         alert("Datei konnte nicht gelesen werden.");
       };
       reader.readAsText(file);
       event.target.value = "";
+    }
+
+    function importFirebaseConfigFromPastedText() {
+      const box = document.getElementById("fbPasteText");
+      const config = parseFirebaseConfigText(box.value || "");
+      if (!config) {
+        alert("Im Text wurden keine Firebase-Zugangsdaten (apiKey und projectId) gefunden.");
+        return;
+      }
+      applyImportedFirebaseConfig(config);
+      box.value = "";
     }
 
     let firestoreDb = null;
