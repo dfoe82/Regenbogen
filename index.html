@@ -1129,8 +1129,10 @@
     .classic-month-table td.remark-td { text-align: center; }
     .classic-month-table { max-width: 620px; margin-left: auto; margin-right: auto; }
     .classic-month-table td { overflow: hidden; }
-    .classic-month-table input[type="time"] { width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; padding: 0 2px; font-size: 0.9em; min-height: 36px; display: block; margin: 0 auto; }
-    .classic-month-table input[type="time"]::-webkit-date-and-time-value { text-align: center; min-width: 0; margin: 0 auto; }
+    .classic-month-table td.time-td { padding: 3px 3px; vertical-align: middle; }
+    .classic-month-table input[type="time"] { -webkit-appearance: none; appearance: none; display: flex; align-items: center; justify-content: center; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; height: 38px; min-height: 38px; margin: 0; padding: 0 2px; font-size: 0.9em; line-height: 38px; text-align: center; overflow: hidden; }
+    .classic-month-table input[type="time"]::-webkit-datetime-edit { padding: 0; margin: 0 auto; line-height: 1.2; text-align: center; }
+    .classic-month-table input[type="time"]::-webkit-date-and-time-value { text-align: center; min-width: 0; margin: 0 auto; min-height: 1.2em; line-height: 1.2; }
     .classic-month-table input[type="time"]::-webkit-calendar-picker-indicator { display: none; }
     .classic-month-table input[type="checkbox"] { width: 20px; height: 20px; }
     button.remark-btn { width: 100%; white-space: nowrap; overflow: hidden; min-height: 36px; padding: 0; border-radius: 8px; font-size: 0.82em; font-weight: 700; color: var(--color-text-muted); display: flex; align-items: center; justify-content: center; gap: 1px; }
@@ -2011,11 +2013,13 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.37.2";
+    const APP_VERSION = "1.37.4";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.37.4", date: "08.10.2026", items: ["Nachricht für Eltern: Der laufende Monat wird immer aktuell berechnet, „archiviert“ erscheint erst, wenn der Monat vorbei oder abgeschlossen ist"] },
+      { v: "1.37.3", date: "08.10.2026", items: ["Alle Seiten werden bei jedem Aufruf von ganz oben angezeigt", "Mehrtägig: Von-/Bis-Felder iPad-tauglich überarbeitet (Uhrzeit mittig, Feld bleibt in der Zelle)"] },
       { v: "1.37.2", date: "08.10.2026", items: ["Mehrtägig: Uhrzeit in den Von-/Bis-Feldern wieder vertikal zentriert (iPad/iPhone)"] },
       { v: "1.37.1", date: "08.10.2026", items: ["Mehrtägig im Querformat (iPad): Von-/Bis-Felder nicht mehr zu groß, Tabelle begrenzt und zentriert, keine Überlappung"] },
       { v: "1.37.0", date: "08.10.2026", items: ["Neu: Mittagessen-Guthaben (Vorauszahlung der Eltern) pro Kind im Monatsabschluss – Einzahlungen erfassen, Verbrauch wird automatisch verrechnet", "Nachricht für Eltern berücksichtigt das Guthaben", "Guthaben ist in Export/Import und Cloud-Sync enthalten"] },
@@ -3456,7 +3460,7 @@
         dateTd.textContent = day;
         tr.appendChild(dateTd);
 
-        const startTd = document.createElement("td");
+        const startTd = document.createElement("td"); startTd.className = "time-td";
         const startInput = document.createElement("input");
         startInput.type = "time";
         startInput.value = rowData.start || "";
@@ -3464,7 +3468,7 @@
         startTd.appendChild(startInput);
         tr.appendChild(startTd);
 
-        const endTd = document.createElement("td");
+        const endTd = document.createElement("td"); endTd.className = "time-td";
         const endInput = document.createElement("input");
         endInput.type = "time";
         endInput.value = rowData.end || "";
@@ -3753,6 +3757,16 @@
       } catch (e) { return {}; }
     }
 
+    // Ein Monat gilt als "eingefroren" (Nachrichten werden archiviert und nicht mehr
+    // automatisch neu berechnet), sobald er vorbei oder als abgeschlossen markiert ist.
+    // Für den laufenden Monat werden die Texte dagegen immer live berechnet.
+    function isParentMessageFrozen(year, month) {
+      const now = new Date();
+      const ym = parseInt(year) * 12 + (parseInt(month) - 1);
+      const nowYM = now.getFullYear() * 12 + now.getMonth();
+      return ym < nowYM || isMonthClosed(year, month);
+    }
+
     function archiveParentMessages(year, month, messages) {
       const archive = getParentMessageArchive();
       const key = year + "-" + String(month).padStart(2, "0");
@@ -3817,7 +3831,7 @@
         ? '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'
         : '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/>';
       const key = year + "-" + String(month).padStart(2, "0");
-      document.getElementById("closeArchiveBadge").style.display = getParentMessageArchive()[key] ? "" : "none";
+      document.getElementById("closeArchiveBadge").style.display = (isParentMessageFrozen(year, month) && getParentMessageArchive()[key]) ? "" : "none";
     }
 
     // Pfeile im Monatswechsler: Monat +/- 1 (Jahr passt sich an, 2020-2030)
@@ -4511,7 +4525,8 @@
 
       const archive = getParentMessageArchive();
       const key = year + "-" + String(month).padStart(2, "0");
-      const archived = archive[key];
+      const frozen = isParentMessageFrozen(year, month);
+      const archived = frozen ? archive[key] : null;
       const messages = archived ? Object.assign({}, archived.messages) : {};
 
       // Für neu hinzugekommene Kinder (noch nicht im Archiv) jetzt live berechnen.
@@ -4523,12 +4538,17 @@
         }
       });
 
-      if (!archived || addedMissing) {
-        archiveParentMessages(year, month, messages);
+      if (frozen) {
+        if (!archived || addedMissing) {
+          archiveParentMessages(year, month, messages);
+        }
+        const finalArchive = getParentMessageArchive()[key];
+        setIconText(infoEl, "archive", "Archiviert am " + formatArchiveTimestamp(finalArchive.createdAt) +
+          " – bleibt unverändert abrufbar und kopierbar, auch im Folgemonat.");
+      } else {
+        setIconText(infoEl, "refresh", "Laufender Monat – wird bei jedem Öffnen aktuell berechnet. " +
+          "Archiviert wird erst, wenn der Monat vorbei oder abgeschlossen ist.");
       }
-      const finalArchive = getParentMessageArchive()[key];
-      setIconText(infoEl, "archive", "Archiviert am " + formatArchiveTimestamp(finalArchive.createdAt) +
-        " – bleibt unverändert abrufbar und kopierbar, auch im Folgemonat.");
 
       children.forEach(function(name) {
         const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
@@ -4576,6 +4596,7 @@
       const year = parentMessageContext.year;
       if (!month || !year) return;
       const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
+      if (!isParentMessageFrozen(year, month)) { renderParentMessageModalContent(); return; }
       if (!confirm("Nachrichten für " + monthName + " " + year + " neu berechnen und die archivierte Version überschreiben?")) return;
       const children = getActiveChildren();
       const messages = {};
@@ -5460,6 +5481,10 @@
     function showPage(pageId) {
       document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
+      // Jede Seite immer von ganz oben anzeigen
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       // "Kinder" und "Alle Kinder" sind inhaltlich Unterpunkte von "Monatsabschluss"
       // (dort erreichbar, nicht mehr direkt im Hauptmenü) – daher bleibt der
       // Monatsabschluss-Tab aktiv markiert.
