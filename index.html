@@ -132,8 +132,8 @@
     .mc-group button.mc-item { width: 100%; display: flex; align-items: center; gap: 14px; text-align: left; padding: 14px; min-height: 0; background: transparent; border: none; border-bottom: 1px solid var(--color-border); border-radius: 0; color: var(--color-text); font-weight: 400; }
     .mc-group button.mc-item:last-child { border-bottom: none; }
     .mc-group button.mc-item:hover, .mc-group button.mc-item:active { background: var(--color-primary-light); transform: none; }
-    .mc-tile { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; flex: none; background: var(--color-primary-light); color: var(--color-primary-dark); }
-    .mc-tile.o { background: var(--color-warning-light); color: #b45309; }
+    .mc-tile { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #fff; border: 1.5px solid var(--color-border); color: var(--color-text-muted); }
+    .mc-group button.mc-item:hover .mc-tile, .mc-group button.mc-item:active .mc-tile { border-color: var(--color-primary); color: var(--color-primary-dark); }
     .mc-tile svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
     .mc-item .mc-tx { flex: 1; min-width: 0; }
     .mc-item .mc-a { font-weight: 650; font-size: 1em; }
@@ -151,7 +151,9 @@
     .cfg-section { border: 1px solid var(--color-border); border-radius: 14px; margin-bottom: 10px; background: var(--color-surface); }
     .cfg-section > summary { list-style: none; display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; }
     .cfg-section > summary::-webkit-details-marker { display: none; }
-    .cfg-ic { width: 38px; height: 38px; border-radius: 11px; background: var(--color-primary-light); display: grid; place-items: center; font-size: 1.15em; flex: none; }
+    .cfg-ic { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid var(--color-border); color: var(--color-text-muted); display: grid; place-items: center; flex: none; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+    .cfg-ic .ico { width: 19px; height: 19px; }
+    .cfg-section[open] > summary .cfg-ic { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
     .cfg-tt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
     .cfg-tt small { color: var(--color-text-muted); font-size: 0.8em; margin-top: 2px; }
     .cfg-chev { width: 18px; height: 18px; stroke: #b6bdc9; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.2s; flex: none; }
@@ -166,6 +168,11 @@
     .vh-head { font-weight: 700; font-size: 0.9em; color: var(--color-primary-dark); }
     .vh-entry ul { margin: 4px 0 0; padding-left: 18px; font-size: 0.85em; color: var(--color-text); }
     .fb-import-box { border: 1px dashed #c7cdfa; background: var(--color-primary-light); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+    /* Linien-Icons (einheitlich) */
+    svg.ico { width: 1.15em; height: 1.15em; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; flex: none; }
+    button svg.ico { margin-right: 2px; }
+    .upcoming-birthdays-title svg.ico { color: var(--color-primary-dark); }
+    .save-toast svg.ico { stroke-width: 2.4; }
     /* Einheitliche Formularfelder */
     select, input[type="text"], input[type="password"], input[type="number"], input[type="date"],
     input[type="time"], textarea {
@@ -1281,7 +1288,7 @@
     <h1 id="overviewGreeting" style="text-align:center;"></h1>
 
     <div id="upcomingBirthdaysBox" class="narrow-content" style="display:none;">
-      <p class="upcoming-birthdays-title">🎂 Nächste Geburtstage</p>
+      <p class="upcoming-birthdays-title"><i data-ico="cake"></i> Nächste Geburtstage</p>
       <ul id="upcomingBirthdaysList" class="upcoming-birthdays-list"></ul>
     </div>
 
@@ -1421,7 +1428,7 @@
 
   <!-- ===================== Seite: Warteliste ===================== -->
   <div id="pageWarteliste" class="page-section">
-    <h1 style="text-align:center;">📝 Warteliste</h1>
+    <h1 style="text-align:center;">Warteliste</h1>
     <div class="narrow-content">
       <div class="modal-actions" style="justify-content:center;">
         <button type="button" class="btn-primary" onclick="openNewWaitlistEntryModal()">+ Neuer Eintrag</button>
@@ -1477,7 +1484,7 @@
 
   <!-- ===================== Seite: Fortbildung ===================== -->
   <div id="pageFortbildung" class="page-section">
-    <h1 style="text-align:center;">🎓 Fortbildung</h1>
+    <h1 style="text-align:center;">Fortbildung</h1>
     <div class="narrow-content">
       <div class="modal-actions" style="justify-content:center;">
         <button type="button" class="btn-primary" onclick="openNewFortbildungEntryModal()">+ Neuer Eintrag</button>
@@ -1522,7 +1529,7 @@
   <!-- ===================== Seite: Kinder (Gesamtansicht/Monatstabelle je Kind) ===================== -->
   <div id="pageKinder" class="page-section">
     <div class="no-print" style="margin-bottom:10px;">
-      <button type="button" onclick="showPage('pageMonthlyClose')">← Zurück zum Monatsabschluss</button>
+      <button type="button" onclick="showPage('pageMonthlyClose')"><i data-ico="back"></i> Zurück zum Monatsabschluss</button>
     </div>
 
   <!-- Header-Bereich -->
@@ -1569,7 +1576,7 @@
   
   <h1 style="text-align:center;">Anwesenheitsliste</h1>
   <div id="monthLockBanner" class="no-print" style="display:none;">
-    🔒 Dieser Monat ist als abgeschlossen markiert. Zum Bearbeiten auf der Monatsabschluss-Seite entsperren.
+    <i data-ico="lock"></i> Dieser Monat ist als abgeschlossen markiert. Zum Bearbeiten auf der Monatsabschluss-Seite entsperren.
   </div>
   <div id="progressIndicator" class="no-print progress-ring-wrap">
     <svg class="progress-ring" viewBox="0 0 80 80">
@@ -1673,7 +1680,7 @@
   <!-- ===================== Seite: Alle Kinder (Monatstabellen hintereinander) ===================== -->
   <div id="pageAllChildrenTables" class="page-section">
     <div class="no-print" style="margin-bottom:10px;">
-      <button type="button" onclick="showPage('pageMonthlyClose')">← Zurück zum Monatsabschluss</button>
+      <button type="button" onclick="showPage('pageMonthlyClose')"><i data-ico="back"></i> Zurück zum Monatsabschluss</button>
     </div>
     <h1 id="allChildrenTablesHeading" style="text-align:center;"></h1>
     <div id="allChildrenTablesContainer"></div>
@@ -1683,9 +1690,9 @@
   <!-- ===================== Konfigurations-Modal ===================== -->
   <div id="configModal" class="modal-overlay no-print">
     <div class="modal-box cfg-box">
-      <h2>⚙️ Konfiguration</h2>
-      <details class="cfg-section" open>
-        <summary><span class="cfg-ic">👶</span><span class="cfg-tt"><b>Kinder</b><small>Anzahl, Namen, Geburtstage</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+      <h2>Konfiguration</h2>
+      <details class="cfg-section">
+        <summary><span class="cfg-ic"><i data-ico="kinder"></i></span><span class="cfg-tt"><b>Kinder</b><small>Anzahl, Namen, Geburtstage</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <div class="modal-row">
         <label for="configChildCount">Anzahl der Kinder:</label>
@@ -1703,7 +1710,7 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic">🕒</span><span class="cfg-tt"><b>Betreuung &amp; Abrechnung</b><small>Uhrzeiten, Mittagessen, Arbeitstage</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="zeit"></i></span><span class="cfg-tt"><b>Betreuung &amp; Abrechnung</b><small>Uhrzeiten, Mittagessen, Arbeitstage</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <div class="modal-row">
         <label for="configStart">Standard Uhrzeit von:</label>
@@ -1736,7 +1743,7 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic">🏖️</span><span class="cfg-tt"><b>Urlaub</b><small>Deine Urlaubszeiten im Kalender</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="urlaub"></i></span><span class="cfg-tt"><b>Urlaub</b><small>Deine Urlaubszeiten im Kalender</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <p style="font-size:0.8em; color:#555; margin-top:-4px;">
         Zeiträume, in denen du selbst nicht da bist. Sie werden im Kalender auf der Übersicht farbig markiert.
@@ -1749,7 +1756,7 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic">✉️</span><span class="cfg-tt"><b>Monatsabschluss</b><small>E-Mail-Adresse und Ort</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="mail"></i></span><span class="cfg-tt"><b>Monatsabschluss</b><small>E-Mail-Adresse und Ort</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <div class="modal-row">
         <label for="configEmail">E-Mail für Monatsabschluss:</label>
@@ -1763,15 +1770,15 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic">💾</span><span class="cfg-tt"><b>Datensicherung</b><small>Export und Import als Datei</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="db"></i></span><span class="cfg-tt"><b>Datensicherung</b><small>Export und Import als Datei</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <p style="font-size:0.85em; color:#555;">
         Sichert alle Daten (Anwesenheit aller Kinder, Konfiguration, Unterschriften) als Datei –
         z. B. bevor du die App-Version änderst, oder einfach als regelmäßiges Backup.
       </p>
       <div class="modal-row">
-        <button type="button" onclick="exportAllData()">⬇️ Daten exportieren</button>
-        <button type="button" onclick="document.getElementById('importFileInput').click()">⬆️ Daten importieren</button>
+        <button type="button" onclick="exportAllData()"><i data-ico="download"></i> Daten exportieren</button>
+        <button type="button" onclick="document.getElementById('importFileInput').click()"><i data-ico="upload"></i> Daten importieren</button>
         <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;" onchange="importAllData(event)">
       </div>
       <p style="font-size:0.8em; color:#a00;">
@@ -1781,7 +1788,7 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic">☁️</span><span class="cfg-tt"><b>Cloud-Synchronisierung</b><small>iPad und iPhone abgleichen</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="cloud"></i></span><span class="cfg-tt"><b>Cloud-Synchronisierung</b><small>iPad und iPhone abgleichen</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <p style="font-size:0.85em; color:#555;">
         Damit mehrere Geräte (z. B. iPad und iPhone) mit denselben Daten arbeiten können.
@@ -1789,10 +1796,10 @@
         Alle Angaben hier werden nur auf diesem Gerät gespeichert – nicht in einer Datei im Repository.
       </p>
       <div class="fb-import-box">
-        <div style="font-weight:700; margin-bottom:4px;">📥 Firebase-Zugang importieren</div>
+        <div style="font-weight:700; margin-bottom:4px;"><i data-ico="download"></i> Firebase-Zugang importieren</div>
         <p style="font-size:0.8em; color:#555; margin:0 0 8px;">Aus einer Datei (JSON oder config.local.js) oder per Einfügen des Codes aus der Firebase-Konsole. Wird sofort gespeichert.</p>
         <div class="modal-row" style="margin-bottom:8px;">
-          <button type="button" onclick="document.getElementById('fbConfigFileInput2').click()">📄 Datei wählen</button>
+          <button type="button" onclick="document.getElementById('fbConfigFileInput2').click()"><i data-ico="file"></i> Datei wählen</button>
           <input type="file" id="fbConfigFileInput2" accept=".json,.js,.txt,application/json,text/plain,text/javascript" style="display:none;" onchange="importFirebaseConfigFile(event)">
         </div>
         <textarea id="fbPasteText" rows="3" placeholder="…oder hier den Text einfügen (apiKey, projectId, …)" style="width:100%;"></textarea>
@@ -1816,8 +1823,8 @@
           Alternativ: Konfiguration als Datei exportieren (einmalig einrichten) und auf weiteren Geräten importieren, statt die Felder erneut abzutippen.
         </p>
         <div class="modal-row">
-          <button type="button" onclick="exportFirebaseConfigFile()">⬇️ Als Datei exportieren</button>
-          <button type="button" onclick="document.getElementById('fbConfigFileInput').click()">⬆️ Aus Datei importieren</button>
+          <button type="button" onclick="exportFirebaseConfigFile()"><i data-ico="download"></i> Als Datei exportieren</button>
+          <button type="button" onclick="document.getElementById('fbConfigFileInput').click()"><i data-ico="upload"></i> Aus Datei importieren</button>
           <input type="file" id="fbConfigFileInput" accept=".json,.js,.txt,application/json,text/plain,text/javascript" style="display:none;" onchange="importFirebaseConfigFile(event)">
         </div>
       </details>
@@ -1840,8 +1847,8 @@
           dann läuft es im Hintergrund. Die Buttons unten sind nur für den Fall, dass es mal manuell angestoßen werden soll.
         </p>
         <div class="modal-row">
-          <button type="button" onclick="uploadToCloud()">⬆️ Jetzt manuell hochladen</button>
-          <button type="button" onclick="downloadFromCloud()">⬇️ Jetzt manuell herunterladen</button>
+          <button type="button" onclick="uploadToCloud()"><i data-ico="upload"></i> Jetzt manuell hochladen</button>
+          <button type="button" onclick="downloadFromCloud()"><i data-ico="download"></i> Jetzt manuell herunterladen</button>
         </div>
         <p style="font-size:0.8em; color:#a00;">
           Achtung: "Herunterladen" überschreibt alle aktuell auf diesem Gerät gespeicherten Daten mit dem Cloud-Stand.
@@ -1852,7 +1859,7 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic">🕘</span><span class="cfg-tt"><b>Versionshistorie</b><small>Was sich in der App geändert hat</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="hist"></i></span><span class="cfg-tt"><b>Versionshistorie</b><small>Was sich in der App geändert hat</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body"><div id="versionHistoryList"></div></div>
       </details>
       <p class="cfg-version">Version <span id="appVersionText"></span></p>
@@ -1884,34 +1891,36 @@
   <!-- ===================== Nachricht für Eltern (Mittagessen-Betrag) ===================== -->
   <div id="parentMessageModal" class="modal-overlay no-print">
     <div class="modal-box" style="max-width:600px;">
-      <h2>✉️ Nachricht für Eltern</h2>
+      <h2>Nachricht für Eltern</h2>
       <p id="parentMessageMonthLabel" style="font-size:0.9em; font-weight:600; margin-bottom:2px;"></p>
       <p id="parentMessageArchiveInfo" style="font-size:0.8em; color:var(--color-text-muted); margin-top:0;"></p>
       <div id="parentMessageList">
         <!-- Ein Block pro Kind wird per JS erzeugt -->
       </div>
       <div class="modal-actions">
-        <button type="button" onclick="recalcAndArchiveParentMessages()">🔄 Neu berechnen</button>
+        <button type="button" onclick="recalcAndArchiveParentMessages()"><i data-ico="refresh"></i> Neu berechnen</button>
         <button type="button" onclick="closeParentMessageModal()">Schließen</button>
       </div>
     </div>
   </div>
 
   <!-- Versteckter Container für den Druck (Einzel-Kind, Monatsabschluss, sequenziell) -->
-  <div id="saveToast" class="save-toast no-print">✓ Gespeichert</div>
+  <div id="saveToast" class="save-toast no-print"><i data-ico="check"></i> Gespeichert</div>
 
   <div id="monthlyCloseContainer"></div>
-  <button type="button" id="exitPrintModeBtn" class="no-print btn-primary" onclick="exitPrintMode()">✕ Fertig</button>
+  <button type="button" id="exitPrintModeBtn" class="no-print btn-primary" onclick="exitPrintMode()"><i data-ico="x"></i> Fertig</button>
 
   <script>
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.34.0";
+    const APP_VERSION = "1.35.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.35.0", date: "08.10.2026", items: ["Einheitliche Linien-Icons statt Emojis in der ganzen App (Konfiguration im Kreis-Stil, Buttons, Monatsabschluss, Geburtstage u. a.)"] },
+      { v: "1.34.1", date: "08.10.2026", items: ["Konfiguration öffnet immer mit eingeklappten Bereichen"] },
       { v: "1.34.0", date: "08.10.2026", items: ["Firebase-Zugang importieren: aus Datei (JSON/config.local.js) oder per Text einfügen, wird sofort gespeichert", "Passwortfeld im Cloud-Login passend gestaltet"] },
       { v: "1.33.0", date: "08.10.2026", items: ["Versionshistorie in der Konfiguration", "Hauptdatei heißt jetzt index.html"] },
       { v: "1.32.0", date: "08.10.2026", items: ["Konfiguration aufgeräumt: aufklappbare Bereiche, fester Speichern-Balken"] },
@@ -1948,6 +1957,49 @@
       });
     }
 
+
+    // ============================================================
+    // ICON-SYSTEM (einheitliche Linien-Icons, Stil wie untere Navigation)
+    // ============================================================
+    const ICON_PATHS = {
+      kinder: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-5.5 6-5.5s6 2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14.3c2.6 0 4.5 1.6 4.5 4.2"/>',
+      zeit: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+      urlaub: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+      mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+      db: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>',
+      cloud: '<path d="M7 18a4 4 0 0 1-.5-7.97A6 6 0 0 1 18 9.5 4.25 4.25 0 0 1 17.5 18z"/>',
+      hist: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/>',
+      download: '<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',
+      upload: '<path d="M12 16V5M7 9l5-5 5 5M5 20h14"/>',
+      file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>',
+      refresh: '<path d="M20 11a8 8 0 0 0-14.3-4M4 4v4h4M4 13a8 8 0 0 0 14.3 4M20 20v-4h-4"/>',
+      x: '<path d="M6 6l12 12M18 6 6 18"/>',
+      check: '<path d="M20 6 9 17l-5-5"/>',
+      lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+      back: '<path d="M15 18l-6-6 6-6"/>',
+      cake: '<path d="M4 20h16v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 .5M12 12V9M12 9c-.9 0-1.5-.7-1.5-1.5S12 5 12 5s1.5 1 1.5 2.5S12.9 9 12 9z"/>',
+      notes: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+      archive: '<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9M10 13h4"/>'
+    };
+    function iconSvg(name) {
+      return '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + (ICON_PATHS[name] || "") + '</svg>';
+    }
+    // Ersetzt <i data-ico="name"></i> durch das passende SVG
+    function hydrateIcons(root) {
+      (root || document).querySelectorAll("i[data-ico]").forEach(function(el) {
+        const tpl = document.createElement("span");
+        tpl.innerHTML = iconSvg(el.getAttribute("data-ico"));
+        el.replaceWith(tpl.firstChild);
+      });
+    }
+    // Setzt "Icon + Text" in ein Element (Text wird sicher als Text eingefügt)
+    function setIconText(el, name, text) {
+      el.textContent = "";
+      const holder = document.createElement("span");
+      holder.innerHTML = iconSvg(name);
+      el.appendChild(holder.firstChild);
+      el.appendChild(document.createTextNode(" " + text));
+    }
 
     // ------------------- PIN-Sperre -------------------
     // Der PIN wird NICHT in einer Datei hinterlegt, sondern einmalig direkt auf
@@ -2219,7 +2271,7 @@
       if (user) {
         loginBox.style.display = "none";
         syncBox.style.display = "block";
-        statusText.textContent = "🔄 Automatisch synchronisiert (angemeldet als " + user.email + ")";
+        setIconText(statusText, "refresh", "Automatisch synchronisiert (angemeldet als " + user.email + ")");
       } else {
         loginBox.style.display = "block";
         syncBox.style.display = "none";
@@ -2621,6 +2673,9 @@
       }
       refreshCloudSyncUI();
 
+      // Beim Öffnen immer alle Bereiche (inkl. Firebase-Details) einklappen
+      document.querySelectorAll("#configModal details").forEach(function(d) { d.open = false; });
+      document.querySelector("#configModal .modal-box").scrollTop = 0;
       document.getElementById("configModal").classList.add("open");
     }
 
@@ -2981,10 +3036,10 @@
       const hits = list.filter(function(v) { return v.from <= last && (v.to || v.from) >= first; });
       if (!hits.length) { el.style.display = "none"; el.textContent = ""; return; }
       el.style.display = "";
-      el.textContent = "🏖️ Urlaub: " + hits.map(function(v) {
+      setIconText(el, "urlaub", "Urlaub: " + hits.map(function(v) {
         const range = (v.to && v.to !== v.from) ? fmt(v.from) + "–" + fmt(v.to) : fmt(v.from);
         return range + (v.label ? " (" + v.label + ")" : "");
-      }).join(", ");
+      }).join(", "));
     }
 
     function onCalendarDayTap(day) {
@@ -4046,8 +4101,8 @@
         archiveParentMessages(year, month, messages);
       }
       const finalArchive = getParentMessageArchive()[key];
-      infoEl.textContent = "📦 Archiviert am " + formatArchiveTimestamp(finalArchive.createdAt) +
-        " – bleibt unverändert abrufbar und kopierbar, auch im Folgemonat.";
+      setIconText(infoEl, "archive", "Archiviert am " + formatArchiveTimestamp(finalArchive.createdAt) +
+        " – bleibt unverändert abrufbar und kopierbar, auch im Folgemonat.");
 
       children.forEach(function(name) {
         const safeName = name.replace(/[^a-zA-Z0-9]/g, "_");
@@ -4276,7 +4331,7 @@
       const year = parseInt(allChildrenTablesContext.year);
       const monthName = MONTH_NAMES_DE[month - 1] || month;
       document.getElementById("allChildrenTablesHeading").textContent =
-        "👶 Alle Kinder – " + monthName + " " + year;
+        "Alle Kinder – " + monthName + " " + year;
 
       const container = document.getElementById("allChildrenTablesContainer");
       container.innerHTML = "";
@@ -4758,7 +4813,7 @@
           const notesToggle = document.createElement("button");
           notesToggle.type = "button";
           notesToggle.className = "waitlist-notes-toggle";
-          notesToggle.textContent = entry.notesOpen ? "📝 Notizen schließen" : (entry.notizen ? "📝 Notizen anzeigen/bearbeiten" : "📝 Notiz hinzufügen");
+          setIconText(notesToggle, "notes", entry.notesOpen ? "Notizen schließen" : (entry.notizen ? "Notizen anzeigen/bearbeiten" : "Notiz hinzufügen"));
           notesToggle.addEventListener("click", function() { toggleWaitlistNotes(entry.id); });
           body.appendChild(notesToggle);
 
@@ -5022,6 +5077,7 @@
         onAuthStateResolved(null);
       }
       document.getElementById("appVersionText").textContent = APP_VERSION;
+      hydrateIcons(document);
       renderVersionHistory();
       document.getElementById("pinVersionText").textContent = APP_VERSION;
       applyLabels();
