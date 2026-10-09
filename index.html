@@ -2014,11 +2014,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.38.0";
+    const APP_VERSION = "1.38.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.38.1", date: "09.10.2026", items: ["Mittagessen-Guthaben: Einzahlungen werden zwischen Geräten zusammengeführt statt überschrieben; Anzeige aktualisiert sich nach dem Abgleich automatisch"] },
       { v: "1.38.0", date: "09.10.2026", items: ["Konfiguration ist jetzt eine eigene Seite (wie Übersicht, Abschluss usw.) statt eines Popups; Abbrechen/Speichern führen zur vorherigen Seite zurück"] },
       { v: "1.37.4", date: "08.10.2026", items: ["Nachricht für Eltern: Der laufende Monat wird immer aktuell berechnet, „archiviert“ erscheint erst, wenn der Monat vorbei oder abgeschlossen ist"] },
       { v: "1.37.3", date: "08.10.2026", items: ["Alle Seiten werden bei jedem Aufruf von ganz oben angezeigt", "Mehrtägig: Von-/Bis-Felder iPad-tauglich überarbeitet (Uhrzeit mittig, Feld bleibt in der Zelle)"] },
@@ -2963,7 +2964,15 @@
         localStorage.setItem("parentMessageArchive", JSON.stringify(data.parentMessageArchive));
       }
       if (data.mealCredits) {
-        localStorage.setItem("mealCredits", JSON.stringify(data.mealCredits));
+        // Einzahlungen werden zusammengeführt (nicht überschrieben), damit nichts verloren geht,
+        // wenn zwei Geräte zwischenzeitlich unterschiedliche Stände hatten.
+        const local = getMealCredits();
+        const merged = mergeMealCredits(local, data.mealCredits);
+        localStorage.setItem("mealCredits", JSON.stringify(merged));
+        if (JSON.stringify(normalizeMealCredits(merged)) !== JSON.stringify(normalizeMealCredits(data.mealCredits))) {
+          queueAutoUpload(); // Cloud hat noch nicht alles -> ergänzen
+        }
+        if (typeof refreshCreditsViewIfOpen === "function") refreshCreditsViewIfOpen();
       }
       if (data.signatures) {
         Object.keys(data.signatures).forEach(function(key) {
@@ -4284,6 +4293,42 @@
     // Speicher: localStorage "mealCredits" = { Kind: { payments: [{id,date,amount,note}] } }
     // Verbrauch wird nie gespeichert, sondern aus den Anwesenheitsdaten berechnet.
     // ============================================================
+    function normalizeMealCredits(obj) {
+      const out = {};
+      Object.keys(obj || {}).sort().forEach(function(k) {
+        const e = obj[k] || {};
+        const pays = (Array.isArray(e.payments) ? e.payments : []).slice().sort(function(a, b) { return String(a.id).localeCompare(String(b.id)); });
+        const del = (Array.isArray(e.deleted) ? e.deleted : []).slice().sort();
+        out[k] = { payments: pays, deleted: del };
+      });
+      return out;
+    }
+    // Führt zwei Stände zusammen: Einzahlungen nach id vereinigen (bei gleicher id gewinnt die
+    // zuletzt bearbeitete), gelöschte ids (deleted) gelten auf allen Geräten.
+    function mergeMealCredits(a, b) {
+      const out = {};
+      const kids = {};
+      Object.keys(a || {}).forEach(function(k) { kids[k] = true; });
+      Object.keys(b || {}).forEach(function(k) { kids[k] = true; });
+      Object.keys(kids).forEach(function(k) {
+        const ea = (a && a[k]) || {}, eb = (b && b[k]) || {};
+        const del = {};
+        (ea.deleted || []).concat(eb.deleted || []).forEach(function(id) { del[id] = true; });
+        const byId = {};
+        (ea.payments || []).concat(eb.payments || []).forEach(function(x) {
+          if (!x || del[x.id]) return;
+          const old = byId[x.id];
+          if (!old || (x.updated || 0) > (old.updated || 0)) byId[x.id] = x;
+        });
+        out[k] = { payments: Object.keys(byId).map(function(id) { return byId[id]; }), deleted: Object.keys(del) };
+      });
+      return out;
+    }
+    function refreshCreditsViewIfOpen() {
+      const pg = document.getElementById("pageCredits");
+      if (!pg || !pg.classList.contains("active")) return;
+      if (creditsCurrentChild) renderCreditDetail(); else showCreditsList();
+    }
     function getMealCredits() {
       try { return JSON.parse(localStorage.getItem("mealCredits")) || {}; } catch (e) { return {}; }
     }
@@ -4474,9 +4519,9 @@
       if (!Array.isArray(entry.payments)) entry.payments = [];
       if (creditsEditId) {
         const p = entry.payments.find(function(x) { return x.id === creditsEditId; });
-        if (p) { p.amount = amount; p.date = date; p.note = note; }
+        if (p) { p.amount = amount; p.date = date; p.note = note; p.updated = Date.now(); }
       } else {
-        entry.payments.push({ id: "p" + Date.now() + Math.floor(Math.random() * 1000), date: date, amount: amount, note: note });
+        entry.payments.push({ id: "p" + Date.now() + Math.floor(Math.random() * 1000000), date: date, amount: amount, note: note, updated: Date.now() });
       }
       all[creditsCurrentChild] = entry;
       saveMealCredits(all);
@@ -4487,7 +4532,11 @@
       if (!creditsEditId || !confirm("Diese Einzahlung wirklich löschen?")) return;
       const all = getMealCredits();
       const entry = all[creditsCurrentChild];
-      if (entry) entry.payments = entry.payments.filter(function(x) { return x.id !== creditsEditId; });
+      if (entry) {
+        entry.payments = entry.payments.filter(function(x) { return x.id !== creditsEditId; });
+        if (!Array.isArray(entry.deleted)) entry.deleted = [];
+        entry.deleted.push(creditsEditId);
+      }
       saveMealCredits(all);
       closeCreditSheet();
       renderCreditDetail();
