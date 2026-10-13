@@ -181,6 +181,7 @@
     .cfg-section[open] > summary .cfg-chev { transform: rotate(90deg); }
     .cfg-section[open] > summary { border-bottom: 1px solid var(--color-border); }
     .cfg-body { padding: 14px; }
+    .cfg-sub { font-size: 0.75em; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--color-text-muted); margin: 22px 0 8px; padding-top: 14px; border-top: 1px solid var(--color-border); }
     .cfg-body > :last-child { margin-bottom: 0; }
     .cfg-version { text-align: center; font-size: 0.75em; color: #999; margin: 14px 0 6px; }
     .cfg-footer { position: sticky; bottom: 92px; z-index: 5; display: flex; gap: 10px; justify-content: flex-end; padding: 10px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; box-shadow: 0 6px 18px rgba(15,23,42,0.12); margin-top: 6px; }
@@ -1789,7 +1790,7 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="zeit"></i></span><span class="cfg-tt"><b>Betreuung &amp; Abrechnung</b><small>Uhrzeiten, Mittagessen, Arbeitstage</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="zeit"></i></span><span class="cfg-tt"><b>Betreuung &amp; Abrechnung</b><small>Zeiten, Mittagessen, Urlaub, Abschluss</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <div class="modal-row">
         <label for="configStart">Standard Uhrzeit von:</label>
@@ -1819,11 +1820,7 @@
         Nicht angehakte Tage werden bei "Übersicht" und "Nachpflegen" übersprungen (nicht automatisch ausgefüllt). Manuell eintragen bleibt trotzdem möglich.
       </p>
 
-        </div>
-      </details>
-      <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="urlaub"></i></span><span class="cfg-tt"><b>Urlaub</b><small>Deine Urlaubszeiten im Kalender</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
-        <div class="cfg-body">
+      <div class="cfg-sub">Urlaub (deine Urlaubszeiten)</div>
       <p style="font-size:0.8em; color:#555; margin-top:-4px;">
         Zeiträume, in denen du selbst nicht da bist. Sie werden im Kalender auf der Übersicht farbig markiert.
       </p>
@@ -1832,11 +1829,7 @@
         <button type="button" onclick="addConfigVacationRow()">+ Urlaub hinzufügen</button>
       </div>
 
-        </div>
-      </details>
-      <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="mail"></i></span><span class="cfg-tt"><b>Monatsabschluss</b><small>E-Mail-Adresse und Ort</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
-        <div class="cfg-body">
+      <div class="cfg-sub">Abschluss (E-Mail und Ort)</div>
       <div class="modal-row">
         <label for="configEmail">E-Mail für Monatsabschluss:</label>
         <input type="text" id="configEmail" placeholder="z. B. buero@beispiel.de">
@@ -1849,16 +1842,13 @@
         </div>
       </details>
       <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="archive"></i></span><span class="cfg-tt"><b>Sicherheitspunkte</b><small>Automatische Sicherungen auf diesem Gerät</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="db"></i></span><span class="cfg-tt"><b>Daten &amp; Sicherung</b><small>Sicherheitspunkte, Export, Cloud</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
+      <div class="cfg-sub">Sicherheitspunkte</div>
           <p style="font-size:0.85em; color:#555; margin-top:0;">Die App legt automatisch einmal täglich (beim Öffnen) einen Sicherheitspunkt an und vor jedem Import. Es werden die letzten 14 aufbewahrt. Unterschriften sind darin nicht enthalten.</p>
           <div class="modal-row"><button type="button" onclick="createBackupPointManual()"><i data-ico="check"></i> Jetzt Sicherheitspunkt erstellen</button></div>
           <div id="backupPointList" class="mc-group" style="margin-top:10px;"></div>
-        </div>
-      </details>
-      <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="db"></i></span><span class="cfg-tt"><b>Datensicherung</b><small>Export und Import als Datei</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
-        <div class="cfg-body">
+      <div class="cfg-sub">Export und Import (Datei)</div>
       <p style="font-size:0.85em; color:#555;">
         Sichert alle Daten (Anwesenheit aller Kinder, Konfiguration, Unterschriften) als Datei –
         z. B. bevor du die App-Version änderst, oder einfach als regelmäßiges Backup.
@@ -1872,11 +1862,7 @@
         Achtung: Der Import überschreibt alle aktuell auf diesem Gerät gespeicherten Daten.
       </p>
 
-        </div>
-      </details>
-      <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="cloud"></i></span><span class="cfg-tt"><b>Cloud-Synchronisierung</b><small>iPad und iPhone abgleichen</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
-        <div class="cfg-body">
+      <div class="cfg-sub">Cloud-Synchronisierung</div>
       <p style="font-size:0.85em; color:#555;">
         Damit mehrere Geräte (z. B. iPad und iPhone) mit denselben Daten arbeiten können.
         Einmal pro Gerät einrichten und anmelden, danach "Hochladen"/"Herunterladen" nutzen.
@@ -2043,11 +2029,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.40.0";
+    const APP_VERSION = "1.40.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.40.1", date: "13.10.2026", items: ["Konfiguration übersichtlicher: nur noch 4 Bereiche (Kinder, Betreuung & Abrechnung, Daten & Sicherung, Versionshistorie)"] },
       { v: "1.40.0", date: "13.10.2026", items: ["Automatische Sicherheitspunkte: täglich beim Öffnen und vor jedem Import (letzte 14), in der Konfiguration ansehen und wiederherstellen"] },
       { v: "1.39.1", date: "13.10.2026", items: ["Nach einem Update zeigt die App einmalig an, was neu ist"] },
       { v: "1.39.0", date: "13.10.2026", items: ["Konfiguration als Zahnrad oben rechts (nicht mehr in der unteren Leiste)", "Update-Hinweis: Die App prüft online auf eine neue Version und bietet „Jetzt aktualisieren“ an; zusätzlich Button „Nach Updates suchen“ in der Konfiguration"] },
