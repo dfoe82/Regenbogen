@@ -616,7 +616,7 @@
          die interaktive Seite zuverlässig aus, während der Druck-Container
          garantiert sichtbar wird. */
       #bottomNav, #pageOverview, #pageMonthlyClose, #pageKinder, #pageCredits,
-      #pageConfig, #cfgTopBtn, #creditsTopBtn, #updateBanner, #signatureWizardModal, #parentMessageModal {
+      #pageDocs, #pageConfig, #cfgTopBtn, #creditsTopBtn, #updateBanner, #signatureWizardModal, #parentMessageModal {
         display: none !important;
       }
       #monthlyCloseContainer {
@@ -1424,6 +1424,25 @@
     </div>
   </div>
 
+  <!-- ===================== Seite: Unterlagen (PDF-Ablage) ===================== -->
+  <div id="pageDocs" class="page-section no-print">
+    <div class="mc-wrap">
+      <button type="button" onclick="showPage('pageWarteliste')"><i data-ico="back"></i> Zurück zur Warteliste</button>
+      <h1 style="text-align:left;">Unterlagen</h1>
+      <p class="cr-hint" style="margin-top:-6px;">PDFs wie Vertrag, Mitbringliste oder Urlaubsplan. Sie werden nur auf diesem Gerät gespeichert (nicht in Export und Cloud-Sync).</p>
+      <div class="cr-field" style="margin-bottom:14px;">
+        <label for="docsCategory">Art der Unterlage</label>
+        <select id="docsCategory" style="width:100%;">
+          <option>Vertrag</option><option>Mitbringliste</option><option>Urlaubsplan</option><option>Sonstiges</option>
+        </select>
+        <button type="button" class="btn-primary" style="width:100%; margin-top:10px;" onclick="document.getElementById('docsFileInput').click()"><i data-ico="upload"></i> PDF hochladen</button>
+        <input type="file" id="docsFileInput" accept="application/pdf,.pdf" multiple style="display:none;" onchange="handleDocsUpload(event)">
+      </div>
+      <div id="docsList"></div>
+      <div class="mc-spacer"></div>
+    </div>
+  </div>
+
   <!-- ===================== Seite: Mittagessen-Guthaben ===================== -->
   <div id="pageCredits" class="page-section">
     <div class="mc-wrap">
@@ -1525,6 +1544,7 @@
     <div class="narrow-content">
       <div class="modal-actions" style="justify-content:center;">
         <button type="button" class="btn-primary" onclick="openNewWaitlistEntryModal()">+ Neuer Eintrag</button>
+        <button type="button" onclick="openDocsPage()"><i data-ico="file"></i> Unterlagen</button>
       </div>
       <div class="modal-row" style="justify-content:center;">
         <label for="waitlistSortSelect">Sortieren nach:</label>
@@ -2055,11 +2075,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.41.0";
+    const APP_VERSION = "1.42.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.42.0", date: "13.10.2026", items: ["Neu: Unterlagen (PDF-Ablage) – über den Button „Unterlagen“ in der Warteliste; PDFs hochladen, öffnen und löschen, sortiert nach Vertrag, Mitbringliste, Urlaubsplan, Sonstiges (nur auf diesem Gerät gespeichert)"] },
       { v: "1.41.0", date: "13.10.2026", items: ["Mittagessen-Guthaben direkt von der Übersicht aufrufbar (Icon oben links)", "Einzahlung: offener Betrag wird angezeigt und per Knopf eingesetzt; bei Mehrbetrag lässt sich per Haken wählen, ob er als Guthaben (Übertrag) angerechnet wird"] },
       { v: "1.40.2", date: "13.10.2026", items: ["Konfiguration kompakter: Kinder, Standard-Uhrzeit, Mittagessen & Arbeitstage und jeder Urlaubseintrag sind einzeln auf-/zuklappbar mit Kurzinfo"] },
       { v: "1.40.1", date: "13.10.2026", items: ["Konfiguration übersichtlicher: nur noch 4 Bereiche (Kinder, Betreuung & Abrechnung, Daten & Sicherung, Versionshistorie)"] },
@@ -5701,7 +5722,7 @@
       // "Kinder" und "Alle Kinder" sind inhaltlich Unterpunkte von "Monatsabschluss"
       // (dort erreichbar, nicht mehr direkt im Hauptmenü) – daher bleibt der
       // Monatsabschluss-Tab aktiv markiert.
-      const activeTabId = (pageId === "pageKinder" || pageId === "pageAllChildrenTables" || pageId === "pageCredits") ? "pageMonthlyClose" : pageId;
+      const activeTabId = (pageId === "pageKinder" || pageId === "pageAllChildrenTables" || pageId === "pageCredits") ? "pageMonthlyClose" : (pageId === "pageDocs" ? "pageWarteliste" : pageId);
       const crBtn = document.getElementById("creditsTopBtn");
       if (crBtn) crBtn.style.display = (pageId === "pageOverview") ? "grid" : "none";
       const cfgBtn = document.getElementById("cfgTopBtn");
@@ -5868,6 +5889,111 @@
         box.appendChild(row);
       });
       hydrateIcons(box);
+    }
+
+
+    // ============================================================
+    // UNTERLAGEN (PDF-Ablage, nur lokal in IndexedDB)
+    // ============================================================
+    const DOCS_DB = "attendanceDocs";
+    function docsDb() {
+      return new Promise(function(resolve, reject) {
+        const req = indexedDB.open(DOCS_DB, 1);
+        req.onupgradeneeded = function() { req.result.createObjectStore("files", { keyPath: "id" }); };
+        req.onsuccess = function() { resolve(req.result); };
+        req.onerror = function() { reject(req.error); };
+      });
+    }
+    function docsTx(mode, fn) {
+      return docsDb().then(function(db) {
+        return new Promise(function(resolve, reject) {
+          const tx = db.transaction("files", mode);
+          const store = tx.objectStore("files");
+          const r = fn(store);
+          tx.oncomplete = function() { resolve(r && r.result !== undefined ? r.result : undefined); };
+          tx.onerror = function() { reject(tx.error); };
+          tx.onabort = function() { reject(tx.error); };
+        });
+      });
+    }
+    function docsGetAll() { return docsTx("readonly", function(st) { return st.getAll(); }); }
+    function docsGet(id) { return docsTx("readonly", function(st) { return st.get(id); }); }
+    function docsPut(rec) { return docsTx("readwrite", function(st) { return st.put(rec); }); }
+    function docsDelete(id) { return docsTx("readwrite", function(st) { return st.delete(id); }); }
+
+    function openDocsPage() {
+      showPage("pageDocs");
+      renderDocsList();
+      try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    }
+    function fmtFileSize(n) {
+      if (n >= 1048576) return (n / 1048576).toFixed(1).replace(".", ",") + " MB";
+      return Math.max(1, Math.round(n / 1024)) + " KB";
+    }
+    function renderDocsList() {
+      const box = document.getElementById("docsList");
+      if (!box) return;
+      docsGetAll().then(function(all) {
+        box.innerHTML = "";
+        if (!all || !all.length) {
+          box.innerHTML = '<div class="mc-group"><div class="cr-row">Noch keine Unterlagen.</div></div>';
+          return;
+        }
+        const order = ["Vertrag", "Mitbringliste", "Urlaubsplan", "Sonstiges"];
+        order.forEach(function(cat) {
+          const items = all.filter(function(x) { return (order.indexOf(x.category) >= 0 ? x.category : "Sonstiges") === cat; })
+            .sort(function(a, b) { return (b.addedAt || "").localeCompare(a.addedAt || ""); });
+          if (!items.length) return;
+          const t = document.createElement("div"); t.className = "mc-group-t"; t.textContent = cat; box.appendChild(t);
+          const g = document.createElement("div"); g.className = "mc-group";
+          items.forEach(function(rec) {
+            const row = document.createElement("div"); row.className = "cr-row";
+            const left = document.createElement("div");
+            left.style.cssText = "flex:1; min-width:0; cursor:pointer;";
+            const nm = document.createElement("b"); nm.textContent = rec.name; nm.style.cssText = "display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;";
+            const sm = document.createElement("small"); sm.textContent = formatDateDE((rec.addedAt || "").slice(0, 10)) + " · " + fmtFileSize(rec.size || 0);
+            left.appendChild(nm); left.appendChild(sm);
+            left.addEventListener("click", function() { openDocFile(rec.id); });
+            const btns = document.createElement("div"); btns.style.cssText = "display:flex; gap:6px; flex:none;";
+            const op = document.createElement("button"); op.type = "button"; op.textContent = "Öffnen"; op.style.minHeight = "38px";
+            op.onclick = function() { openDocFile(rec.id); };
+            const del = document.createElement("button"); del.type = "button"; del.className = "btn-danger"; del.setAttribute("aria-label", "Löschen"); del.style.cssText = "min-height:38px; padding:0 10px;";
+            del.innerHTML = '<i data-ico="x"></i>';
+            del.onclick = function() { deleteDocFile(rec.id, rec.name); };
+            btns.appendChild(op); btns.appendChild(del);
+            row.appendChild(left); row.appendChild(btns); g.appendChild(row);
+          });
+          box.appendChild(g);
+        });
+        hydrateIcons(box);
+      }).catch(function() {
+        box.innerHTML = '<div class="mc-group"><div class="cr-row">Der Speicher für Unterlagen ist auf diesem Gerät/in diesem Modus nicht verfügbar.</div></div>';
+      });
+    }
+    function handleDocsUpload(event) {
+      const files = Array.prototype.slice.call(event.target.files || []);
+      event.target.value = "";
+      if (!files.length) return;
+      const cat = document.getElementById("docsCategory").value;
+      const pdfs = files.filter(function(f) { return /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name); });
+      if (pdfs.length !== files.length) alert("Es können nur PDF-Dateien hochgeladen werden. Andere Dateien wurden übersprungen.");
+      Promise.all(pdfs.map(function(f, i) {
+        return docsPut({ id: "d" + Date.now() + "_" + i + Math.floor(Math.random() * 1000), name: f.name, category: cat, size: f.size, addedAt: new Date().toISOString(), blob: f });
+      })).then(renderDocsList).catch(function(e) { alert("Hochladen fehlgeschlagen: " + (e && e.message ? e.message : e)); });
+    }
+    function openDocFile(id) {
+      docsGet(id).then(function(rec) {
+        if (!rec) return;
+        const blob = rec.blob.type === "application/pdf" ? rec.blob : new Blob([rec.blob], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, "_blank");
+        if (!w) location.href = url;
+        setTimeout(function() { URL.revokeObjectURL(url); }, 120000);
+      });
+    }
+    function deleteDocFile(id, name) {
+      if (!confirm("„" + name + "“ wirklich löschen?")) return;
+      docsDelete(id).then(renderDocsList);
     }
 
     // ------------------- "Neu in Version" einmalig nach einem Update -------------------
