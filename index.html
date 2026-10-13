@@ -1464,6 +1464,7 @@
         <span id="docsSelCount" style="width:100%; text-align:center; font-size:0.85em; color:var(--color-text-muted);"></span>
         <button type="button" onclick="docsClearSelection()">Auswahl aufheben</button>
         <button type="button" onclick="printSelectedDocs()"><i data-ico="file"></i> Drucken</button>
+        <button type="button" onclick="mailSelectedDocs()"><i data-ico="mail"></i> Per E-Mail</button>
         <button type="button" class="btn-primary" onclick="mergeSelectedDocs()"><i data-ico="download"></i> Sammel-PDF</button>
       </div>
     </div>
@@ -1605,6 +1606,10 @@
       <div class="modal-row" style="flex-direction:column; align-items:stretch;">
         <label for="newWaitlistTelefon">Telefonnummer:</label>
         <input type="tel" id="newWaitlistTelefon">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistEmail">E-Mail:</label>
+        <input type="email" id="newWaitlistEmail" autocapitalize="off">
       </div>
       <div class="modal-row" style="flex-direction:column; align-items:stretch;">
         <label for="newWaitlistStartdatum">Startdatum:</label>
@@ -2058,6 +2063,18 @@
     </div>
   </div>
 
+  <!-- Empfänger für E-Mail (Unterlagen) -->
+  <div id="mailRecipientSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeMailRecipientSheet()">
+    <div class="remark-sheet-box">
+      <h4>An wen senden?</h4>
+      <div id="mailRecipientList" style="margin-bottom:8px;"></div>
+      <button type="button" class="btn-primary" style="width:100%;" onclick="sendDocsMail(true)"><i data-ico="mail"></i> Mit Anhang senden (Teilen-Menü)</button>
+      <button type="button" style="width:100%; margin-top:8px;" onclick="sendDocsMail(false)">Nur Adresse in Mail-App öffnen</button>
+      <p class="cr-hint" style="margin:8px 4px 0;">Beim Teilen-Menü kann die Adresse nicht automatisch eingetragen werden – sie wird in die Zwischenablage kopiert und kann in der Mail eingefügt werden. „Nur Adresse“ öffnet eine Mail mit Empfänger; das PDF wird gespeichert und muss angehängt werden.</p>
+      <button type="button" class="remark-sheet-cancel" onclick="closeMailRecipientSheet()">Abbrechen</button>
+    </div>
+  </div>
+
   <!-- Einzahlung erfassen (Mittagessen-Guthaben) -->
   <div id="creditSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeCreditSheet()">
     <div class="remark-sheet-box cr-field">
@@ -2101,11 +2118,13 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.43.0";
+    const APP_VERSION = "1.44.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.44.0", date: "13.10.2026", items: ["E-Mail-Adresse pro Kind (Konfiguration) und pro Wartelisten-Eintrag", "Unterlagen per E-Mail: Empfänger aus den gespeicherten Adressen wählbar"] },
+      { v: "1.43.1", date: "13.10.2026", items: ["Unterlagen: „Per E-Mail“ – ausgewählte PDFs (mehrere als Sammel-PDF) über das Teilen-Menü an die Mail-App übergeben"] },
       { v: "1.43.0", date: "13.10.2026", items: ["Unterlagen: mehrere PDFs auswählen (Nummer = Reihenfolge) und drucken oder zu einem Sammel-PDF zusammenfügen (funktioniert offline)"] },
       { v: "1.42.0", date: "13.10.2026", items: ["Neu: Unterlagen (PDF-Ablage) – über den Button „Unterlagen“ in der Warteliste; PDFs hochladen, öffnen und löschen, sortiert nach Vertrag, Mitbringliste, Urlaubsplan, Sonstiges (nur auf diesem Gerät gespeichert)"] },
       { v: "1.41.0", date: "13.10.2026", items: ["Mittagessen-Guthaben direkt von der Übersicht aufrufbar (Icon oben links)", "Einzahlung: offener Betrag wird angezeigt und per Knopf eingesetzt; bei Mehrbetrag lässt sich per Haken wählen, ob er als Guthaben (Übertrag) angerechnet wird"] },
@@ -2600,6 +2619,7 @@
     const DEFAULT_CONFIG = {
       children: ["Marlon", "Stella", "Jelle", "Nilas", "Emilia"],
       childBirthdates: ["", "", "", "", ""],
+      childEmails: ["", "", "", "", ""],
       childCount: 5,
       defaultStart: "07:30",
       defaultEnd: "14:00",
@@ -2893,7 +2913,17 @@
         birthdateInput.id = "configChildBirthdate" + i;
         birthdateInput.value = birthdates[i] || "";
         r2.appendChild(birthdateLabel); r2.appendChild(birthdateInput);
-        body.appendChild(r1); body.appendChild(r2);
+        const r3 = document.createElement("div"); r3.className = "modal-row";
+        const emailLabel = document.createElement("label");
+        emailLabel.textContent = "E-Mail (Eltern):";
+        const emailInput = document.createElement("input");
+        emailInput.type = "email";
+        emailInput.id = "configChildEmail" + i;
+        emailInput.placeholder = "name@beispiel.de";
+        emailInput.setAttribute("autocapitalize", "off");
+        emailInput.value = (config.childEmails && config.childEmails[i]) || "";
+        r3.appendChild(emailLabel); r3.appendChild(emailInput);
+        body.appendChild(r1); body.appendChild(r2); body.appendChild(r3);
         row.appendChild(sum); row.appendChild(body);
         container.appendChild(row);
       }
@@ -2951,7 +2981,9 @@
       const childCount = parseInt(document.getElementById("configChildCount").value) || 5;
       const children = [];
       const childBirthdates = [];
+      const childEmails = [];
       for (let i = 0; i < 5; i++) {
+        childEmails.push(i < childCount ? document.getElementById("configChildEmail" + i).value.trim() : "");
         const val = document.getElementById("configChild" + i).value.trim();
         children.push(i < childCount ? val : "");
         const bdVal = document.getElementById("configChildBirthdate" + i).value;
@@ -2964,6 +2996,7 @@
       const config = {
         children: children,
         childBirthdates: childBirthdates,
+        childEmails: childEmails,
         childCount: childCount,
         defaultStart: document.getElementById("configStart").value || DEFAULT_CONFIG.defaultStart,
         defaultEnd: document.getElementById("configEnd").value || DEFAULT_CONFIG.defaultEnd,
@@ -5302,6 +5335,7 @@
       document.getElementById("newWaitlistKindName").value = "";
       document.getElementById("newWaitlistOrt").value = "";
       document.getElementById("newWaitlistTelefon").value = "";
+      document.getElementById("newWaitlistEmail").value = "";
       document.getElementById("newWaitlistStartdatum").value = "";
       document.getElementById("newWaitlistNotizen").value = "";
       document.getElementById("newWaitlistEntryModal").classList.add("open");
@@ -5319,6 +5353,7 @@
         kindName: document.getElementById("newWaitlistKindName").value.trim(),
         ort: document.getElementById("newWaitlistOrt").value.trim(),
         telefon: document.getElementById("newWaitlistTelefon").value.trim(),
+        email: document.getElementById("newWaitlistEmail").value.trim(),
         startdatum: document.getElementById("newWaitlistStartdatum").value,
         notizen: document.getElementById("newWaitlistNotizen").value.trim(),
         notesOpen: false,
@@ -5496,6 +5531,7 @@
           fields.appendChild(fieldRow("Name Kind", "kindName"));
           fields.appendChild(fieldRow("Ort", "ort"));
           fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
+          fields.appendChild(fieldRow("E-Mail", "email", "email"));
           fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
 
           body.appendChild(fields);
@@ -6082,6 +6118,77 @@
           return new Blob([bytes], { type: "application/pdf" });
         });
       });
+    }
+
+    // Per E-Mail senden: Über das Teilen-Menü des Geräts (dort „Mail“ wählen), das hängt das PDF an.
+    // Ein direktes Anhängen per mailto: ist im Browser nicht möglich.
+    function getMailRecipientCandidates() {
+      const out = [];
+      const cfg = loadConfig();
+      getActiveChildren().forEach(function(name, i) {
+        const em = (cfg.childEmails && cfg.childEmails[cfg.children.indexOf(name)]) || "";
+        if (em) out.push({ label: name, email: em });
+      });
+      getWaitlistEntries().forEach(function(e) {
+        if (e.email) out.push({ label: (e.name || e.kindName || "Warteliste") + " (Warteliste)", email: e.email });
+      });
+      return out;
+    }
+    function mailSelectedDocs() {
+      if (!docsSelection.length) return;
+      const cands = getMailRecipientCandidates();
+      if (!cands.length) { sendDocsMail(true, true); return; } // keine Adressen gespeichert: direkt Teilen-Menü
+      const list = document.getElementById("mailRecipientList");
+      list.innerHTML = "";
+      cands.forEach(function(c, k) {
+        const lab = document.createElement("label");
+        lab.style.cssText = "display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--color-border); font-size:0.95em;";
+        const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "mail-rcpt"; cb.value = c.email; cb.style.cssText = "width:auto !important; flex:none;";
+        const tx = document.createElement("span"); tx.innerHTML = "<b></b><br><small></small>";
+        tx.querySelector("b").textContent = c.label; tx.querySelector("small").textContent = c.email;
+        tx.querySelector("small").style.color = "var(--color-text-muted)";
+        lab.appendChild(cb); lab.appendChild(tx); list.appendChild(lab);
+      });
+      document.getElementById("mailRecipientSheet").classList.add("open");
+    }
+    function closeMailRecipientSheet() { document.getElementById("mailRecipientSheet").classList.remove("open"); }
+    // Per E-Mail senden: Über das Teilen-Menü des Geräts (dort „Mail“ wählen), das hängt das PDF an.
+    // Ein direktes Anhängen per mailto: ist im Browser nicht möglich.
+    function sendDocsMail(withAttachment, skipSheet) {
+      const to = Array.prototype.map.call(document.querySelectorAll("#mailRecipientList .mail-rcpt:checked"), function(c) { return c.value; });
+      if (!skipSheet) closeMailRecipientSheet();
+      const ids = docsSelection.slice();
+      const subject = "Unterlagen Kindertagespflege Regenbogen";
+      const body = "Hallo,\n\nanbei die Unterlagen.\n\nViele Grüße";
+      const mailto = "mailto:" + to.map(encodeURIComponent).join(",") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+      const getFile = ids.length === 1
+        ? docsGet(ids[0]).then(function(rec) { return new File([rec.blob], rec.name, { type: "application/pdf" }); })
+        : buildMergedPdf().then(function(blob) {
+            const t = new Date();
+            return new File([blob], "Unterlagen " + String(t.getDate()).padStart(2, "0") + "." + String(t.getMonth() + 1).padStart(2, "0") + "." + t.getFullYear() + ".pdf", { type: "application/pdf" });
+          });
+      getFile.then(function(file) {
+        const fallback = function(msg) {
+          const url = URL.createObjectURL(file);
+          const a = document.createElement("a");
+          a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+          alert(msg || "Das PDF wurde gespeichert – bitte in der gleich geöffneten E-Mail als Anhang hinzufügen.");
+          location.href = mailto;
+        };
+        if (!withAttachment) { fallback(); return; }
+        if (to.length && navigator.clipboard && navigator.clipboard.writeText) {
+          try { navigator.clipboard.writeText(to.join(", ")).catch(function() {}); } catch (e) {}
+        }
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: subject, text: body }).catch(function(e) {
+            if (e && e.name === "AbortError") return;
+            fallback("Dieses Gerät kann Dateien nicht direkt an die E-Mail-App übergeben. Das PDF wurde gespeichert – bitte in der gleich geöffneten E-Mail als Anhang hinzufügen.");
+          });
+        } else {
+          fallback("Dieses Gerät kann Dateien nicht direkt an die E-Mail-App übergeben. Das PDF wurde gespeichert – bitte in der gleich geöffneten E-Mail als Anhang hinzufügen.");
+        }
+      }).catch(function(e) { alert("E-Mail vorbereiten fehlgeschlagen: " + (e && e.message ? e.message : e)); });
     }
     function isIosLike() {
       return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
