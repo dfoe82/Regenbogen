@@ -331,7 +331,8 @@
       border-radius: var(--radius-sm);
     }
     .cfg-top-btn { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 450; width: 42px; height: 42px; min-height: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); box-shadow: 0 2px 8px rgba(15,23,42,0.08); }
-    .cfg-top-btn .cfg-top-ico { width: 22px; height: 22px; }
+    .cfg-top-btn .cfg-top-ico, .cfg-top-btn svg.ico { width: 22px; height: 22px; }
+    #creditsTopBtn { display: none; }
     .cfg-top-btn.active-tab { background: var(--color-primary-light); color: var(--color-primary-dark); border-color: var(--color-primary); }
     .update-banner { position: fixed; left: 12px; right: 12px; top: calc(8px + env(safe-area-inset-top, 0px)); max-width: 560px; margin: 0 auto; z-index: 99000; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; background: var(--color-surface); border: 1px solid var(--color-primary); border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.2); font-weight: 600; font-size: 0.9em; }
     .update-banner span { flex: 1; min-width: 0; }
@@ -615,7 +616,7 @@
          die interaktive Seite zuverlässig aus, während der Druck-Container
          garantiert sichtbar wird. */
       #bottomNav, #pageOverview, #pageMonthlyClose, #pageKinder, #pageCredits,
-      #pageConfig, #cfgTopBtn, #updateBanner, #signatureWizardModal, #parentMessageModal {
+      #pageConfig, #cfgTopBtn, #creditsTopBtn, #updateBanner, #signatureWizardModal, #parentMessageModal {
         display: none !important;
       }
       #monthlyCloseContainer {
@@ -1306,6 +1307,7 @@
   <button type="button" id="cfgTopBtn" class="cfg-top-btn no-print" data-page="pageConfig" onclick="openConfigModal()" aria-label="Konfiguration">
     <svg class="cfg-top-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
   </button>
+  <button type="button" id="creditsTopBtn" class="cfg-top-btn no-print" style="display:grid; left:14px; right:auto;" onclick="openCreditsPage('pageOverview')" aria-label="Mittagessen-Guthaben"><i data-ico="wallet"></i></button>
   <div id="updateBanner" class="update-banner no-print" style="display:none;">
     <span id="updateBannerText">Neue Version verfügbar</span>
     <button type="button" class="btn-primary" onclick="applyAppUpdate()">Jetzt aktualisieren</button>
@@ -1426,7 +1428,7 @@
   <div id="pageCredits" class="page-section">
     <div class="mc-wrap">
       <div id="creditsListView">
-        <button type="button" onclick="showPage('pageMonthlyClose')"><i data-ico="back"></i> Zurück zum Monatsabschluss</button>
+        <button type="button" onclick="showPage(creditsReturnPage)"><i data-ico="back"></i> Zurück</button>
         <h1 style="text-align:left;">Mittagessen-Guthaben</h1>
         <div class="mc-group-t">Stand heute</div>
         <div class="mc-group" id="creditsList"></div>
@@ -2015,13 +2017,16 @@
     <div class="remark-sheet-box cr-field">
       <h4 id="creditSheetTitle">Einzahlung erfassen</h4>
       <label for="creditAmount">Betrag (€)</label>
-      <input type="text" id="creditAmount" inputmode="decimal" placeholder="z. B. 50">
+      <input type="text" id="creditAmount" inputmode="decimal" placeholder="z. B. 50" oninput="updateCreditHint()">
       <div class="cr-quick">
         <button type="button" onclick="setCreditAmount(20)">20 €</button>
         <button type="button" onclick="setCreditAmount(30)">30 €</button>
         <button type="button" onclick="setCreditAmount(50)">50 €</button>
         <button type="button" onclick="setCreditAmount(100)">100 €</button>
       </div>
+      <button type="button" id="creditOpenBtn" style="width:100%; margin-top:8px; display:none;" onclick="fillCreditOpenAmount()"></button>
+      <div id="creditHint" class="cr-hint" style="margin:8px 0 0;"></div>
+      <label id="creditCarryRow" style="display:none; flex-direction:row; align-items:center; gap:8px; margin:8px 0 0; font-size:0.9em; color:var(--color-text);"><input type="checkbox" id="creditCarry" checked style="width:auto !important; flex:none;"><span id="creditCarryText"></span></label>
       <label for="creditDate">Datum</label>
       <input type="date" id="creditDate">
       <label for="creditNote">Notiz (optional)</label>
@@ -2050,11 +2055,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.40.2";
+    const APP_VERSION = "1.41.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.41.0", date: "13.10.2026", items: ["Mittagessen-Guthaben direkt von der Übersicht aufrufbar (Icon oben links)", "Einzahlung: offener Betrag wird angezeigt und per Knopf eingesetzt; bei Mehrbetrag lässt sich per Haken wählen, ob er als Guthaben (Übertrag) angerechnet wird"] },
       { v: "1.40.2", date: "13.10.2026", items: ["Konfiguration kompakter: Kinder, Standard-Uhrzeit, Mittagessen & Arbeitstage und jeder Urlaubseintrag sind einzeln auf-/zuklappbar mit Kurzinfo"] },
       { v: "1.40.1", date: "13.10.2026", items: ["Konfiguration übersichtlicher: nur noch 4 Bereiche (Kinder, Betreuung & Abrechnung, Daten & Sicherung, Versionshistorie)"] },
       { v: "1.40.0", date: "13.10.2026", items: ["Automatische Sicherheitspunkte: täglich beim Öffnen und vor jedem Import (letzte 14), in der Konfiguration ansehen und wiederherstellen"] },
@@ -4490,7 +4496,9 @@
     let creditsCurrentChild = null;
     let creditsEditId = null;
 
-    function openCreditsPage() {
+    let creditsReturnPage = "pageMonthlyClose";
+    function openCreditsPage(from) {
+      creditsReturnPage = from || "pageMonthlyClose";
       showPage("pageCredits");
       showCreditsList();
     }
@@ -4582,6 +4590,46 @@
     }
     function setCreditAmount(v) {
       document.getElementById("creditAmount").value = String(v);
+      updateCreditHint();
+    }
+    // Offener Betrag des Kindes: bei Minusstand der Fehlbetrag, ohne bisheriges Konto die Kosten des aktuellen Monats
+    let creditOpenAmount = 0;
+    function computeCreditOpenAmount(child) {
+      const bal = getCreditBalanceToday(child);
+      if (bal === null) {
+        const t = new Date();
+        return getMealCostForMonth(child, t.getMonth() + 1, t.getFullYear()).cost;
+      }
+      return bal < -0.004 ? -bal : 0;
+    }
+    function fillCreditOpenAmount() {
+      document.getElementById("creditAmount").value = creditOpenAmount.toFixed(2).replace(".", ",");
+      updateCreditHint();
+    }
+    function readCreditAmountInput() {
+      const v = parseFloat(String(document.getElementById("creditAmount").value).replace(",", "."));
+      return v > 0 ? v : 0;
+    }
+    function updateCreditHint() {
+      const hint = document.getElementById("creditHint");
+      const row = document.getElementById("creditCarryRow");
+      row.style.display = "none";
+      if (creditsEditId) { hint.textContent = ""; return; }
+      const amt = readCreditAmountInput();
+      if (creditOpenAmount <= 0.004) {
+        hint.textContent = "Aktuell nichts offen – die Einzahlung wird als Guthaben angerechnet.";
+        return;
+      }
+      if (amt > creditOpenAmount + 0.004) {
+        const extra = amt - creditOpenAmount;
+        hint.textContent = "Offen: " + fmtEuro(creditOpenAmount) + " · Mehrbetrag: " + fmtEuro(extra);
+        document.getElementById("creditCarryText").textContent = "Mehrbetrag (" + fmtEuro(extra) + ") als Guthaben anrechnen (Übertrag)";
+        row.style.display = "flex";
+      } else if (amt > 0) {
+        hint.textContent = "Offen: " + fmtEuro(creditOpenAmount) + (amt < creditOpenAmount - 0.004 ? " · danach noch offen: " + fmtEuro(creditOpenAmount - amt) : " · wird damit ausgeglichen");
+      } else {
+        hint.textContent = "Offen: " + fmtEuro(creditOpenAmount);
+      }
     }
     function openCreditSheet(id) {
       if (!creditsCurrentChild) return;
@@ -4595,6 +4643,12 @@
       document.getElementById("creditDate").value = p ? p.date : todayStr;
       document.getElementById("creditNote").value = p ? (p.note || "") : "";
       document.getElementById("creditDeleteBtn").style.display = p ? "" : "none";
+      creditOpenAmount = p ? 0 : computeCreditOpenAmount(creditsCurrentChild);
+      const ob = document.getElementById("creditOpenBtn");
+      ob.style.display = (!p && creditOpenAmount > 0.004) ? "" : "none";
+      ob.textContent = "Offenen Betrag einsetzen (" + fmtEuro(creditOpenAmount) + ")";
+      document.getElementById("creditCarry").checked = true;
+      updateCreditHint();
       document.getElementById("creditSheet").classList.add("open");
     }
     function closeCreditSheet() {
@@ -4606,15 +4660,24 @@
       const date = document.getElementById("creditDate").value;
       const note = document.getElementById("creditNote").value.trim();
       if (!(amount > 0)) { alert("Bitte einen Betrag größer als 0 eingeben."); return; }
+      let note2 = note;
+      let amount2 = amount;
+      const carryVisible = document.getElementById("creditCarryRow").style.display !== "none";
+      if (!creditsEditId && carryVisible && !document.getElementById("creditCarry").checked) {
+        // Mehrbetrag nicht als Guthaben anrechnen: nur der offene Betrag wird verbucht
+        const extra = amount - creditOpenAmount;
+        amount2 = creditOpenAmount;
+        note2 = (note ? note + " · " : "") + "Mehrbetrag " + fmtEuro(extra) + " nicht angerechnet";
+      }
       if (!date) { alert("Bitte ein Datum wählen."); return; }
       const all = getMealCredits();
       const entry = all[creditsCurrentChild] || { payments: [] };
       if (!Array.isArray(entry.payments)) entry.payments = [];
       if (creditsEditId) {
         const p = entry.payments.find(function(x) { return x.id === creditsEditId; });
-        if (p) { p.amount = amount; p.date = date; p.note = note; p.updated = Date.now(); }
+        if (p) { p.amount = amount2; p.date = date; p.note = note2; p.updated = Date.now(); }
       } else {
-        entry.payments.push({ id: "p" + Date.now() + Math.floor(Math.random() * 1000000), date: date, amount: amount, note: note, updated: Date.now() });
+        entry.payments.push({ id: "p" + Date.now() + Math.floor(Math.random() * 1000000), date: date, amount: amount2, note: note2, updated: Date.now() });
       }
       all[creditsCurrentChild] = entry;
       saveMealCredits(all);
@@ -5639,6 +5702,8 @@
       // (dort erreichbar, nicht mehr direkt im Hauptmenü) – daher bleibt der
       // Monatsabschluss-Tab aktiv markiert.
       const activeTabId = (pageId === "pageKinder" || pageId === "pageAllChildrenTables" || pageId === "pageCredits") ? "pageMonthlyClose" : pageId;
+      const crBtn = document.getElementById("creditsTopBtn");
+      if (crBtn) crBtn.style.display = (pageId === "pageOverview") ? "grid" : "none";
       const cfgBtn = document.getElementById("cfgTopBtn");
       if (cfgBtn) cfgBtn.classList.toggle("active-tab", pageId === "pageConfig");
       document.querySelectorAll("#bottomNav .nav-btn").forEach(btn => {
