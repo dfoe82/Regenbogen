@@ -329,6 +329,13 @@
       font-size: 0.85em;
       border-radius: var(--radius-sm);
     }
+    .cfg-top-btn { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 450; width: 42px; height: 42px; min-height: 0; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text-muted); box-shadow: 0 2px 8px rgba(15,23,42,0.08); }
+    .cfg-top-btn .cfg-top-ico { width: 22px; height: 22px; }
+    .cfg-top-btn.active-tab { background: var(--color-primary-light); color: var(--color-primary-dark); border-color: var(--color-primary); }
+    .update-banner { position: fixed; left: 12px; right: 12px; top: calc(8px + env(safe-area-inset-top, 0px)); max-width: 560px; margin: 0 auto; z-index: 99000; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; background: var(--color-surface); border: 1px solid var(--color-primary); border-radius: 16px; box-shadow: 0 8px 24px rgba(15,23,42,0.2); font-weight: 600; font-size: 0.9em; }
+    .update-banner span { flex: 1; min-width: 0; }
+    .update-banner button { min-height: 38px; padding: 0 12px; }
+    .cfg-update { display: flex; align-items: center; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 6px 0 12px; font-size: 0.85em; color: var(--color-text-muted); }
     #bottomNav {
       position: fixed;
       left: 12px;
@@ -607,7 +614,7 @@
          die interaktive Seite zuverlässig aus, während der Druck-Container
          garantiert sichtbar wird. */
       #bottomNav, #pageOverview, #pageMonthlyClose, #pageKinder, #pageCredits,
-      #pageConfig, #signatureWizardModal, #parentMessageModal {
+      #pageConfig, #cfgTopBtn, #updateBanner, #signatureWizardModal, #parentMessageModal {
         display: none !important;
       }
       #monthlyCloseContainer {
@@ -1284,6 +1291,14 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 <body>
+  <button type="button" id="cfgTopBtn" class="cfg-top-btn no-print" data-page="pageConfig" onclick="openConfigModal()" aria-label="Konfiguration">
+    <svg class="cfg-top-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  </button>
+  <div id="updateBanner" class="update-banner no-print" style="display:none;">
+    <span id="updateBannerText">Neue Version verfügbar</span>
+    <button type="button" class="btn-primary" onclick="applyAppUpdate()">Jetzt aktualisieren</button>
+    <button type="button" onclick="dismissUpdateBanner()" aria-label="Schließen"><i data-ico="x"></i></button>
+  </div>
   <!-- PIN-Sperrbildschirm: schützt den Zugriff auf die App/synchronisierten Daten.
        Der PIN wird direkt hier auf dem jeweiligen Gerät festgelegt und nur lokal
        gespeichert – er steht in keiner Datei, die z. B. bei GitHub landet. -->
@@ -1319,10 +1334,6 @@
     <button type="button" class="nav-btn" data-page="pageFortbildung" onclick="showPage('pageFortbildung')">
       <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg>
       <span>Fortbildung</span>
-    </button>
-    <button type="button" class="nav-btn" data-page="pageConfig" onclick="openConfigModal()">
-      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      <span>Konfig.</span>
     </button>
   </div>
 
@@ -1931,6 +1942,7 @@
         <div class="cfg-body"><div id="versionHistoryList"></div></div>
       </details>
       <p class="cfg-version">Version <span id="appVersionText"></span></p>
+      <div class="cfg-update"><span id="updateStatusText"></span><button type="button" onclick="checkForAppUpdate(true)"><i data-ico="refresh"></i> Nach Updates suchen</button></div>
       <div class="cfg-footer">
         <button type="button" onclick="closeConfigModal()">Abbrechen</button>
         <button type="button" class="btn-primary" onclick="saveConfigFromModal()">Speichern</button>
@@ -2014,11 +2026,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.38.1";
+    const APP_VERSION = "1.39.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.39.0", date: "13.10.2026", items: ["Konfiguration als Zahnrad oben rechts (nicht mehr in der unteren Leiste)", "Update-Hinweis: Die App prüft online auf eine neue Version und bietet „Jetzt aktualisieren“ an; zusätzlich Button „Nach Updates suchen“ in der Konfiguration"] },
       { v: "1.38.1", date: "09.10.2026", items: ["Mittagessen-Guthaben: Einzahlungen werden zwischen Geräten zusammengeführt statt überschrieben; Anzeige aktualisiert sich nach dem Abgleich automatisch"] },
       { v: "1.38.0", date: "09.10.2026", items: ["Konfiguration ist jetzt eine eigene Seite (wie Übersicht, Abschluss usw.) statt eines Popups; Abbrechen/Speichern führen zur vorherigen Seite zurück"] },
       { v: "1.37.4", date: "08.10.2026", items: ["Nachricht für Eltern: Der laufende Monat wird immer aktuell berechnet, „archiviert“ erscheint erst, wenn der Monat vorbei oder abgeschlossen ist"] },
@@ -5546,6 +5559,8 @@
       // (dort erreichbar, nicht mehr direkt im Hauptmenü) – daher bleibt der
       // Monatsabschluss-Tab aktiv markiert.
       const activeTabId = (pageId === "pageKinder" || pageId === "pageAllChildrenTables" || pageId === "pageCredits") ? "pageMonthlyClose" : pageId;
+      const cfgBtn = document.getElementById("cfgTopBtn");
+      if (cfgBtn) cfgBtn.classList.toggle("active-tab", pageId === "pageConfig");
       document.querySelectorAll("#bottomNav .nav-btn").forEach(btn => {
         btn.classList.toggle("active-tab", btn.dataset.page === activeTabId);
       });
@@ -5566,7 +5581,66 @@
       }
     }
 
+
+    // ------------------- Update-Prüfung -------------------
+    // Vergleicht die Versionsnummer in Version.TXT (auf dem Server) mit der laufenden Version.
+    let latestKnownVersion = null;
+    function versionIsNewer(a, b) {
+      const pa = String(a).trim().split(".").map(Number), pb = String(b).trim().split(".").map(Number);
+      for (let i = 0; i < 3; i++) {
+        const x = pa[i] || 0, y = pb[i] || 0;
+        if (x !== y) return x > y;
+      }
+      return false;
+    }
+    function checkForAppUpdate(manual) {
+      const st = document.getElementById("updateStatusText");
+      if (manual && st) st.textContent = "Prüfe …";
+      if (location.protocol !== "http:" && location.protocol !== "https:") {
+        if (manual && st) st.textContent = "Update-Prüfung nur online möglich.";
+        return;
+      }
+      fetch("Version.TXT?t=" + Date.now(), { cache: "no-store" })
+        .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+        .then(function(txt) {
+          const v = txt.trim();
+          if (!/^\d+\.\d+\.\d+$/.test(v)) throw new Error("Ungültige Version");
+          if (versionIsNewer(v, APP_VERSION)) {
+            latestKnownVersion = v;
+            document.getElementById("updateBannerText").textContent = "Neue Version " + v + " verfügbar";
+            document.getElementById("updateBanner").style.display = "flex";
+            if (st) st.textContent = "Neue Version " + v + " verfügbar.";
+          } else if (manual && st) {
+            st.textContent = "Du hast die aktuelle Version.";
+          }
+        })
+        .catch(function() { if (manual && st) st.textContent = "Prüfung nicht möglich (offline?)."; });
+    }
+    function dismissUpdateBanner() {
+      document.getElementById("updateBanner").style.display = "none";
+    }
+    // Lädt die App neu und umgeht dabei den Browser-Cache. Gespeicherte Daten bleiben erhalten.
+    function applyAppUpdate() {
+      const go = function() { location.replace(location.pathname + "?v=" + (latestKnownVersion || Date.now()) + "&t=" + Date.now()); };
+      try {
+        if (window.caches && caches.keys) {
+          caches.keys().then(function(keys) { return Promise.all(keys.map(function(k) { return caches.delete(k); })); }).then(go, go);
+          return;
+        }
+      } catch (e) {}
+      go();
+    }
+    let lastUpdateCheck = 0;
+    document.addEventListener("visibilitychange", function() {
+      if (document.visibilityState === "visible" && Date.now() - lastUpdateCheck > 10 * 60 * 1000) {
+        lastUpdateCheck = Date.now();
+        checkForAppUpdate(false);
+      }
+    });
+
     window.addEventListener('DOMContentLoaded', function(){
+      lastUpdateCheck = Date.now();
+      setTimeout(function() { checkForAppUpdate(false); }, 1500);
       initPinScreen();
       document.getElementById("pinInput").addEventListener('keydown', function(e) {
         if (e.key === "Enter") checkPin();
