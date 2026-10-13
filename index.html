@@ -811,7 +811,18 @@
       color: #b45309;
       font-weight: 600;
     }
-    .vacation-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; padding: 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
+    .cfg-item { border: 1px solid var(--color-border); border-radius: 12px; margin-bottom: 8px; background: var(--color-surface); }
+    .cfg-item > summary, .vacation-row > summary { list-style: none; display: flex; align-items: center; gap: 8px; padding: 11px 12px; cursor: pointer; min-height: 44px; box-sizing: border-box; }
+    .cfg-item > summary::-webkit-details-marker, .vacation-row > summary::-webkit-details-marker { display: none; }
+    .cfg-item > summary::after, .vacation-row > summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid #b6bdc9; border-bottom: 2px solid #b6bdc9; transform: rotate(-45deg); flex: none; transition: transform 0.2s; margin-left: 4px; }
+    .cfg-item[open] > summary::after, .vacation-row[open] > summary::after { transform: rotate(45deg); }
+    .cfg-item[open] > summary, .vacation-row[open] > summary { border-bottom: 1px solid var(--color-border); }
+    .cfg-it-t { font-weight: 650; }
+    .cfg-it-s { flex: 1; min-width: 0; text-align: right; color: var(--color-text-muted); font-size: 0.85em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cfg-item-body { padding: 10px 12px 12px; }
+    .cfg-item-body > .modal-row:last-child { margin-bottom: 0; }
+    .vacation-row { margin-bottom: 8px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }
+    .vacation-row .vac-body { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px 12px; }
     .vacation-row input[type="date"] { flex: 1 1 130px; min-width: 0; }
     .vacation-row input[type="text"] { flex: 1 1 100%; }
     .vacation-row button { min-height: 36px; padding: 0 12px; }
@@ -1792,14 +1803,22 @@
       <details class="cfg-section">
         <summary><span class="cfg-ic"><i data-ico="zeit"></i></span><span class="cfg-tt"><b>Betreuung &amp; Abrechnung</b><small>Zeiten, Mittagessen, Urlaub, Abschluss</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
+      <details class="cfg-item">
+        <summary><span class="cfg-it-t">Standard-Uhrzeit</span><span class="cfg-it-s" id="cfgTimeSummary"></span></summary>
+        <div class="cfg-item-body">
       <div class="modal-row">
-        <label for="configStart">Standard Uhrzeit von:</label>
+        <label for="configStart">von:</label>
         <input type="time" id="configStart">
       </div>
       <div class="modal-row">
-        <label for="configEnd">Standard Uhrzeit bis:</label>
+        <label for="configEnd">bis:</label>
         <input type="time" id="configEnd">
       </div>
+        </div>
+      </details>
+      <details class="cfg-item">
+        <summary><span class="cfg-it-t">Mittagessen &amp; Arbeitstage</span><span class="cfg-it-s" id="cfgMealSummary"></span></summary>
+        <div class="cfg-item-body">
       <div class="modal-row">
         <label for="configPrice">Mittagessenpreis (€):</label>
         <input type="number" id="configPrice" step="0.01" min="0">
@@ -1819,6 +1838,8 @@
       <p style="font-size:0.8em; color:#555; margin-top:-4px;">
         Nicht angehakte Tage werden bei "Übersicht" und "Nachpflegen" übersprungen (nicht automatisch ausgefüllt). Manuell eintragen bleibt trotzdem möglich.
       </p>
+        </div>
+      </details>
 
       <div class="cfg-sub">Urlaub (deine Urlaubszeiten)</div>
       <p style="font-size:0.8em; color:#555; margin-top:-4px;">
@@ -2029,11 +2050,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.40.1";
+    const APP_VERSION = "1.40.2";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.40.2", date: "13.10.2026", items: ["Konfiguration kompakter: Kinder, Standard-Uhrzeit, Mittagessen & Arbeitstage und jeder Urlaubseintrag sind einzeln auf-/zuklappbar mit Kurzinfo"] },
       { v: "1.40.1", date: "13.10.2026", items: ["Konfiguration übersichtlicher: nur noch 4 Bereiche (Kinder, Betreuung & Abrechnung, Daten & Sicherung, Versionshistorie)"] },
       { v: "1.40.0", date: "13.10.2026", items: ["Automatische Sicherheitspunkte: täglich beim Öffnen und vor jedem Import (letzte 14), in der Konfiguration ansehen und wiederherstellen"] },
       { v: "1.39.1", date: "13.10.2026", items: ["Nach einem Update zeigt die App einmalig an, was neu ist"] },
@@ -2555,21 +2577,38 @@
       list.forEach(function(v) { box.appendChild(buildVacationRow(v)); });
     }
 
-    function buildVacationRow(v) {
-      const row = document.createElement("div");
+    function buildVacationRow(v, openIt) {
+      const row = document.createElement("details");
       row.className = "vacation-row";
+      if (openIt) row.open = true;
+      const sum = document.createElement("summary");
+      const st = document.createElement("span"); st.className = "cfg-it-t";
+      const ss = document.createElement("span"); ss.className = "cfg-it-s";
+      sum.appendChild(st); sum.appendChild(ss);
+      const body = document.createElement("div"); body.className = "vac-body";
       const from = document.createElement("input"); from.type = "date"; from.className = "vac-from"; from.value = (v && v.from) || "";
       const to = document.createElement("input"); to.type = "date"; to.className = "vac-to"; to.value = (v && v.to) || "";
-      from.addEventListener("change", function() { if (from.value && (!to.value || to.value < from.value)) to.value = from.value; });
       const label = document.createElement("input"); label.type = "text"; label.className = "vac-label"; label.placeholder = "Bezeichnung (optional), z. B. Sommerurlaub"; label.value = (v && v.label) || "";
+      const refresh = function() {
+        const f = from.value ? formatDateDE(from.value).slice(0, 6) : "";
+        const t = to.value ? formatDateDE(to.value).slice(0, 6) : "";
+        st.textContent = label.value.trim() || "Urlaub";
+        ss.textContent = f ? (t && t !== f ? f + "–" + t : f) : "kein Datum";
+      };
+      row._refresh = refresh;
+      from.addEventListener("change", function() { if (from.value && (!to.value || to.value < from.value)) to.value = from.value; refresh(); });
+      to.addEventListener("change", refresh);
+      label.addEventListener("input", refresh);
       const del = document.createElement("button"); del.type = "button"; del.className = "btn-danger"; del.textContent = "Entfernen";
       del.addEventListener("click", function() { row.remove(); });
-      row.appendChild(from); row.appendChild(to); row.appendChild(label); row.appendChild(del);
+      body.appendChild(from); body.appendChild(to); body.appendChild(label); body.appendChild(del);
+      row.appendChild(sum); row.appendChild(body);
+      refresh();
       return row;
     }
 
     function addConfigVacationRow() {
-      document.getElementById("configVacationList").appendChild(buildVacationRow({}));
+      document.getElementById("configVacationList").appendChild(buildVacationRow({}, true));
     }
 
     function readConfigVacations() {
@@ -2735,11 +2774,36 @@
 
     // Blendet je nach gewählter Kinderanzahl die entsprechenden Namensfelder im
     // Konfigurations-Modal ein bzw. aus.
+    // Kurzinfo rechts in den eingeklappten Zeilen der Konfiguration aktuell halten
+    function refreshCfgSummaries() {
+      for (let i = 0; i < 5; i++) {
+        const row = document.getElementById("configChildRow" + i);
+        if (!row) continue;
+        const name = document.getElementById("configChild" + i).value.trim();
+        const bd = document.getElementById("configChildBirthdate" + i).value;
+        row.querySelector(".cfg-it-s").textContent = (name || "–") + (bd ? " · " + formatDateDE(bd).slice(0, 10) : "");
+      }
+      const st = document.getElementById("configStart"), en = document.getElementById("configEnd");
+      const t = document.getElementById("cfgTimeSummary");
+      if (t && st && en) t.textContent = (st.value || "–") + " – " + (en.value || "–");
+      const m = document.getElementById("cfgMealSummary");
+      if (m) {
+        const days = ["Mo","Di","Mi","Do","Fr","Sa","So"];
+        const ids = ["workDayMo","workDayDi","workDayMi","workDayDo","workDayFr","workDaySa","workDaySo"];
+        const on = days.filter(function(d, k) { const c = document.getElementById(ids[k]); return c && c.checked; });
+        const price = parseFloat(document.getElementById("configPrice").value);
+        m.textContent = (isNaN(price) ? "–" : price.toFixed(2).replace(".", ",") + " €") + " · " + (on.length ? ((on.length > 2 && days.indexOf(on[on.length - 1]) - days.indexOf(on[0]) === on.length - 1) ? on[0] + "–" + on[on.length - 1] : on.join(" ")) : "keine Tage");
+      }
+      document.querySelectorAll("#configVacationList .vacation-row").forEach(function(r) {
+        if (r._refresh) r._refresh();
+      });
+    }
+
     function updateChildRowsVisibility() {
       const count = parseInt(document.getElementById("configChildCount").value);
       for (let i = 0; i < 5; i++) {
         const row = document.getElementById("configChildRow" + i);
-        if (row) row.style.display = (i < count) ? "flex" : "none";
+        if (row) row.style.display = (i < count) ? "" : "none";
       }
     }
 
@@ -2750,27 +2814,33 @@
       container.innerHTML = "";
       const birthdates = config.childBirthdates || DEFAULT_CONFIG.childBirthdates;
       for (let i = 0; i < 5; i++) {
-        const row = document.createElement("div");
-        row.className = "modal-row";
+        const row = document.createElement("details");
+        row.className = "cfg-item";
         row.id = "configChildRow" + i;
+        const sum = document.createElement("summary");
+        sum.innerHTML = '<span class="cfg-it-t"></span><span class="cfg-it-s"></span>';
+        sum.firstChild.textContent = "Kind " + (i + 1);
+        const body = document.createElement("div");
+        body.className = "cfg-item-body";
+        const r1 = document.createElement("div"); r1.className = "modal-row";
         const label = document.createElement("label");
-        label.textContent = "Kind " + (i + 1) + ":";
+        label.textContent = "Name:";
         const input = document.createElement("input");
         input.type = "text";
         input.id = "configChild" + i;
         input.value = config.children[i] || "";
         input.placeholder = "(nicht verwendet)";
+        r1.appendChild(label); r1.appendChild(input);
+        const r2 = document.createElement("div"); r2.className = "modal-row";
         const birthdateLabel = document.createElement("label");
-        birthdateLabel.textContent = "geb.:";
-        birthdateLabel.style.minWidth = "auto";
+        birthdateLabel.textContent = "Geburtstag:";
         const birthdateInput = document.createElement("input");
         birthdateInput.type = "date";
         birthdateInput.id = "configChildBirthdate" + i;
         birthdateInput.value = birthdates[i] || "";
-        row.appendChild(label);
-        row.appendChild(input);
-        row.appendChild(birthdateLabel);
-        row.appendChild(birthdateInput);
+        r2.appendChild(birthdateLabel); r2.appendChild(birthdateInput);
+        body.appendChild(r1); body.appendChild(r2);
+        row.appendChild(sum); row.appendChild(body);
         container.appendChild(row);
       }
       document.getElementById("configChildCount").value = config.childCount || 5;
@@ -2807,6 +2877,7 @@
       document.querySelectorAll("#pageConfig details").forEach(function(d) { d.open = false; });
       const cur = document.querySelector(".page-section.active");
       if (cur && cur.id !== "pageConfig") configReturnPage = cur.id;
+      refreshCfgSummaries();
       renderBackupPointList();
       showPage("pageConfig");
     }
@@ -5763,6 +5834,7 @@
 
     window.addEventListener('DOMContentLoaded', function(){
       showWhatsNewIfUpdated();
+      ['input','change'].forEach(function(ev) { document.getElementById('pageConfig').addEventListener(ev, function() { refreshCfgSummaries(); }); });
       setTimeout(function() { autoBackupIfDue(); renderBackupPointList(); }, 4000);
       lastUpdateCheck = Date.now();
       setTimeout(function() { checkForAppUpdate(false); }, 1500);
