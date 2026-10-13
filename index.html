@@ -1849,6 +1849,14 @@
         </div>
       </details>
       <details class="cfg-section">
+        <summary><span class="cfg-ic"><i data-ico="archive"></i></span><span class="cfg-tt"><b>Sicherheitspunkte</b><small>Automatische Sicherungen auf diesem Gerät</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <div class="cfg-body">
+          <p style="font-size:0.85em; color:#555; margin-top:0;">Die App legt automatisch einmal täglich (beim Öffnen) einen Sicherheitspunkt an und vor jedem Import. Es werden die letzten 14 aufbewahrt. Unterschriften sind darin nicht enthalten.</p>
+          <div class="modal-row"><button type="button" onclick="createBackupPointManual()"><i data-ico="check"></i> Jetzt Sicherheitspunkt erstellen</button></div>
+          <div id="backupPointList" class="mc-group" style="margin-top:10px;"></div>
+        </div>
+      </details>
+      <details class="cfg-section">
         <summary><span class="cfg-ic"><i data-ico="db"></i></span><span class="cfg-tt"><b>Datensicherung</b><small>Export und Import als Datei</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
       <p style="font-size:0.85em; color:#555;">
@@ -1986,6 +1994,15 @@
   </div>
 
   <!-- Versteckter Container für den Druck (Einzel-Kind, Monatsabschluss, sequenziell) -->
+  <!-- Hinweis einmalig nach einem Update -->
+  <div id="whatsNewSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeWhatsNew()">
+    <div class="remark-sheet-box">
+      <h4 id="whatsNewTitle">Neu in dieser Version</h4>
+      <div id="whatsNewList" style="font-size:0.9em; margin-bottom:10px;"></div>
+      <button type="button" class="btn-primary" style="width:100%;" onclick="closeWhatsNew()">Verstanden</button>
+    </div>
+  </div>
+
   <!-- Einzahlung erfassen (Mittagessen-Guthaben) -->
   <div id="creditSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeCreditSheet()">
     <div class="remark-sheet-box cr-field">
@@ -2026,11 +2043,13 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.39.0";
+    const APP_VERSION = "1.40.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.40.0", date: "13.10.2026", items: ["Automatische Sicherheitspunkte: täglich beim Öffnen und vor jedem Import (letzte 14), in der Konfiguration ansehen und wiederherstellen"] },
+      { v: "1.39.1", date: "13.10.2026", items: ["Nach einem Update zeigt die App einmalig an, was neu ist"] },
       { v: "1.39.0", date: "13.10.2026", items: ["Konfiguration als Zahnrad oben rechts (nicht mehr in der unteren Leiste)", "Update-Hinweis: Die App prüft online auf eine neue Version und bietet „Jetzt aktualisieren“ an; zusätzlich Button „Nach Updates suchen“ in der Konfiguration"] },
       { v: "1.38.1", date: "09.10.2026", items: ["Mittagessen-Guthaben: Einzahlungen werden zwischen Geräten zusammengeführt statt überschrieben; Anzeige aktualisiert sich nach dem Abgleich automatisch"] },
       { v: "1.38.0", date: "09.10.2026", items: ["Konfiguration ist jetzt eine eigene Seite (wie Übersicht, Abschluss usw.) statt eines Popups; Abbrechen/Speichern führen zur vorherigen Seite zurück"] },
@@ -2478,6 +2497,7 @@
             if (!silent) alert("In der Cloud sind noch keine Daten vorhanden. Bitte zuerst von einem Gerät aus hochladen.");
             return;
           }
+          if (!silent) createBackupPoint("vor Cloud-Download");
           applyImportedData(docSnap.data());
           if (!silent) alert("Daten aus der Cloud übernommen.");
         })
@@ -2800,6 +2820,7 @@
       document.querySelectorAll("#pageConfig details").forEach(function(d) { d.open = false; });
       const cur = document.querySelector(".page-section.active");
       if (cur && cur.id !== "pageConfig") configReturnPage = cur.id;
+      renderBackupPointList();
       showPage("pageConfig");
     }
 
@@ -2947,6 +2968,7 @@
           alert("Diese Datei konnte nicht gelesen werden – ist es eine gültige Sicherungsdatei?");
           return;
         }
+        createBackupPoint("vor Import");
         applyImportedData(data);
         alert("Import abgeschlossen.");
       };
@@ -5638,7 +5660,123 @@
       }
     });
 
+
+
+    // ------------------- Sicherheitspunkte (automatische Sicherungen) -------------------
+    const BACKUP_KEY = "backupPoints";
+    const BACKUP_MAX = 14;
+    function getBackupPoints() {
+      try { const a = JSON.parse(localStorage.getItem(BACKUP_KEY)); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+    }
+    function saveBackupPoints(list) {
+      // Bei vollem Speicher die ältesten Punkte verwerfen, bis es passt
+      while (true) {
+        try { localStorage.setItem(BACKUP_KEY, JSON.stringify(list)); return true; }
+        catch (e) { if (list.length <= 1) return false; list.shift(); }
+      }
+    }
+    function createBackupPoint(reason) {
+      try {
+        const data = collectAllDataForExport();
+        data.signatures = {}; // Unterschriften sind groß und ändern sich selten
+        const list = getBackupPoints();
+        list.push({ id: "b" + Date.now(), createdAt: new Date().toISOString(), reason: reason, data: data });
+        while (list.length > BACKUP_MAX) list.shift();
+        const ok = saveBackupPoints(list);
+        renderBackupPointList();
+        return ok;
+      } catch (e) { console.error("Sicherheitspunkt fehlgeschlagen", e); return false; }
+    }
+    function createBackupPointManual() {
+      alert(createBackupPoint("manuell") ? "Sicherheitspunkt erstellt." : "Sicherheitspunkt konnte nicht gespeichert werden (Speicher voll).");
+    }
+    function autoBackupIfDue() {
+      const list = getBackupPoints();
+      const last = list.length ? new Date(list[list.length - 1].createdAt).getTime() : 0;
+      if (Date.now() - last > 20 * 60 * 60 * 1000) createBackupPoint("automatisch");
+    }
+    function restoreBackupPoint(id) {
+      const pt = getBackupPoints().find(function(x) { return x.id === id; });
+      if (!pt) return;
+      if (!confirm("Stand vom " + formatArchiveTimestamp(pt.createdAt) + " wiederherstellen? Der aktuelle Stand wird vorher als Sicherheitspunkt gespeichert.")) return;
+      createBackupPoint("vor Wiederherstellung");
+      // Anwesenheitsdaten und Guthaben exakt auf den Stand des Punktes zurücksetzen
+      const del = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("attendanceState_") === 0) del.push(k);
+      }
+      del.forEach(function(k) { localStorage.removeItem(k); });
+      localStorage.removeItem("mealCredits");
+      applyImportedData(JSON.parse(JSON.stringify(pt.data)));
+      queueAutoUpload();
+      alert("Stand wiederhergestellt.");
+      location.reload();
+    }
+    function deleteBackupPoint(id) {
+      if (!confirm("Diesen Sicherheitspunkt löschen?")) return;
+      saveBackupPoints(getBackupPoints().filter(function(x) { return x.id !== id; }));
+      renderBackupPointList();
+    }
+    function renderBackupPointList() {
+      const box = document.getElementById("backupPointList");
+      if (!box) return;
+      const list = getBackupPoints().slice().reverse();
+      box.innerHTML = "";
+      if (!list.length) { box.innerHTML = '<div class="cr-row">Noch keine Sicherheitspunkte.</div>'; return; }
+      list.forEach(function(pt) {
+        const row = document.createElement("div");
+        row.className = "cr-row";
+        const left = document.createElement("div");
+        left.innerHTML = "<b></b><small></small>";
+        left.firstChild.textContent = formatArchiveTimestamp(pt.createdAt);
+        left.lastChild.textContent = pt.reason || "";
+        const btns = document.createElement("div");
+        btns.style.cssText = "display:flex; gap:6px; flex:none;";
+        const r = document.createElement("button");
+        r.type = "button"; r.textContent = "Wiederherstellen"; r.style.minHeight = "38px";
+        r.onclick = function() { restoreBackupPoint(pt.id); };
+        const d = document.createElement("button");
+        d.type = "button"; d.setAttribute("aria-label", "Löschen"); d.style.cssText = "min-height:38px; padding:0 10px;";
+        d.innerHTML = '<i data-ico="x"></i>';
+        d.onclick = function() { deleteBackupPoint(pt.id); };
+        btns.appendChild(r); btns.appendChild(d);
+        row.appendChild(left); row.appendChild(btns);
+        box.appendChild(row);
+      });
+      hydrateIcons(box);
+    }
+
+    // ------------------- "Neu in Version" einmalig nach einem Update -------------------
+    function showWhatsNewIfUpdated() {
+      let last = null;
+      try { last = localStorage.getItem("lastSeenVersion"); } catch (e) { return; }
+      try { localStorage.setItem("lastSeenVersion", APP_VERSION); } catch (e) {}
+      if (!last || last === APP_VERSION || !versionIsNewer(APP_VERSION, last)) return; // Erstinstallation/unverändert: nichts anzeigen
+      const news = VERSION_HISTORY.filter(function(e) { return versionIsNewer(e.v, last) && !versionIsNewer(e.v, APP_VERSION); });
+      if (!news.length) return;
+      document.getElementById("whatsNewTitle").textContent = "Neu in Version " + APP_VERSION;
+      const list = document.getElementById("whatsNewList");
+      list.innerHTML = "";
+      news.forEach(function(e) {
+        const d = document.createElement("div");
+        d.className = "vh-entry";
+        const h = document.createElement("div");
+        h.className = "vh-head";
+        h.textContent = "Version " + e.v + (e.date ? " · " + e.date : "");
+        const ul = document.createElement("ul");
+        e.items.forEach(function(t) { const li = document.createElement("li"); li.textContent = t; ul.appendChild(li); });
+        d.appendChild(h); d.appendChild(ul); list.appendChild(d);
+      });
+      document.getElementById("whatsNewSheet").classList.add("open");
+    }
+    function closeWhatsNew() {
+      document.getElementById("whatsNewSheet").classList.remove("open");
+    }
+
     window.addEventListener('DOMContentLoaded', function(){
+      showWhatsNewIfUpdated();
+      setTimeout(function() { autoBackupIfDue(); renderBackupPointList(); }, 4000);
       lastUpdateCheck = Date.now();
       setTimeout(function() { checkForAppUpdate(false); }, 1500);
       initPinScreen();
