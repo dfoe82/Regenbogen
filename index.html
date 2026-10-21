@@ -2161,11 +2161,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.45.0";
+    const APP_VERSION = "1.45.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.45.1", date: "21.10.2026", items: ["Guthaben-Liste: Kinder anhaken und Nachrichten für mehrere Eltern auf einmal erstellen (Monat wählbar, „Nur offene“)"] },
       { v: "1.45.0", date: "21.10.2026", items: ["Guthaben und Nachricht für Eltern zusammengelegt: pro Kind Reiter „Konto“ und „Nachricht“ (Kopieren, E-Mail an hinterlegte Adresse, Teilen)"] },
       { v: "1.44.0", date: "13.10.2026", items: ["E-Mail-Adresse pro Kind (Konfiguration) und pro Wartelisten-Eintrag", "Unterlagen per E-Mail: Empfänger aus den gespeicherten Adressen wählbar"] },
       { v: "1.43.1", date: "13.10.2026", items: ["Unterlagen: „Per E-Mail“ – ausgewählte PDFs (mehrere als Sammel-PDF) über das Teilen-Menü an die Mail-App übergeben"] },
@@ -4622,7 +4623,7 @@
     let creditsEditId = null;
 
     let creditsReturnPage = "pageMonthlyClose";
-    const CREDITS_BULK = false; // Variante B: Sammelauswahl in der Liste
+    const CREDITS_BULK = true; // Variante B: Sammelauswahl in der Liste
     let creditsMsgM = new Date().getMonth() + 1;
     let creditsMsgY = new Date().getFullYear();
     let creditsBulkSel = {};
