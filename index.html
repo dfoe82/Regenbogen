@@ -163,6 +163,16 @@
     .cr-neg { font-weight: 700; white-space: nowrap; }
     .doc-sel { width: 30px; height: 30px; min-height: 0; padding: 0; border-radius: 50%; border: 2px solid var(--color-border); background: var(--color-surface); flex: none; display: grid; place-items: center; font-size: 0.85em; font-weight: 700; color: #fff; margin-right: 10px; }
     .doc-sel.on { background: var(--color-primary); border-color: var(--color-primary); }
+    .cr-seg { display: flex; background: #e9ecf1; border-radius: 12px; padding: 3px; margin: 0 0 14px; }
+    .cr-seg button { flex: 1; min-height: 38px; border: 0; background: transparent; border-radius: 10px; font-weight: 600; font-size: 0.9em; color: var(--color-text-muted); box-shadow: none; }
+    .cr-seg button.on { background: #fff; color: var(--color-text); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+    .cr-msgbox { width: 100% !important; max-width: none; box-sizing: border-box; font-size: 0.92em; line-height: 1.5; min-height: 210px; border-radius: 14px; padding: 12px 14px; margin-bottom: 4px; resize: none; }
+    .mc-group div.cr-bulk-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--color-border); cursor: pointer; }
+    .mc-group div.cr-bulk-row:last-child { border-bottom: none; }
+    .mc-group div.cr-bulk-row:active { background: var(--color-primary-light); }
+    .cr-bulk-row .mc-a small, .cr-bulk-row small { display: block; color: var(--color-text-muted); font-size: 0.8em; font-weight: 400; margin-top: 1px; }
+    .cr-bulkbar { display: flex; gap: 8px; margin: 0 0 10px; }
+    .cr-bulkbar button { flex: 1; min-height: 40px; font-size: 0.9em; }
     .cr-hint { font-size: 0.8em; color: var(--color-text-muted); margin: -10px 4px 14px; line-height: 1.4; }
     .cr-quick { display: flex; gap: 6px; margin-top: 8px; }
     .cr-quick button { flex: 1; min-height: 38px; font-size: 0.9em; }
@@ -1476,17 +1486,41 @@
       <div id="creditsListView">
         <button type="button" onclick="showPage(creditsReturnPage)"><i data-ico="back"></i> Zurück</button>
         <h1 style="text-align:left;">Mittagessen-Guthaben</h1>
+        <div id="creditsBulkTop" style="display:none;">
+          <div class="mc-stepper">
+            <button type="button" class="mc-arrow" onclick="stepCreditsMsgMonth(-1)" aria-label="Vorheriger Monat"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+            <div class="mc-mid"><div class="mc-m cr-msg-month">Oktober</div><div class="mc-y cr-msg-year">2026</div></div>
+            <button type="button" class="mc-arrow" onclick="stepCreditsMsgMonth(1)" aria-label="Nächster Monat"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+          <div class="cr-bulkbar"><button type="button" onclick="creditsBulkSelect('all')">Alle wählen</button><button type="button" onclick="creditsBulkSelect('open')">Nur offene</button><button type="button" onclick="creditsBulkSelect('none')">Keine</button></div>
+        </div>
         <div class="mc-group-t">Stand heute</div>
         <div class="mc-group" id="creditsList"></div>
+        <button type="button" class="btn-primary" id="creditsBulkBtn" style="width:100%; margin:-4px 0 14px; display:none;" onclick="openBulkMessages()">Nachricht an Eltern erstellen</button>
         <p class="cr-hint">Grün = Guthaben · Orange = unter 10 € · Rot = noch offen · „–“ = noch keine Einzahlung. Der Verbrauch wird ab dem Monat der ersten Einzahlung berechnet. Zahlen Eltern einen offenen Betrag per Überweisung nach, bitte ebenfalls als Einzahlung erfassen.</p>
       </div>
       <div id="creditsDetailView" style="display:none;">
         <button type="button" onclick="showCreditsList()"><i data-ico="back"></i> Mittagessen-Guthaben</button>
         <h1 id="creditsChildName" style="text-align:left;"></h1>
+        <div class="cr-seg"><button type="button" id="crTabKonto" class="on" onclick="setCreditsTab('konto')">Konto</button><button type="button" id="crTabMsg" onclick="setCreditsTab('msg')">Nachricht</button></div>
+        <div id="crPaneKonto">
         <div class="cr-big"><small>Aktuelles Guthaben</small><div class="n" id="creditsBigN">0,00 €</div><small id="creditsBigS"></small></div>
         <button type="button" class="btn-primary" style="width:100%;margin-bottom:18px;" onclick="openCreditSheet(null)">+ Einzahlung erfassen</button>
         <div class="mc-group-t">Verlauf</div>
         <div class="mc-group" id="creditsLedger"></div>
+        <button type="button" style="width:100%; margin-top:-2px;" onclick="setCreditsTab('msg')"><i data-ico="mail"></i> Nachricht an Eltern</button>
+        </div>
+        <div id="crPaneMsg" style="display:none;">
+          <div class="mc-stepper">
+            <button type="button" class="mc-arrow" onclick="stepCreditsMsgMonth(-1)" aria-label="Vorheriger Monat"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+            <div class="mc-mid"><div class="mc-m cr-msg-month">Oktober</div><div class="mc-y cr-msg-year">2026</div></div>
+            <button type="button" class="mc-arrow" onclick="stepCreditsMsgMonth(1)" aria-label="Nächster Monat"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+          <textarea id="creditsMsgText" class="cr-msgbox" readonly></textarea>
+          <p class="cr-hint" id="creditsMsgInfo" style="margin:4px 4px 10px;"></p>
+          <div class="cr-quick"><button type="button" onclick="copyParentMessage('creditsMsgText')">Kopieren</button><button type="button" onclick="creditsMsgMail()"><i data-ico="mail"></i> E-Mail</button><button type="button" id="creditsMsgShare" onclick="shareParentMessage('creditsMsgText')">Teilen</button></div>
+          <button type="button" class="btn-primary" style="width:100%; margin-top:14px;" onclick="setCreditsTab('konto'); openCreditSheet(null)">+ Einzahlung erfassen</button>
+        </div>
       </div>
       <div class="mc-spacer"></div>
     </div>
@@ -2063,6 +2097,15 @@
     </div>
   </div>
 
+  <!-- Sammel-Nachrichten (Guthaben-Liste) -->
+  <div id="bulkMsgSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeBulkMessages()">
+    <div class="remark-sheet-box" style="max-height:88vh; overflow:auto;">
+      <h4 id="bulkMsgTitle">Nachrichten für Eltern</h4>
+      <div id="bulkMsgList"></div>
+      <button type="button" class="remark-sheet-cancel" onclick="closeBulkMessages()">Schließen</button>
+    </div>
+  </div>
+
   <!-- Empfänger für E-Mail (Unterlagen) -->
   <div id="mailRecipientSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeMailRecipientSheet()">
     <div class="remark-sheet-box">
@@ -2118,11 +2161,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.44.0";
+    const APP_VERSION = "1.45.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.45.0", date: "21.10.2026", items: ["Guthaben und Nachricht für Eltern zusammengelegt: pro Kind Reiter „Konto“ und „Nachricht“ (Kopieren, E-Mail an hinterlegte Adresse, Teilen)"] },
       { v: "1.44.0", date: "13.10.2026", items: ["E-Mail-Adresse pro Kind (Konfiguration) und pro Wartelisten-Eintrag", "Unterlagen per E-Mail: Empfänger aus den gespeicherten Adressen wählbar"] },
       { v: "1.43.1", date: "13.10.2026", items: ["Unterlagen: „Per E-Mail“ – ausgewählte PDFs (mehrere als Sammel-PDF) über das Teilen-Menü an die Mail-App übergeben"] },
       { v: "1.43.0", date: "13.10.2026", items: ["Unterlagen: mehrere PDFs auswählen (Nummer = Reihenfolge) und drucken oder zu einem Sammel-PDF zusammenfügen (funktioniert offline)"] },
@@ -4578,10 +4622,28 @@
     let creditsEditId = null;
 
     let creditsReturnPage = "pageMonthlyClose";
+    const CREDITS_BULK = false; // Variante B: Sammelauswahl in der Liste
+    let creditsMsgM = new Date().getMonth() + 1;
+    let creditsMsgY = new Date().getFullYear();
+    let creditsBulkSel = {};
     function openCreditsPage(from) {
       creditsReturnPage = from || "pageMonthlyClose";
+      creditsMsgM = new Date().getMonth() + 1;
+      creditsMsgY = new Date().getFullYear();
+      creditsBulkSel = {};
       showPage("pageCredits");
       showCreditsList();
+    }
+    function updateCreditsMonthLabels() {
+      Array.prototype.forEach.call(document.querySelectorAll(".cr-msg-month"), function(e) { e.textContent = MONTH_NAMES_DE[creditsMsgM - 1]; });
+      Array.prototype.forEach.call(document.querySelectorAll(".cr-msg-year"), function(e) { e.textContent = String(creditsMsgY); });
+    }
+    function stepCreditsMsgMonth(d) {
+      creditsMsgM += d;
+      if (creditsMsgM < 1) { creditsMsgM = 12; creditsMsgY--; }
+      if (creditsMsgM > 12) { creditsMsgM = 1; creditsMsgY++; }
+      updateCreditsMonthLabels();
+      if (creditsCurrentChild) renderCreditsMessage(); else showCreditsList();
     }
     function showCreditsList() {
       creditsCurrentChild = null;
@@ -4589,28 +4651,133 @@
       document.getElementById("creditsListView").style.display = "";
       const list = document.getElementById("creditsList");
       const children = getActiveChildren();
+      const bulkTop = document.getElementById("creditsBulkTop");
+      const bulkBtn = document.getElementById("creditsBulkBtn");
+      bulkTop.style.display = (CREDITS_BULK && children.length) ? "" : "none";
+      bulkBtn.style.display = (CREDITS_BULK && children.length) ? "" : "none";
+      updateCreditsMonthLabels();
       if (!children.length) {
         list.innerHTML = '<div class="cr-row">Bitte zuerst in der Konfiguration Kinder eintragen.</div>';
         return;
       }
       list.innerHTML = "";
+      let nSel = 0;
       children.forEach(function(name) {
         const bal = getCreditBalanceToday(name);
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "mc-item";
         const label = bal === null ? "–" : (bal < -0.004 ? "offen " + fmtEuro(-bal) : fmtEuro(bal));
-        b.innerHTML = '<div class="mc-tx"><div class="mc-a">' + creditEsc(name) + '</div></div>' +
+        if (!CREDITS_BULK) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "mc-item";
+          b.innerHTML = '<div class="mc-tx"><div class="mc-a">' + creditEsc(name) + '</div></div>' +
+            '<span class="cr-chip ' + creditChipClass(bal) + '">' + label + '</span>' +
+            '<svg class="mc-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>';
+          b.addEventListener("click", function() { openCreditDetail(name); });
+          list.appendChild(b);
+          return;
+        }
+        const cost = getMealCostForMonth(name, creditsMsgM, creditsMsgY).cost;
+        const acct = getCreditMonthAccount(name, creditsMsgM, creditsMsgY);
+        let sub = MONTH_NAMES_DE[creditsMsgM - 1].slice(0, 3) + ". " + fmtEuro(cost);
+        if (acct && acct.anfang < -0.004) sub += " + Vormonat " + fmtEuro(-acct.anfang);
+        if (bal === null) sub = "kein Konto · " + sub;
+        const on = !!creditsBulkSel[name];
+        if (on) nSel++;
+        const row = document.createElement("div");
+        row.className = "mc-item cr-bulk-row";
+        row.innerHTML = '<button type="button" class="doc-sel' + (on ? " on" : "") + '" aria-label="Auswählen">' + (on ? "✓" : "") + '</button>' +
+          '<div class="mc-tx"><div class="mc-a">' + creditEsc(name) + '</div><small>' + creditEsc(sub) + '</small></div>' +
           '<span class="cr-chip ' + creditChipClass(bal) + '">' + label + '</span>' +
           '<svg class="mc-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>';
-        b.addEventListener("click", function() { openCreditDetail(name); });
-        list.appendChild(b);
+        row.querySelector(".doc-sel").addEventListener("click", function(ev) {
+          ev.stopPropagation();
+          creditsBulkSel[name] = !creditsBulkSel[name];
+          showCreditsList();
+        });
+        row.addEventListener("click", function() { openCreditDetail(name); });
+        list.appendChild(row);
       });
+      if (CREDITS_BULK) {
+        bulkBtn.disabled = nSel === 0;
+        bulkBtn.style.opacity = nSel === 0 ? "0.5" : "";
+        bulkBtn.textContent = nSel === 0 ? "Kinder wählen für Nachricht an Eltern" : "Nachricht an " + nSel + (nSel === 1 ? " Elternteil" : " Eltern") + " erstellen";
+      }
     }
+    function creditsBulkSelect(mode) {
+      creditsBulkSel = {};
+      getActiveChildren().forEach(function(name) {
+        if (mode === "all") creditsBulkSel[name] = true;
+        else if (mode === "open" && computeCreditOpenAmount(name) > 0.004) creditsBulkSel[name] = true;
+      });
+      showCreditsList();
+    }
+    // Nachricht für Kind/Monat: archivierter Text (eingefrorene Monate) oder live berechnet
+    function getCreditsMessage(name, m, y) {
+      const key = y + "-" + String(m).padStart(2, "0");
+      if (isParentMessageFrozen(y, m)) {
+        const a = getParentMessageArchive()[key];
+        if (a && a.messages && a.messages[name]) return { text: a.messages[name], archived: true, at: a.createdAt };
+      }
+      return { text: buildParentMessageText(name, m, y), archived: false };
+    }
+    function creditsMailTo(name, text, m, y) {
+      const cfg = loadConfig();
+      const em = (cfg.childEmails && cfg.childEmails[cfg.children.indexOf(name)]) || "";
+      const subject = "Mittagessen " + MONTH_NAMES_DE[m - 1] + " " + y + " – " + name;
+      location.href = "mailto:" + encodeURIComponent(em).replace(/%40/g, "@") + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(text);
+    }
+    function creditsMsgMail() {
+      if (!creditsCurrentChild) return;
+      creditsMailTo(creditsCurrentChild, document.getElementById("creditsMsgText").value, creditsMsgM, creditsMsgY);
+    }
+    function setCreditsTab(t) {
+      const msg = t === "msg";
+      document.getElementById("crPaneKonto").style.display = msg ? "none" : "";
+      document.getElementById("crPaneMsg").style.display = msg ? "" : "none";
+      document.getElementById("crTabKonto").className = msg ? "" : "on";
+      document.getElementById("crTabMsg").className = msg ? "on" : "";
+      if (msg) { updateCreditsMonthLabels(); renderCreditsMessage(); }
+      window.scrollTo(0, 0);
+    }
+    function renderCreditsMessage() {
+      const name = creditsCurrentChild;
+      if (!name) return;
+      const r = getCreditsMessage(name, creditsMsgM, creditsMsgY);
+      document.getElementById("creditsMsgText").value = r.text;
+      document.getElementById("creditsMsgInfo").textContent = r.archived
+        ? "Archivierte Fassung vom " + formatArchiveTimestamp(r.at) + " – bleibt unverändert."
+        : "Laufender Monat – wird aktuell berechnet.";
+      document.getElementById("creditsMsgShare").style.display = navigator.share ? "" : "none";
+    }
+    function openBulkMessages() {
+      const names = getActiveChildren().filter(function(n) { return creditsBulkSel[n]; });
+      if (!names.length) return;
+      document.getElementById("bulkMsgTitle").textContent = "Nachrichten für " + MONTH_NAMES_DE[creditsMsgM - 1] + " " + creditsMsgY;
+      const list = document.getElementById("bulkMsgList");
+      list.innerHTML = "";
+      names.forEach(function(name, i) {
+        const r = getCreditsMessage(name, creditsMsgM, creditsMsgY);
+        const blk = document.createElement("div");
+        blk.style.cssText = "margin-bottom:14px;";
+        blk.innerHTML = '<div style="font-weight:700; margin-bottom:4px;"></div><textarea class="cr-msgbox" readonly style="min-height:170px;"></textarea><div class="cr-quick"><button type="button" class="b-copy">Kopieren</button><button type="button" class="b-mail">E-Mail</button><button type="button" class="b-share">Teilen</button></div>';
+        blk.firstChild.textContent = name;
+        const ta = blk.querySelector("textarea");
+        ta.id = "bulkMsgTa" + i;
+        ta.value = r.text;
+        blk.querySelector(".b-copy").onclick = function() { copyParentMessage(ta.id); };
+        blk.querySelector(".b-mail").onclick = function() { creditsMailTo(name, ta.value, creditsMsgM, creditsMsgY); };
+        const sh = blk.querySelector(".b-share");
+        if (navigator.share) sh.onclick = function() { shareParentMessage(ta.id); }; else sh.style.display = "none";
+        list.appendChild(blk);
+      });
+      document.getElementById("bulkMsgSheet").classList.add("open");
+    }
+    function closeBulkMessages() { document.getElementById("bulkMsgSheet").classList.remove("open"); }
     function openCreditDetail(name) {
       creditsCurrentChild = name;
       document.getElementById("creditsListView").style.display = "none";
       document.getElementById("creditsDetailView").style.display = "";
+      setCreditsTab("konto");
       renderCreditDetail();
       window.scrollTo(0, 0);
     }
