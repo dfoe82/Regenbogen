@@ -2182,11 +2182,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.47.0";
+    const APP_VERSION = "1.47.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.47.1", date: "27.10.2026", items: ["Fortbildung: Die Uhrzeit-Auswahl bleibt beim Ändern (z. B. Minuten) geöffnet; Summen aktualisieren sich, sobald das Feld verlassen wird"] },
       { v: "1.47.0", date: "27.10.2026", items: ["Fortbildung: Termine mit Von-/Bis-Zeiten (zusammenhängende oder verteilte Tage, „+ Weiterer Tag“), Dauer je Eintrag", "Fortbildung: Summenkarte (Gesamt und laufendes Jahr), Einträge nach Jahren getrennt mit Jahressumme; „nicht teilgenommen“ zählt nicht mit"] },
       { v: "1.46.0", date: "22.10.2026", items: ["„Mittagessen-Guthaben“ heißt jetzt „Mittagessen“", "Neu: Reiter „Archiv“ unter Mittagessen – vergangene und abgeschlossene Monate werden automatisch archiviert, Nachrichten pro Monat abrufbar (Kopieren, E-Mail, Teilen, Neu berechnen)", "Monatsabschluss: Punkt „Nachricht für Eltern“ entfällt (jetzt unter Mittagessen)"] },
       { v: "1.45.2", date: "22.10.2026", items: ["Guthaben-Liste und Kind: auch ohne Einzahlung wird „offen“ (Kosten des laufenden Monats) angezeigt"] },
@@ -5967,9 +5968,9 @@
         const d = document.createElement("input"); d.type = "date"; d.value = t.datum || "";
         const v = document.createElement("input"); v.type = "time"; v.value = t.von || ""; v.setAttribute("aria-label", "Von");
         const b = document.createElement("input"); b.type = "time"; b.value = t.bis || ""; b.setAttribute("aria-label", "Bis");
-        d.addEventListener("change", function() { t.datum = d.value; onChange(termine); });
-        v.addEventListener("change", function() { t.von = v.value; onChange(termine); });
-        b.addEventListener("change", function() { t.bis = b.value; onChange(termine); });
+        d.addEventListener("change", function() { t.datum = d.value; updateTot(); onChange(termine); });
+        v.addEventListener("change", function() { t.von = v.value; updateTot(); onChange(termine); });
+        b.addEventListener("change", function() { t.bis = b.value; updateTot(); onChange(termine); });
         const x = document.createElement("button");
         x.type = "button"; x.className = "fb-x"; x.textContent = "×"; x.setAttribute("aria-label", "Tag entfernen");
         x.style.visibility = termine.length > 1 ? "visible" : "hidden";
@@ -5979,8 +5980,11 @@
       });
       const tot = document.createElement("div");
       tot.className = "fb-termine-total";
-      const mins = termine.reduce(function(sum, t) { return sum + fbTerminMinutes(t); }, 0);
-      tot.textContent = "Dauer: " + fbFmt(mins) + " Std." + (termine.length > 1 ? " (" + termine.length + " Tage)" : "");
+      function updateTot() {
+        const mins = termine.reduce(function(sum, t) { return sum + fbTerminMinutes(t); }, 0);
+        tot.textContent = "Dauer: " + fbFmt(mins) + " Std." + (termine.length > 1 ? " (" + termine.length + " Tage)" : "");
+      }
+      updateTot();
       container.appendChild(tot);
       const add = document.createElement("button");
       add.type = "button"; add.textContent = "+ Weiterer Tag";
@@ -6191,9 +6195,18 @@
             en.datum = (en.termine[0] && en.termine[0].datum) || "";
             saveFortbildungEntries(all);
           };
-          const renderT = function() { buildFbTermineEditor(tBox, working, function(l) { saveTermine(l); }, function() { renderFortbildungContent(); }); };
           // Änderungen an Datum/Von/Bis: speichern und Liste (Summen) neu zeichnen
-          buildFbTermineEditor(tBox, working, function(l) { saveTermine(l); setTimeout(renderFortbildungContent, 0); }, function() { renderFortbildungContent(); });
+          // Beim Ändern nur speichern (die Eingabemaske darf nicht neu gezeichnet werden, sonst schließt sich
+          // die Uhrzeit-Auswahl); Liste und Summen werden erst aktualisiert, wenn der Fokus den Bereich verlässt.
+          buildFbTermineEditor(tBox, working, function(l) { saveTermine(l); }, function() { renderFortbildungContent(); });
+          tBox.addEventListener("focusout", function() {
+            setTimeout(function() {
+              const a = document.activeElement;
+              if (!tBox.isConnected) return;
+              if (a && tBox.contains(a)) return;
+              renderFortbildungContent();
+            }, 350);
+          });
           body.appendChild(tBox);
           body.appendChild(fieldRow("Ort", "ort"));
           body.appendChild(fieldRow("Fortbildung", "fortbildung"));
