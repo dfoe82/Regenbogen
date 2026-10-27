@@ -1659,6 +1659,10 @@
         <input type="text" id="newWaitlistKindName">
       </div>
       <div class="modal-row" style="flex-direction:column; align-items:stretch;">
+        <label for="newWaitlistGeburtsdatum">Geburtsdatum Kind:</label>
+        <input type="date" id="newWaitlistGeburtsdatum">
+      </div>
+      <div class="modal-row" style="flex-direction:column; align-items:stretch;">
         <label for="newWaitlistOrt">Ort:</label>
         <input type="text" id="newWaitlistOrt">
       </div>
@@ -2187,11 +2191,13 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.47.4";
+    const APP_VERSION = "1.48.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.48.0", date: "27.10.2026", items: ["Warteliste: neues Feld „Geburtsdatum Kind“ (beim Anlegen und im Eintrag, auch in der Kurzzeile sichtbar)"] },
+      { v: "1.47.5", date: "27.10.2026", items: ["Start/Neuaufruf der App: Übersicht wird zuverlässig ganz oben angezeigt (auch wenn iOS die alte Scroll-Position erst später wiederherstellt)"] },
       { v: "1.47.4", date: "27.10.2026", items: ["Warteliste: Sterne stehen jetzt in einer eigenen Zeile unter dem Text und verdecken nichts mehr", "Jede Seite wird bei jedem Aufruf zuverlässig ganz oben angezeigt (auch nach dem Rendern)"] },
       { v: "1.47.3", date: "27.10.2026", items: ["Warteliste und Fortbildung: Einträge höher, damit sich die Sterne nicht über andere Angaben legen", "Warteliste und Fortbildung öffnen immer komplett eingeklappt"] },
       { v: "1.47.2", date: "27.10.2026", items: ["Fortbildung: Bei mehrtägigen Terminen kann jeder Tag einzeln als „teilgenommen“ Ja/Nein gesetzt werden; nur Tage mit Ja zählen in der Summe"] },
@@ -5642,6 +5648,7 @@
     function openNewWaitlistEntryModal() {
       document.getElementById("newWaitlistName").value = "";
       document.getElementById("newWaitlistKindName").value = "";
+      document.getElementById("newWaitlistGeburtsdatum").value = "";
       document.getElementById("newWaitlistOrt").value = "";
       document.getElementById("newWaitlistTelefon").value = "";
       document.getElementById("newWaitlistEmail").value = "";
@@ -5660,6 +5667,7 @@
         id: Date.now() + "_" + Math.random().toString(36).slice(2, 8),
         name: document.getElementById("newWaitlistName").value.trim(),
         kindName: document.getElementById("newWaitlistKindName").value.trim(),
+        geburtsdatum: document.getElementById("newWaitlistGeburtsdatum").value,
         ort: document.getElementById("newWaitlistOrt").value.trim(),
         telefon: document.getElementById("newWaitlistTelefon").value.trim(),
         email: document.getElementById("newWaitlistEmail").value.trim(),
@@ -5787,6 +5795,8 @@
         summaryText.appendChild(summaryName);
         const metaParts = [];
         if (entry.name && entry.kindName) { metaParts.push("Kind: " + entry.kindName); }
+        const gebText = formatFortbildungDatum(entry.geburtsdatum);
+        if (gebText) { metaParts.push("geb. " + gebText); }
         if (entry.ort) { metaParts.push(entry.ort); }
         const startdatumText = formatFortbildungDatum(entry.startdatum);
         if (startdatumText) { metaParts.push("Start: " + startdatumText); }
@@ -5837,6 +5847,7 @@
 
           fields.appendChild(fieldRow("Name", "name"));
           fields.appendChild(fieldRow("Name Kind", "kindName"));
+          fields.appendChild(fieldRow("Geburtsdatum Kind", "geburtsdatum", "date"));
           fields.appendChild(fieldRow("Ort", "ort"));
           fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
           fields.appendChild(fieldRow("E-Mail", "email", "email"));
@@ -6284,19 +6295,31 @@
     }
 
     // Seite immer ganz oben anzeigen – sofort und nach dem Rendern (iOS stellt sonst teils die alte Position wieder her)
-    function scrollTopAll() {
+    let scrollTopTouched = false;
+    ["touchstart", "wheel", "keydown", "mousedown"].forEach(function(ev) {
+      window.addEventListener(ev, function() { scrollTopTouched = true; }, { passive: true });
+    });
+    function scrollTopAll(long) {
+      scrollTopTouched = false;
       const go = function() {
+        if (scrollTopTouched) return; // Nutzer scrollt schon selbst
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       };
       go();
       requestAnimationFrame(go);
-      setTimeout(go, 60);
-      setTimeout(go, 250);
+      [60, 250].concat(long ? [500, 900, 1500] : []).forEach(function(ms) { setTimeout(go, ms); });
     }
     try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) {}
-    window.addEventListener("pageshow", function() { scrollTopAll(); });
+    window.addEventListener("pageshow", function() { scrollTopAll(true); });
+    window.addEventListener("load", function() { scrollTopAll(true); });
+    // Zurück in die App geholt (nach längerer Pause): wieder ganz oben beginnen
+    let hiddenAt = 0;
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden) { hiddenAt = Date.now(); }
+      else if (hiddenAt && Date.now() - hiddenAt > 5000) { scrollTopAll(true); }
+    });
     function showPage(pageId) {
       document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
@@ -6827,6 +6850,7 @@
       initSignaturePad("signature2");
       // Startseite: Übersicht
       showPage("pageOverview");
+      scrollTopAll(true);
     });
   </script>
 </body>
