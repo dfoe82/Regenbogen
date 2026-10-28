@@ -487,6 +487,9 @@
     .ov-brand-txt small { color: var(--color-text-muted); font-size: 0.72em; }
     .ov-sel { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--color-primary-light); border: 1px solid #c7d2fe; border-radius: 14px; padding: 8px 12px; margin: 0 auto 8px auto; font-size: 0.92em; }
     .ov-sel button { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 2px; white-space: nowrap; }
+    .cfg-add-row { display: flex; gap: 8px; margin: 4px 0 10px; }
+    .cfg-add-row button { flex: 1; }
+    .cfg-former-note { white-space: pre-wrap; font-size: 0.88em; margin: 6px 0 10px; }
     .ov-weekbar { display: flex; justify-content: space-between; align-items: center; margin: 0 auto 6px auto; }
     .ov-weekbar button { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 8px; }
     .ov-wk-nav { display: inline-flex; align-items: center; }
@@ -1930,11 +1933,14 @@
     <div class="mc-wrap cfg-page">
       <h1 style="text-align:left;">Konfiguration</h1>
       <details class="cfg-section">
-        <summary><span class="cfg-ic"><i data-ico="kinder"></i></span><span class="cfg-tt"><b>Kinder</b><small>Anzahl, Namen, Geburtstage</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
+        <summary><span class="cfg-ic"><i data-ico="kinder"></i></span><span class="cfg-tt"><b>Kinder</b><small>Kinder aufnehmen, Kontakt, Notizen</small></span><svg class="cfg-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></summary>
         <div class="cfg-body">
-      <div class="modal-row">
-        <label for="configChildCount">Anzahl der Kinder:</label>
-        <select id="configChildCount" onchange="updateChildRowsVisibility()">
+      <div class="cfg-add-row">
+        <button type="button" class="btn-primary" onclick="addChildNew()">＋ Neu</button>
+        <button type="button" onclick="openWaitlistPicker()">Aus Warteliste</button>
+      </div>
+      <div>
+        <select id="configChildCount" style="display:none;" onchange="updateChildRowsVisibility()">
           <option value="1">1</option>
           <option value="2">2</option>
           <option value="3">3</option>
@@ -1943,8 +1949,9 @@
         </select>
       </div>
       <div id="configChildrenFields">
-        <!-- Bis zu 5 Namensfelder werden per JS erzeugt -->
+        <!-- Bis zu 5 Kinder-Kacheln werden per JS erzeugt -->
       </div>
+      <div id="configFormerChildren"></div>
         </div>
       </details>
       <details class="cfg-section">
@@ -2253,11 +2260,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.55.0";
+    const APP_VERSION = "1.56.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.56.0", date: "28.10.2026", items: ["Konfiguration → Kinder: Auswahl „Anzahl der Kinder“ entfällt; stattdessen Knöpfe „＋ Neu“ und „Aus Warteliste“ (höchstens 5 Kinder)", "Kind entfernen (im geöffneten Kind) mit Abfrage; der Text wird mit Datum in die Notizen übernommen, das Kind steht danach unter „Ehemalige Kinder“ und kann wieder aufgenommen werden", "Aus der Warteliste übernommene Einträge werden erst beim Speichern der Konfiguration aus der Warteliste entfernt"] },
       { v: "1.55.0", date: "28.10.2026", items: ["Konfiguration → Kinder wie in der Warteliste: je Kind eine Kachel mit Name, Geburtstag und Alter; Tipp öffnet das Kind im Vordergrund mit den Reitern Kind, Kontakt und Notiz", "Neu je Kind: Name der Eltern, Telefonnummer, Ort und Notiz sowie Knöpfe Anrufen und E-Mail", "„Kind übernehmen“ aus der Warteliste übernimmt jetzt auch Eltern, Telefon, Ort und Notiz"] },
       { v: "1.54.0", date: "28.10.2026", items: ["Regelmäßige Erinnerung an die Dateisicherung (Standard: jede Woche, einstellbar unter Daten & Sicherung; „Später“ erinnert am nächsten Tag erneut)", "Sicherungsdatei heißt jetzt Sicherung-Regenbogen-App-Datum-Uhrzeit.json", "Anzeige, wann zuletzt eine Dateisicherung erstellt wurde"] },
       { v: "1.53.0", date: "28.10.2026", items: ["Übersicht: Umschaltung Einzeltag/Mehrtägig entfällt – es gibt nur noch eine Ansicht", "Neue Wochenleiste (Mo–Fr) mit Wochenpfeilen und „Heute“-Knopf: 1. Tipp = ein Tag, 2. Tipp = Zeitraum", "Kalender weiterhin über „Kalender ▾“ erreichbar (z. B. für Wochenenden oder andere Monate)"] },
@@ -3095,8 +3103,161 @@
       });
       body.appendChild(tabs);
       body.appendChild(document.getElementById("cfgPane_" + i + "_" + childEditTab));
+      const rmBar = document.createElement("div"); rmBar.className = "wl-bar";
+      const rmBtn = document.createElement("button"); rmBtn.type = "button"; rmBtn.className = "btn-danger"; rmBtn.style.flex = "1"; rmBtn.textContent = "Kind entfernen";
+      rmBtn.addEventListener("click", function() { startChildRemove(i); });
+      rmBar.appendChild(rmBtn); body.appendChild(rmBar);
       mountEntryEditModal("child", "", body);
       refreshChildAge(i); refreshChildActions(i);
+    }
+
+    // ---- Kinder aufnehmen / entfernen ----
+    let cfgFormer = [], cfgPendingWl = [], childNewIdx = -1;
+    function getChildCount() { return parseInt(document.getElementById("configChildCount").value, 10) || 0; }
+    function setChildCount(n) {
+      document.getElementById("configChildCount").value = String(Math.max(1, Math.min(5, n)));
+      updateChildRowsVisibility();
+      renderFormerChildren();
+    }
+    function readChildSlot(i) {
+      const g = function(id) { return document.getElementById(id).value; };
+      return { name: g("configChild" + i).trim(), birthdate: g("configChildBirthdate" + i), parent: g("configChildParent" + i).trim(),
+        phone: g("configChildPhone" + i).trim(), email: g("configChildEmail" + i).trim(), ort: g("configChildOrt" + i).trim(), notes: g("configChildNotiz" + i) };
+    }
+    function writeChildSlot(i, o) {
+      const set = function(id, v) { document.getElementById(id).value = v || ""; };
+      set("configChild" + i, o.name); set("configChildBirthdate" + i, o.birthdate); set("configChildParent" + i, o.parent);
+      set("configChildPhone" + i, o.phone); set("configChildEmail" + i, o.email); set("configChildOrt" + i, o.ort); set("configChildNotiz" + i, o.notes);
+      refreshChildAge(i); refreshChildActions(i); refreshChildCard(i);
+    }
+    function compactRemoveChild(i) {
+      const n = getChildCount();
+      for (let j = i; j < n - 1; j++) writeChildSlot(j, readChildSlot(j + 1));
+      writeChildSlot(n - 1, {});
+      setChildCount(n - 1);
+    }
+    function addChildNew() {
+      const n = getChildCount();
+      if (n >= 5) { alert("Alle 5 Plätze sind belegt. Bitte zuerst ein Kind entfernen."); return; }
+      writeChildSlot(n, {});
+      setChildCount(n + 1);
+      childNewIdx = n;
+      openChildModal(n);
+    }
+    function openWaitlistPicker() {
+      if (getChildCount() >= 5) { alert("Alle 5 Plätze sind belegt. Bitte zuerst ein Kind entfernen."); return; }
+      stashChildPanes();
+      const entries = getWaitlistEntries().filter(function(e) { return cfgPendingWl.indexOf(e.id) < 0; });
+      const body = document.createElement("div");
+      body.className = "waitlist-entry-body wl-edit";
+      const hd = document.createElement("div"); hd.className = "wl-hd";
+      const hdL = document.createElement("div");
+      const h3 = document.createElement("h3"); h3.textContent = "Aus Warteliste"; hdL.appendChild(h3);
+      const sm = document.createElement("small"); sm.textContent = "Eintrag wählen"; hdL.appendChild(sm);
+      hd.appendChild(hdL);
+      const cb = document.createElement("button"); cb.type = "button"; cb.className = "wl-done"; cb.textContent = "Abbrechen";
+      cb.addEventListener("click", function() { hideEntryEditModal("childpick"); });
+      hd.appendChild(cb); body.appendChild(hd);
+      if (!entries.length) {
+        const p = document.createElement("p"); p.style.cssText = "color:var(--color-text-muted);margin:14px 0;"; p.textContent = "Die Warteliste ist leer."; body.appendChild(p);
+      }
+      entries.forEach(function(e) {
+        const card = document.createElement("div"); card.className = "waitlist-entry"; card.style.margin = "8px 0";
+        const sum = document.createElement("div"); sum.className = "waitlist-summary";
+        const tx = document.createElement("div"); tx.className = "waitlist-summary-text";
+        const nm = document.createElement("div"); nm.className = "waitlist-summary-name"; nm.textContent = e.kindName || e.name || "(ohne Namen)"; tx.appendChild(nm);
+        const mp = [];
+        if (e.kindName && e.name) mp.push(e.name);
+        const g = formatFortbildungDatum(e.geburtsdatum); if (g) mp.push("geb. " + g);
+        const st = formatFortbildungDatum(e.startdatum); if (st) mp.push("Start: " + st);
+        if (mp.length) { const m = document.createElement("div"); m.className = "waitlist-summary-meta"; m.textContent = mp.join(" · "); tx.appendChild(m); }
+        if (e.rating) { const r = document.createElement("div"); r.className = "waitlist-summary-stars"; r.textContent = "★".repeat(e.rating); tx.appendChild(r); }
+        sum.appendChild(tx);
+        const ic = document.createElement("span"); ic.className = "waitlist-expand-icon"; ic.textContent = "›"; sum.appendChild(ic);
+        sum.addEventListener("click", function() { pickWaitlistForChild(e.id); });
+        card.appendChild(sum); body.appendChild(card);
+      });
+      const hint = document.createElement("p"); hint.style.cssText = "font-size:0.8em;color:var(--color-text-muted);";
+      hint.textContent = "Übernommen werden Name, Geburtstag, Eltern, Telefon, E-Mail, Ort und Notiz. Der Eintrag wird beim Speichern aus der Warteliste entfernt.";
+      body.appendChild(hint);
+      mountEntryEditModal("childpick", "", body);
+    }
+    function pickWaitlistForChild(id) {
+      const e = getWaitlistEntries().find(function(x) { return x.id === id; });
+      if (!e) return;
+      const name = (e.kindName || "").trim();
+      if (!name) { alert("Bitte zuerst in der Warteliste den „Namen Kind“ eintragen."); return; }
+      const n = getChildCount();
+      for (let i = 0; i < n; i++) {
+        if (readChildSlot(i).name.toLowerCase() === name.toLowerCase()) { alert("„" + name + "“ ist bereits unter Kinder eingetragen."); return; }
+      }
+      writeChildSlot(n, { name: name, birthdate: e.geburtsdatum || "", parent: (e.name || "").trim(), phone: (e.telefon || "").trim(), email: (e.email || "").trim(), ort: (e.ort || "").trim(), notes: e.notizen || "" });
+      cfgPendingWl.push(id);
+      setChildCount(n + 1);
+      hideEntryEditModal("childpick");
+      openChildModal(n);
+    }
+    function startChildRemove(i) {
+      if (getChildCount() <= 1) { alert("Mindestens ein Kind muss eingetragen bleiben."); return; }
+      const o = readChildSlot(i);
+      stashChildPanes();
+      const body = document.createElement("div");
+      body.className = "waitlist-entry-body wl-edit";
+      const h3 = document.createElement("h3"); h3.textContent = (o.name || "Kind " + (i + 1)) + " entfernen"; body.appendChild(h3);
+      const p = document.createElement("p"); p.style.cssText = "font-size:0.9em;margin:8px 0;";
+      p.textContent = "Was soll zum Ausscheiden festgehalten werden (z. B. Grund, letzter Betreuungstag)? Der Text wird mit Datum in die Notizen übernommen. Das Kind erscheint danach unter „Ehemalige Kinder“.";
+      body.appendChild(p);
+      const ta = document.createElement("textarea"); ta.className = "wl-notiz"; ta.placeholder = "z. B. Wechsel in den Kindergarten, letzter Tag 31.07."; body.appendChild(ta);
+      const bar = document.createElement("div"); bar.className = "wl-bar";
+      const ok = document.createElement("button"); ok.type = "button"; ok.className = "btn-danger"; ok.textContent = "Entfernen";
+      ok.style.flex = "1";
+      ok.addEventListener("click", function() {
+        const now = new Date();
+        const dm = String(now.getDate()).padStart(2, "0") + "." + String(now.getMonth() + 1).padStart(2, "0") + "." + now.getFullYear();
+        const line = "Ausgeschieden am " + dm + (ta.value.trim() ? ": " + ta.value.trim() : "");
+        o.notes = (o.notes && o.notes.trim() ? o.notes.trim() + "\n\n" : "") + line;
+        o.left = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+        cfgFormer.push(o);
+        childNewIdx = -1; childEditIdx = -1;
+        hideEntryEditModal("child");
+        compactRemoveChild(i);
+      });
+      const back = document.createElement("button"); back.type = "button"; back.textContent = "Abbrechen";
+      back.addEventListener("click", function() { openChildModal(i); });
+      bar.appendChild(ok); bar.appendChild(back); body.appendChild(bar);
+      mountEntryEditModal("child", "", body);
+    }
+    function renderFormerChildren() {
+      const box = document.getElementById("configFormerChildren");
+      if (!box) return;
+      box.innerHTML = "";
+      if (!cfgFormer.length) return;
+      const t = document.createElement("div"); t.className = "cfg-sub"; t.textContent = "Ehemalige Kinder"; box.appendChild(t);
+      cfgFormer.forEach(function(f, idx) {
+        const d = document.createElement("details"); d.className = "cfg-item";
+        const sum = document.createElement("summary");
+        sum.innerHTML = '<span class="cfg-it-t"></span><span class="cfg-it-s"></span>';
+        sum.firstChild.textContent = f.name || "(ohne Namen)";
+        sum.lastChild.textContent = f.left ? "ausgeschieden " + formatFortbildungDatum(f.left) : "";
+        const body = document.createElement("div"); body.className = "cfg-item-body";
+        const meta = [];
+        if (f.birthdate) meta.push("geb. " + formatFortbildungDatum(f.birthdate));
+        if (f.parent) meta.push("Eltern: " + f.parent);
+        if (f.phone) meta.push(f.phone);
+        if (f.email) meta.push(f.email);
+        if (meta.length) { const m = document.createElement("div"); m.style.fontSize = "0.85em"; m.textContent = meta.join(" · "); body.appendChild(m); }
+        const note = document.createElement("div"); note.className = "cfg-former-note"; note.textContent = f.notes || ""; body.appendChild(note);
+        const re = document.createElement("button"); re.type = "button"; re.textContent = "Wieder aufnehmen";
+        re.addEventListener("click", function() {
+          const n = getChildCount();
+          if (n >= 5) { alert("Alle 5 Plätze sind belegt. Bitte zuerst ein Kind entfernen."); return; }
+          writeChildSlot(n, f);
+          cfgFormer.splice(idx, 1);
+          setChildCount(n + 1);
+        });
+        body.appendChild(re);
+        d.appendChild(sum); d.appendChild(body); box.appendChild(d);
+      });
     }
 
     // ------------------- Konfigurations-Modal -------------------
@@ -3105,6 +3266,8 @@
       const container = document.getElementById("configChildrenFields");
       container.innerHTML = "";
       const birthdates = config.childBirthdates || DEFAULT_CONFIG.childBirthdates;
+      cfgFormer = (config.formerChildren || []).map(function(f) { return Object.assign({}, f); });
+      cfgPendingWl = []; childNewIdx = -1; childEditIdx = -1;
       const store = document.createElement("div");
       store.id = "configChildStore"; store.style.display = "none";
       for (let i = 0; i < 5; i++) {
@@ -3161,6 +3324,7 @@
       for (let i = 0; i < 5; i++) { refreshChildAge(i); refreshChildActions(i); refreshChildCard(i); }
       document.getElementById("configChildCount").value = config.childCount || 5;
       updateChildRowsVisibility();
+      renderFormerChildren();
       document.getElementById("configStart").value = config.defaultStart;
       document.getElementById("configEnd").value = config.defaultEnd;
       document.getElementById("configPrice").value = config.mealPrice;
@@ -3238,6 +3402,7 @@
         childPhones: childPhones,
         childOrte: childOrte,
         childNotes: childNotes,
+        formerChildren: cfgFormer,
         childCount: childCount,
         defaultStart: document.getElementById("configStart").value || DEFAULT_CONFIG.defaultStart,
         defaultEnd: document.getElementById("configEnd").value || DEFAULT_CONFIG.defaultEnd,
@@ -3256,6 +3421,7 @@
         ]
       };
       saveConfig(config);
+      if (cfgPendingWl.length) { saveWaitlistEntries(getWaitlistEntries().filter(function(e) { return cfgPendingWl.indexOf(e.id) < 0; })); cfgPendingWl = []; }
       populateNameSelect(document.getElementById("nameSelect").value);
       applyLabels();
       renderUpcomingBirthdays();
@@ -6176,7 +6342,7 @@
       const keep = (entryModalOwner === owner && document.getElementById("entryEditModal").classList.contains("open")) ? box.scrollTop : 0;
       document.getElementById("entryEditTitle").textContent = title;
       document.getElementById("entryEditTitle").style.display = title ? "" : "none";
-      document.querySelector("#entryEditModal .modal-actions").style.display = (owner === "waitlist" || owner === "child") ? "none" : "";
+      document.querySelector("#entryEditModal .modal-actions").style.display = (owner === "waitlist" || owner === "child" || owner === "childpick") ? "none" : "";
       const c = document.getElementById("entryEditContent");
       if (owner !== "child" && typeof stashChildPanes === "function") stashChildPanes();
       c.innerHTML = "";
@@ -6202,7 +6368,11 @@
       fortbildungExpandedIds.clear();
       if (owner === "waitlist") renderWaitlistContent();
       if (owner === "fortbildung") renderFortbildungContent();
-      if (owner === "child" && childEditIdx >= 0) { refreshChildCard(childEditIdx); childEditIdx = -1; }
+      if (owner === "child" && childEditIdx >= 0) {
+        const ci = childEditIdx;
+        if (childNewIdx === ci && !readChildSlot(ci).name) compactRemoveChild(ci); else refreshChildCard(ci);
+        childNewIdx = -1; childEditIdx = -1;
+      }
     }
     let waitlistEditTab = "kind";
     function wlAgeText(iso) {
