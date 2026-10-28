@@ -2016,6 +2016,17 @@
           <p style="font-size:0.85em; color:#555; margin-top:0;">Die App legt automatisch einmal täglich (beim Öffnen) einen Sicherheitspunkt an und vor jedem Import. Es werden die letzten 14 aufbewahrt. Unterschriften sind darin nicht enthalten.</p>
           <div class="modal-row"><button type="button" onclick="createBackupPointManual()"><i data-ico="check"></i> Jetzt Sicherheitspunkt erstellen</button></div>
           <div id="backupPointList" class="mc-group" style="margin-top:10px;"></div>
+      <div class="cfg-sub">Erinnerung an die Dateisicherung</div>
+      <div class="modal-row" style="flex-wrap:wrap;">
+        <label for="backupReminderSel">Erinnern:</label>
+        <select id="backupReminderSel" onchange="setBackupReminderDays(this.value)">
+          <option value="0">nie</option>
+          <option value="7">jede Woche</option>
+          <option value="14">alle 2 Wochen</option>
+          <option value="30">jeden Monat</option>
+        </select>
+      </div>
+      <p id="backupReminderInfo" style="font-size:0.8em; color:#555; margin-top:2px;"></p>
       <div class="cfg-sub">Export und Import (Datei)</div>
       <p style="font-size:0.85em; color:#555;">
         Sichert alle Daten (Anwesenheit aller Kinder, Konfiguration, Unterschriften) als Datei –
@@ -2168,6 +2179,15 @@
     </div>
   </div>
 
+  <div id="backupRemindSheet" class="remark-sheet no-print" onclick="if(event.target===this) snoozeBackupReminder()">
+    <div class="remark-sheet-box">
+      <h4>Zeit für eine Sicherung</h4>
+      <p id="backupRemindText" style="font-size:0.92em; margin:6px 0 12px;"></p>
+      <button type="button" class="btn-primary" style="width:100%; margin-bottom:8px;" onclick="doBackupFromReminder()">Jetzt sichern</button>
+      <button type="button" style="width:100%;" onclick="snoozeBackupReminder()">Später erinnern</button>
+    </div>
+  </div>
+
   <!-- Sammel-Nachrichten (Guthaben-Liste) -->
   <div id="bulkMsgSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeBulkMessages()">
     <div class="remark-sheet-box" style="max-height:88vh; overflow:auto;">
@@ -2233,11 +2253,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.53.0";
+    const APP_VERSION = "1.54.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.54.0", date: "28.10.2026", items: ["Regelmäßige Erinnerung an die Dateisicherung (Standard: jede Woche, einstellbar unter Daten & Sicherung; „Später“ erinnert am nächsten Tag erneut)", "Sicherungsdatei heißt jetzt Sicherung-Regenbogen-App-Datum-Uhrzeit.json", "Anzeige, wann zuletzt eine Dateisicherung erstellt wurde"] },
       { v: "1.53.0", date: "28.10.2026", items: ["Übersicht: Umschaltung Einzeltag/Mehrtägig entfällt – es gibt nur noch eine Ansicht", "Neue Wochenleiste (Mo–Fr) mit Wochenpfeilen und „Heute“-Knopf: 1. Tipp = ein Tag, 2. Tipp = Zeitraum", "Kalender weiterhin über „Kalender ▾“ erreichbar (z. B. für Wochenenden oder andere Monate)"] },
       { v: "1.52.0", date: "28.10.2026", items: ["Übersicht neu aufgebaut: kompakter Kopf mit Logo und Datum (ohne Anrede), Geburtstage in einer Zeile, Auswahlzeile mit „Kalender ▾“ (Kalender klappt nach der Auswahl zu), Monat per Pfeile", "Einzeltag und Mehrtägig haben dasselbe Layout; Einzeltag zeigt je Kind die gleichen Spalten wie Mehrtägig", "Mehrtägig: Zeile „Alle Tage“ setzt Zeiten, Anwesenheit und Bemerkung für alle Arbeitstage", "Urlaub wird in der Auswahlzeile und unter dem Kopf angezeigt"] },
       { v: "1.51.0", date: "28.10.2026", items: ["Warteliste: Eintrag neu aufgebaut – Kopf mit Name und Sternen, Reiter Kind / Kontakt / Notiz, Alter wird berechnet, Buttons „Anrufen“ und „E-Mail“, feste Leiste „Kind übernehmen“ / „Löschen“"] },
@@ -3221,9 +3242,12 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       const now = new Date();
-      const stamp = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+      const p2 = function(n) { return String(n).padStart(2, "0"); };
+      const stamp = now.getFullYear() + "-" + p2(now.getMonth() + 1) + "-" + p2(now.getDate()) + "-" + p2(now.getHours()) + "-" + p2(now.getMinutes());
       a.href = url;
-      a.download = "Anwesenheitsliste_Backup_" + stamp + ".json";
+      a.download = "Sicherung-Regenbogen-App-" + stamp + ".json";
+      try { localStorage.setItem("lastFileExport", String(Date.now())); localStorage.removeItem("backupRemindSnooze"); } catch (e) {}
+      if (typeof refreshBackupReminderInfo === "function") refreshBackupReminderInfo();
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -7217,12 +7241,65 @@
       });
       document.getElementById("whatsNewSheet").classList.add("open");
     }
+    // ---- Erinnerung an die Dateisicherung ----
+    function getBackupReminderDays() {
+      let v = null;
+      try { v = localStorage.getItem("backupReminderDays"); } catch (e) {}
+      return v === null ? 7 : (parseInt(v, 10) || 0);
+    }
+    function setBackupReminderDays(v) {
+      try { localStorage.setItem("backupReminderDays", String(parseInt(v, 10) || 0)); localStorage.removeItem("backupRemindSnooze"); } catch (e) {}
+      refreshBackupReminderInfo();
+    }
+    function backupAgeDays() {
+      let t = 0;
+      try { t = parseInt(localStorage.getItem("lastFileExport"), 10) || 0; } catch (e) {}
+      return t ? Math.floor((Date.now() - t) / 86400000) : null;
+    }
+    function refreshBackupReminderInfo() {
+      const sel = document.getElementById("backupReminderSel");
+      if (sel) sel.value = String(getBackupReminderDays());
+      const el = document.getElementById("backupReminderInfo");
+      if (!el) return;
+      const age = backupAgeDays();
+      el.textContent = age === null ? "Noch keine Dateisicherung auf diesem Gerät erstellt." : "Letzte Dateisicherung: " + (age === 0 ? "heute" : age === 1 ? "gestern" : "vor " + age + " Tagen") + ".";
+    }
+    function backupReminderDue() {
+      const days = getBackupReminderDays();
+      if (!days) return false;
+      let snooze = 0;
+      try { snooze = parseInt(localStorage.getItem("backupRemindSnooze"), 10) || 0; } catch (e) {}
+      if (snooze > Date.now()) return false;
+      const age = backupAgeDays();
+      return age === null || age >= days;
+    }
+    function checkBackupReminder() {
+      if (!backupReminderDue()) return;
+      const pin = document.getElementById("pinLockOverlay");
+      const wn = document.getElementById("whatsNewSheet");
+      if ((pin && pin.style.display !== "none") || (wn && wn.classList.contains("open"))) { setTimeout(checkBackupReminder, 1500); return; }
+      const age = backupAgeDays();
+      document.getElementById("backupRemindText").textContent = age === null
+        ? "Auf diesem Gerät wurde noch keine Dateisicherung erstellt. Sichere deine Daten jetzt als Datei, damit nichts verloren geht."
+        : "Die letzte Dateisicherung ist " + (age === 1 ? "einen Tag" : age + " Tage") + " alt. Sichere deine Daten jetzt als Datei, damit nichts verloren geht.";
+      document.getElementById("backupRemindSheet").classList.add("open");
+    }
+    function snoozeBackupReminder() {
+      try { localStorage.setItem("backupRemindSnooze", String(Date.now() + 86400000)); } catch (e) {}
+      document.getElementById("backupRemindSheet").classList.remove("open");
+    }
+    function doBackupFromReminder() {
+      document.getElementById("backupRemindSheet").classList.remove("open");
+      exportAllData();
+    }
     function closeWhatsNew() {
       document.getElementById("whatsNewSheet").classList.remove("open");
     }
 
     window.addEventListener('DOMContentLoaded', function(){
       showWhatsNewIfUpdated();
+      refreshBackupReminderInfo();
+      setTimeout(checkBackupReminder, 2500);
       ['input','change'].forEach(function(ev) { document.getElementById('pageConfig').addEventListener(ev, function() { refreshCfgSummaries(); }); });
       setTimeout(function() { autoBackupIfDue(); renderBackupPointList(); }, 4000);
       lastUpdateCheck = Date.now();
