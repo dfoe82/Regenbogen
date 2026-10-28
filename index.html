@@ -487,6 +487,16 @@
     .ov-brand-txt small { color: var(--color-text-muted); font-size: 0.72em; }
     .ov-sel { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--color-primary-light); border: 1px solid #c7d2fe; border-radius: 14px; padding: 8px 12px; margin: 0 auto 8px auto; font-size: 0.92em; }
     .ov-sel button { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 2px; white-space: nowrap; }
+    .ov-weekbar { display: flex; justify-content: space-between; align-items: center; margin: 0 auto 6px auto; }
+    .ov-weekbar button { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 8px; }
+    .ov-wk-nav { display: inline-flex; align-items: center; }
+    .ov-week { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin: 0 auto 8px auto; }
+    .ov-week button { display: block; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 6px 0; font-weight: 700; color: var(--color-text); min-height: 0; box-shadow: none; position: relative; }
+    .ov-week button small { display: block; font-weight: 400; color: var(--color-text-muted); font-size: 0.75em; }
+    .ov-week button.on { background: var(--color-primary); border-color: var(--color-primary); color: #fff; }
+    .ov-week button.on small { color: #e0e7ff; }
+    .ov-week button.vac { border-color: #f59e0b; }
+    .ov-week button.off { opacity: 0.45; }
     .ov-kp { display: flex; align-items: center; gap: 8px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 16px; padding: 8px 12px; margin: 0 auto 10px auto; }
     .ov-kp label { color: var(--color-text-muted); font-size: 0.85em; }
     .ov-kp select { margin-left: auto; width: auto; min-width: 120px; }
@@ -1430,17 +1440,12 @@
       <ul id="upcomingBirthdaysList" class="upcoming-birthdays-list"></ul>
     </div>
 
-    <div class="modal-row" style="justify-content:center;">
-      <div class="segmented-control">
-        <button type="button" id="classicSubmodeSingleBtn" onclick="setClassicSubmode('single')">Einzeltag</button>
-        <button type="button" id="classicSubmodeMultiBtn" onclick="setClassicSubmode('multi')">Mehrtägig</button>
-      </div>
+    <div class="ov-weekbar narrow-content">
+      <span class="ov-wk-nav"><button type="button" onclick="stepOverviewWeek(-1)" aria-label="Vorherige Woche">◀</button><b id="ovWeekLabel"></b><button type="button" onclick="stepOverviewWeek(1)" aria-label="Nächste Woche">▶</button></span>
+      <span><button type="button" id="ovTodayBtn" onclick="ovGoToday()">Heute</button><button type="button" id="ovCalToggle" onclick="toggleOverviewCalendar()">Kalender ▾</button></span>
     </div>
-
-    <div class="ov-sel narrow-content">
-      <span id="ovSelText"></span>
-      <button type="button" id="ovCalToggle" onclick="toggleOverviewCalendar()">Kalender ▾</button>
-    </div>
+    <div id="ovWeekStrip" class="ov-week narrow-content"></div>
+    <div class="ov-sel narrow-content"><span id="ovSelText"></span></div>
     <p id="overviewVacationInfo" style="display:none; font-size:0.8em; color:#b45309; text-align:center; margin:2px 0 6px;"></p>
 
     <div id="overviewCalendarToggleRow" style="display:none;">
@@ -2228,11 +2233,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.52.0";
+    const APP_VERSION = "1.53.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.53.0", date: "28.10.2026", items: ["Übersicht: Umschaltung Einzeltag/Mehrtägig entfällt – es gibt nur noch eine Ansicht", "Neue Wochenleiste (Mo–Fr) mit Wochenpfeilen und „Heute“-Knopf: 1. Tipp = ein Tag, 2. Tipp = Zeitraum", "Kalender weiterhin über „Kalender ▾“ erreichbar (z. B. für Wochenenden oder andere Monate)"] },
       { v: "1.52.0", date: "28.10.2026", items: ["Übersicht neu aufgebaut: kompakter Kopf mit Logo und Datum (ohne Anrede), Geburtstage in einer Zeile, Auswahlzeile mit „Kalender ▾“ (Kalender klappt nach der Auswahl zu), Monat per Pfeile", "Einzeltag und Mehrtägig haben dasselbe Layout; Einzeltag zeigt je Kind die gleichen Spalten wie Mehrtägig", "Mehrtägig: Zeile „Alle Tage“ setzt Zeiten, Anwesenheit und Bemerkung für alle Arbeitstage", "Urlaub wird in der Auswahlzeile und unter dem Kopf angezeigt"] },
       { v: "1.51.0", date: "28.10.2026", items: ["Warteliste: Eintrag neu aufgebaut – Kopf mit Name und Sternen, Reiter Kind / Kontakt / Notiz, Alter wird berechnet, Buttons „Anrufen“ und „E-Mail“, feste Leiste „Kind übernehmen“ / „Löschen“"] },
       { v: "1.50.1", date: "28.10.2026", items: ["Warteliste: Button „In Kinder übernehmen“ heißt jetzt „Kind übernehmen“"] },
@@ -3511,6 +3517,8 @@
       }
       renderVacationInfo(year, month, daysInMonth);
       updateOverviewSelText();
+      ovWeekStart = ovMondayOf(new Date(year, month - 1, parseInt(document.getElementById("overviewFrom").value, 10) || 1));
+      renderOverviewWeek();
     }
 
     // Kleine Info unter dem Kalender: Urlaubszeiträume im angezeigten Monat
@@ -3531,24 +3539,34 @@
     }
 
     function onCalendarDayTap(day) {
+      onOverviewDayTap(parseInt(document.getElementById("overviewYear").value, 10), parseInt(document.getElementById("overviewMonth").value, 10), day);
+    }
+    // Gemeinsame Tipp-Logik (Wochenleiste und Kalender): 1. Tipp = ein Tag, 2. Tipp = Zeitraum
+    function onOverviewDayTap(y, m, day, forceSingle) {
+      const mSel = document.getElementById("overviewMonth"), ySel = document.getElementById("overviewYear");
       const fromSelect = document.getElementById("overviewFrom");
       const toSelect = document.getElementById("overviewTo");
-      const isClassicSingleDay = ((localStorage.getItem("overviewClassicSubmode") || "single") === "single");
-
-      if (isClassicSingleDay) {
-        // Im Einzeltag-Modus ist immer nur genau ein Tag wählbar
+      if (y < 2020 || y > 2030) return;
+      if (parseInt(mSel.value, 10) !== m || parseInt(ySel.value, 10) !== y) {
+        // anderer Monat: neue Auswahl dort beginnen
+        mSel.value = m; ySel.value = y;
+        const dim = new Date(y, m, 0).getDate();
+        fromSelect.innerHTML = ""; toSelect.innerHTML = "";
+        for (let d = 1; d <= dim; d++) {
+          fromSelect.appendChild(new Option(d, d));
+          toSelect.appendChild(new Option(d, d));
+        }
         calendarRangeAnchor = null;
+      }
+      if (calendarRangeAnchor === null || forceSingle) {
+        calendarRangeAnchor = forceSingle ? null : day;
         fromSelect.value = day;
         toSelect.value = day;
-        setOverviewCalendarOpen(false);
-      } else if (calendarRangeAnchor === null) {
-        calendarRangeAnchor = day;
-        fromSelect.value = day;
-        toSelect.value = day;
+        if (forceSingle) setOverviewCalendarOpen(false);
       } else {
         fromSelect.value = Math.min(calendarRangeAnchor, day);
         toSelect.value = Math.max(calendarRangeAnchor, day);
-        calendarRangeAnchor = null; // nächster Tipp beginnt eine neue Auswahl
+        calendarRangeAnchor = null;
         setOverviewCalendarOpen(false);
       }
       renderCalendarGrid();
@@ -3610,21 +3628,65 @@
       const from = parseInt(document.getElementById("overviewFrom").value, 10) || 1;
       const to = parseInt(document.getElementById("overviewTo").value, 10) || from;
       const wd = function(d) { return ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][new Date(year, month - 1, d).getDay()]; };
-      const submode = localStorage.getItem("overviewClassicSubmode") || "single";
       const now = new Date();
+      const isToday = now.getFullYear() === year && now.getMonth() + 1 === month && now.getDate() === from;
       let html;
-      if (submode === "single") {
-        const isToday = now.getFullYear() === year && now.getMonth() + 1 === month && now.getDate() === from;
+      if (from === to) {
         html = "<b>" + wd(from) + ", " + from + ". " + MONTH_NAMES_DE[month - 1] + (year !== now.getFullYear() ? " " + year : "") + "</b> · " + (isToday ? "heute" : "nachgetragen");
         if (getVacationForDay(year, month, from)) html += " · Urlaub";
-      } else if (calendarRangeAnchor !== null) {
-        html = "<b>" + wd(from) + " " + from + ".</b> – bitte Bis-Tag wählen";
-      } else if (from === to) {
-        html = "<b>" + wd(from) + " " + from + "." + month + ".</b> · 1 Tag";
+        if (calendarRangeAnchor !== null) html += " · <span style='color:var(--color-text-muted)'>weiteren Tag tippen = Zeitraum</span>";
       } else {
         html = "<b>" + wd(from) + " " + from + ". – " + wd(to) + " " + to + "." + month + ".</b> · " + (to - from + 1) + " Tage";
       }
       el.innerHTML = html;
+      document.getElementById("ovTodayBtn").style.display = (isToday && from === to) ? "none" : "";
+    }
+
+    // ---- Wochenleiste (Mo–Fr) ----
+    let ovWeekStart = null; // Date (Montag)
+    function ovMondayOf(d) {
+      const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+      return x;
+    }
+    function ovIsoWeek(d) {
+      const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+      const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+      return Math.ceil(((t - y0) / 86400000 + 1) / 7);
+    }
+    function renderOverviewWeek() {
+      const strip = document.getElementById("ovWeekStrip");
+      if (!strip || !ovWeekStart) return;
+      const selM = parseInt(document.getElementById("overviewMonth").value, 10);
+      const selY = parseInt(document.getElementById("overviewYear").value, 10);
+      const from = parseInt(document.getElementById("overviewFrom").value, 10) || 1;
+      const to = parseInt(document.getElementById("overviewTo").value, 10) || from;
+      document.getElementById("ovWeekLabel").textContent = "KW " + ovIsoWeek(ovWeekStart);
+      strip.innerHTML = "";
+      const names = ["Mo", "Di", "Mi", "Do", "Fr"];
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(ovWeekStart.getFullYear(), ovWeekStart.getMonth(), ovWeekStart.getDate() + i);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.innerHTML = "<small>" + names[i] + "</small>" + d.getDate();
+        const sameMonth = (d.getMonth() + 1 === selM && d.getFullYear() === selY);
+        if (sameMonth && d.getDate() >= from && d.getDate() <= to) btn.classList.add("on");
+        if (getVacationForDay(d.getFullYear(), d.getMonth() + 1, d.getDate())) btn.classList.add("vac");
+        if (!isWorkDay(d.getFullYear(), d.getMonth() + 1, d.getDate())) btn.classList.add("off");
+        btn.addEventListener("click", function() { onOverviewDayTap(d.getFullYear(), d.getMonth() + 1, d.getDate()); });
+        strip.appendChild(btn);
+      }
+    }
+    function stepOverviewWeek(dir) {
+      if (!ovWeekStart) return;
+      ovWeekStart = new Date(ovWeekStart.getFullYear(), ovWeekStart.getMonth(), ovWeekStart.getDate() + 7 * dir);
+      renderOverviewWeek();
+    }
+    function ovGoToday() {
+      const t = new Date();
+      calendarRangeAnchor = null;
+      onOverviewDayTap(t.getFullYear(), t.getMonth() + 1, t.getDate(), true);
     }
 
     function initOverviewPage() {
@@ -3639,8 +3701,7 @@
       populateBemerkungOptions("classicStatus");
       document.getElementById("classicStatus").value = "";
 
-      // Zuletzt genutzten Untermodus (Einzeltag/Mehrtägig) wiederherstellen
-      setClassicSubmode(localStorage.getItem("overviewClassicSubmode") || "single");
+      renderClassicContent();
     }
 
     // ============================================================
@@ -3648,25 +3709,6 @@
     // direkte Bearbeitung wie auf der Kinder-Seite.
     // Die letzte Wahl wird für den nächsten Aufruf gemerkt.
     // ============================================================
-    function setClassicSubmode(submode) {
-      localStorage.setItem("overviewClassicSubmode", submode);
-      document.getElementById("classicSubmodeSingleBtn").classList.toggle("active-mode", submode === "single");
-      document.getElementById("classicSubmodeMultiBtn").classList.toggle("active-mode", submode === "multi");
-      const isSingle = (submode === "single");
-      if (isSingle) {
-        // Einen zuvor gewählten Zeitraum auf einen einzelnen Tag reduzieren
-        const fromSelect = document.getElementById("overviewFrom");
-        const toSelect = document.getElementById("overviewTo");
-        if (fromSelect.value !== toSelect.value) {
-          toSelect.value = fromSelect.value;
-          calendarRangeAnchor = null;
-          renderCalendarGrid();
-        }
-      }
-      updateOverviewSelText();
-      renderClassicContent();
-    }
-
     // Baut den Inhalt des Klassisch-Modus passend zum aktuellen Untermodus neu auf.
     // Trägt die gewählte Kindertagespflegeperson-Bemerkung (z. B. "geschlossen")
     // sofort für ALLE aktiven Kinder am aktuell gewählten Tag (Von-Tag) ein –
@@ -3695,7 +3737,6 @@
     }
 
     function renderClassicContent() {
-      const submode = localStorage.getItem("overviewClassicSubmode") || "single";
       const container = document.getElementById("classicContent");
       container.innerHTML = "";
       const children = getActiveChildren();
@@ -3705,18 +3746,11 @@
       }
       const month = parseInt(document.getElementById("overviewMonth").value);
       const year = parseInt(document.getElementById("overviewYear").value);
-      if (submode === "single") {
-        const day = parseInt(document.getElementById("overviewFrom").value) || new Date().getDate();
-        children.forEach(function(name) {
-          container.appendChild(buildClassicMonthTable(name, month, year, day, day));
-        });
-      } else {
-        const fromDay = parseInt(document.getElementById("overviewFrom").value) || 1;
-        const toDay = parseInt(document.getElementById("overviewTo").value) || fromDay;
-        children.forEach(function(name) {
-          container.appendChild(buildClassicMonthTable(name, month, year, fromDay, toDay));
-        });
-      }
+      const fromDay = parseInt(document.getElementById("overviewFrom").value) || 1;
+      const toDay = parseInt(document.getElementById("overviewTo").value) || fromDay;
+      children.forEach(function(name) {
+        container.appendChild(buildClassicMonthTable(name, month, year, fromDay, toDay));
+      });
     }
 
     // --- Einzeltag: kompakte Zeile pro Kind für genau einen Tag ---
