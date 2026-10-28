@@ -2253,11 +2253,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.54.0";
+    const APP_VERSION = "1.55.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.55.0", date: "28.10.2026", items: ["Konfiguration → Kinder wie in der Warteliste: je Kind eine Kachel mit Name, Geburtstag und Alter; Tipp öffnet das Kind im Vordergrund mit den Reitern Kind, Kontakt und Notiz", "Neu je Kind: Name der Eltern, Telefonnummer, Ort und Notiz sowie Knöpfe Anrufen und E-Mail", "„Kind übernehmen“ aus der Warteliste übernimmt jetzt auch Eltern, Telefon, Ort und Notiz"] },
       { v: "1.54.0", date: "28.10.2026", items: ["Regelmäßige Erinnerung an die Dateisicherung (Standard: jede Woche, einstellbar unter Daten & Sicherung; „Später“ erinnert am nächsten Tag erneut)", "Sicherungsdatei heißt jetzt Sicherung-Regenbogen-App-Datum-Uhrzeit.json", "Anzeige, wann zuletzt eine Dateisicherung erstellt wurde"] },
       { v: "1.53.0", date: "28.10.2026", items: ["Übersicht: Umschaltung Einzeltag/Mehrtägig entfällt – es gibt nur noch eine Ansicht", "Neue Wochenleiste (Mo–Fr) mit Wochenpfeilen und „Heute“-Knopf: 1. Tipp = ein Tag, 2. Tipp = Zeitraum", "Kalender weiterhin über „Kalender ▾“ erreichbar (z. B. für Wochenenden oder andere Monate)"] },
       { v: "1.52.0", date: "28.10.2026", items: ["Übersicht neu aufgebaut: kompakter Kopf mit Logo und Datum (ohne Anrede), Geburtstage in einer Zeile, Auswahlzeile mit „Kalender ▾“ (Kalender klappt nach der Auswahl zu), Monat per Pfeile", "Einzeltag und Mehrtägig haben dasselbe Layout; Einzeltag zeigt je Kind die gleichen Spalten wie Mehrtägig", "Mehrtägig: Zeile „Alle Tage“ setzt Zeiten, Anwesenheit und Bemerkung für alle Arbeitstage", "Urlaub wird in der Auswahlzeile und unter dem Kopf angezeigt"] },
@@ -2771,6 +2772,10 @@
       legendTextKFE: "Kind fehlt entschuldigt"
     };
     const DEFAULT_CONFIG = {
+      childParents: ["", "", "", "", ""],
+      childPhones: ["", "", "", "", ""],
+      childOrte: ["", "", "", "", ""],
+      childNotes: ["", "", "", "", ""],
       children: ["Marlon", "Stella", "Jelle", "Nilas", "Emilia"],
       childBirthdates: ["", "", "", "", ""],
       childEmails: ["", "", "", "", ""],
@@ -3004,13 +3009,7 @@
     // Konfigurations-Modal ein bzw. aus.
     // Kurzinfo rechts in den eingeklappten Zeilen der Konfiguration aktuell halten
     function refreshCfgSummaries() {
-      for (let i = 0; i < 5; i++) {
-        const row = document.getElementById("configChildRow" + i);
-        if (!row) continue;
-        const name = document.getElementById("configChild" + i).value.trim();
-        const bd = document.getElementById("configChildBirthdate" + i).value;
-        row.querySelector(".cfg-it-s").textContent = (name || "–") + (bd ? " · " + formatDateDE(bd).slice(0, 10) : "");
-      }
+      for (let i = 0; i < 5; i++) { if (document.getElementById("configChild" + i)) refreshChildCard(i); }
       const st = document.getElementById("configStart"), en = document.getElementById("configEnd");
       const t = document.getElementById("cfgTimeSummary");
       if (t && st && en) t.textContent = (st.value || "–") + " – " + (en.value || "–");
@@ -3035,51 +3034,131 @@
       }
     }
 
+    // ------------------- Kinder (Konfiguration) im Stil der Warteliste -------------------
+    let childEditIdx = -1, childEditTab = "kind";
+    function refreshChildAge(i) {
+      const el = document.getElementById("configChildAge" + i);
+      const bd = document.getElementById("configChildBirthdate" + i);
+      if (!el || !bd) return;
+      const t = wlAgeText(bd.value);
+      el.textContent = t ? "Alter: " + t : "";
+    }
+    function refreshChildActions(i) {
+      const tel = (document.getElementById("configChildPhone" + i).value || "").replace(/[^\d+]/g, "");
+      const mail = (document.getElementById("configChildEmail" + i).value || "").trim();
+      const c = document.getElementById("configChildCall" + i), m = document.getElementById("configChildMailBtn" + i);
+      c.classList.toggle("off", !tel); if (tel) c.setAttribute("href", "tel:" + tel); else c.removeAttribute("href");
+      m.classList.toggle("off", !mail); if (mail) m.setAttribute("href", "mailto:" + mail); else m.removeAttribute("href");
+    }
+    function refreshChildCard(i) {
+      const card = document.getElementById("configChildRow" + i);
+      if (!card) return;
+      const name = (document.getElementById("configChild" + i).value || "").trim();
+      const bd = document.getElementById("configChildBirthdate" + i).value;
+      card.querySelector(".waitlist-summary-name").textContent = name || "Kind " + (i + 1) + " (nicht verwendet)";
+      const parts = [];
+      const g = formatFortbildungDatum(bd); if (g) parts.push("geb. " + g);
+      const a = wlAgeText(bd); if (a) parts.push(a);
+      const meta = card.querySelector(".waitlist-summary-meta");
+      meta.textContent = parts.join(" · "); meta.style.display = parts.length ? "" : "none";
+    }
+    function stashChildPanes() {
+      const store = document.getElementById("configChildStore");
+      if (!store) return;
+      ["kind", "kontakt", "notiz"].forEach(function(t) {
+        for (let i = 0; i < 5; i++) { const p = document.getElementById("cfgPane_" + i + "_" + t); if (p && p.parentNode !== store) store.appendChild(p); }
+      });
+    }
+    function openChildModal(i) {
+      if (i !== childEditIdx) childEditTab = "kind";
+      childEditIdx = i;
+      stashChildPanes();
+      const body = document.createElement("div");
+      body.className = "waitlist-entry-body wl-edit";
+      const hd = document.createElement("div"); hd.className = "wl-hd";
+      const hdL = document.createElement("div");
+      const h3 = document.createElement("h3");
+      h3.textContent = (document.getElementById("configChild" + i).value || "").trim() || "Kind " + (i + 1);
+      hdL.appendChild(h3);
+      const sm = document.createElement("small"); sm.textContent = "Kind " + (i + 1); hdL.appendChild(sm);
+      hd.appendChild(hdL);
+      const done = document.createElement("button");
+      done.type = "button"; done.className = "wl-done"; done.textContent = "Fertig";
+      done.addEventListener("click", function() { closeEntryEditModal(); });
+      hd.appendChild(done); body.appendChild(hd);
+      const tabs = document.createElement("div"); tabs.className = "cr-seg";
+      [["kind", "Kind"], ["kontakt", "Kontakt"], ["notiz", "Notiz"]].forEach(function(t) {
+        const tb = document.createElement("button");
+        tb.type = "button"; tb.textContent = t[1]; tb.className = childEditTab === t[0] ? "on" : "";
+        tb.addEventListener("click", function() { childEditTab = t[0]; openChildModal(i); });
+        tabs.appendChild(tb);
+      });
+      body.appendChild(tabs);
+      body.appendChild(document.getElementById("cfgPane_" + i + "_" + childEditTab));
+      mountEntryEditModal("child", "", body);
+      refreshChildAge(i); refreshChildActions(i);
+    }
+
     // ------------------- Konfigurations-Modal -------------------
     function openConfigModal() {
       const config = loadConfig();
       const container = document.getElementById("configChildrenFields");
       container.innerHTML = "";
       const birthdates = config.childBirthdates || DEFAULT_CONFIG.childBirthdates;
+      const store = document.createElement("div");
+      store.id = "configChildStore"; store.style.display = "none";
       for (let i = 0; i < 5; i++) {
-        const row = document.createElement("details");
-        row.className = "cfg-item";
-        row.id = "configChildRow" + i;
-        const sum = document.createElement("summary");
-        sum.innerHTML = '<span class="cfg-it-t"></span><span class="cfg-it-s"></span>';
-        sum.firstChild.textContent = "Kind " + (i + 1);
-        const body = document.createElement("div");
-        body.className = "cfg-item-body";
-        const r1 = document.createElement("div"); r1.className = "modal-row";
-        const label = document.createElement("label");
-        label.textContent = "Name:";
-        const input = document.createElement("input");
-        input.type = "text";
-        input.id = "configChild" + i;
-        input.value = config.children[i] || "";
-        input.placeholder = "(nicht verwendet)";
-        r1.appendChild(label); r1.appendChild(input);
-        const r2 = document.createElement("div"); r2.className = "modal-row";
-        const birthdateLabel = document.createElement("label");
-        birthdateLabel.textContent = "Geburtstag:";
-        const birthdateInput = document.createElement("div");
-        birthdateInput.id = "configChildBirthdate" + i;
-        makeDateParts(birthdateInput, birthdates[i] || "");
-        r2.appendChild(birthdateLabel); r2.appendChild(birthdateInput);
-        const r3 = document.createElement("div"); r3.className = "modal-row";
-        const emailLabel = document.createElement("label");
-        emailLabel.textContent = "E-Mail (Eltern):";
-        const emailInput = document.createElement("input");
-        emailInput.type = "email";
-        emailInput.id = "configChildEmail" + i;
-        emailInput.placeholder = "name@beispiel.de";
-        emailInput.setAttribute("autocapitalize", "off");
-        emailInput.value = (config.childEmails && config.childEmails[i]) || "";
-        r3.appendChild(emailLabel); r3.appendChild(emailInput);
-        body.appendChild(r1); body.appendChild(r2); body.appendChild(r3);
-        row.appendChild(sum); row.appendChild(body);
-        container.appendChild(row);
+        const card = document.createElement("div");
+        card.className = "waitlist-entry";
+        card.id = "configChildRow" + i;
+        const sum = document.createElement("div");
+        sum.className = "waitlist-summary";
+        sum.addEventListener("click", function() { openChildModal(i); });
+        sum.innerHTML = '<div class="waitlist-summary-text"><div class="waitlist-summary-name"></div><div class="waitlist-summary-meta"></div></div><span class="waitlist-expand-icon">›</span>';
+        card.appendChild(sum);
+        container.appendChild(card);
+
+        function fieldRow(labelText, el) {
+          const r = document.createElement("div"); r.className = "modal-row";
+          const l = document.createElement("label"); l.textContent = labelText + ":";
+          r.appendChild(l); r.appendChild(el); return r;
+        }
+        function textInput(id, val, type, ph) {
+          const inp = document.createElement("input");
+          inp.type = type || "text"; inp.id = id; inp.value = val || "";
+          if (ph) inp.placeholder = ph;
+          if (type === "email") inp.setAttribute("autocapitalize", "off");
+          return inp;
+        }
+        // Reiter "Kind"
+        const pKind = document.createElement("div"); pKind.id = "cfgPane_" + i + "_kind"; pKind.className = "waitlist-entry-fields";
+        pKind.appendChild(fieldRow("Name Kind", textInput("configChild" + i, config.children[i], "text", "(nicht verwendet)")));
+        const bd = document.createElement("div"); bd.id = "configChildBirthdate" + i;
+        makeDateParts(bd, birthdates[i] || "");
+        pKind.appendChild(fieldRow("Geburtsdatum Kind", bd));
+        const age = document.createElement("div"); age.className = "wl-age"; age.id = "configChildAge" + i;
+        pKind.appendChild(age);
+        bd.addEventListener("change", function() { refreshChildAge(i); });
+        // Reiter "Kontakt"
+        const pKont = document.createElement("div"); pKont.id = "cfgPane_" + i + "_kontakt"; pKont.className = "waitlist-entry-fields";
+        const act = document.createElement("div"); act.className = "wl-actions";
+        const call = document.createElement("a"); call.id = "configChildCall" + i; call.className = "wl-act off"; call.textContent = "☎ Anrufen";
+        const mail = document.createElement("a"); mail.id = "configChildMailBtn" + i; mail.className = "wl-act off"; mail.textContent = "✉ E-Mail";
+        act.appendChild(call); act.appendChild(mail); pKont.appendChild(act);
+        pKont.appendChild(fieldRow("Name (Eltern)", textInput("configChildParent" + i, (config.childParents || [])[i])));
+        pKont.appendChild(fieldRow("Telefonnummer", textInput("configChildPhone" + i, (config.childPhones || [])[i], "tel")));
+        pKont.appendChild(fieldRow("E-Mail", textInput("configChildEmail" + i, (config.childEmails || [])[i], "email", "name@beispiel.de")));
+        pKont.appendChild(fieldRow("Ort", textInput("configChildOrt" + i, (config.childOrte || [])[i])));
+        pKont.addEventListener("input", function() { refreshChildActions(i); });
+        // Reiter "Notiz"
+        const pNote = document.createElement("div"); pNote.id = "cfgPane_" + i + "_notiz"; pNote.className = "waitlist-entry-fields";
+        const ta = document.createElement("textarea"); ta.id = "configChildNotiz" + i; ta.className = "wl-notiz"; ta.placeholder = "Notizen …";
+        ta.value = (config.childNotes || [])[i] || "";
+        pNote.appendChild(ta);
+        store.appendChild(pKind); store.appendChild(pKont); store.appendChild(pNote);
       }
+      container.appendChild(store);
+      for (let i = 0; i < 5; i++) { refreshChildAge(i); refreshChildActions(i); refreshChildCard(i); }
       document.getElementById("configChildCount").value = config.childCount || 5;
       updateChildRowsVisibility();
       document.getElementById("configStart").value = config.defaultStart;
@@ -3134,9 +3213,14 @@
       const childCount = parseInt(document.getElementById("configChildCount").value) || 5;
       const children = [];
       const childBirthdates = [];
-      const childEmails = [];
+      const childEmails = [], childParents = [], childPhones = [], childOrte = [], childNotes = [];
       for (let i = 0; i < 5; i++) {
-        childEmails.push(i < childCount ? document.getElementById("configChildEmail" + i).value.trim() : "");
+        const used = i < childCount;
+        childEmails.push(used ? document.getElementById("configChildEmail" + i).value.trim() : "");
+        childParents.push(used ? document.getElementById("configChildParent" + i).value.trim() : "");
+        childPhones.push(used ? document.getElementById("configChildPhone" + i).value.trim() : "");
+        childOrte.push(used ? document.getElementById("configChildOrt" + i).value.trim() : "");
+        childNotes.push(used ? document.getElementById("configChildNotiz" + i).value : "");
         const val = document.getElementById("configChild" + i).value.trim();
         children.push(i < childCount ? val : "");
         const bdVal = document.getElementById("configChildBirthdate" + i).value;
@@ -3150,6 +3234,10 @@
         children: children,
         childBirthdates: childBirthdates,
         childEmails: childEmails,
+        childParents: childParents,
+        childPhones: childPhones,
+        childOrte: childOrte,
+        childNotes: childNotes,
         childCount: childCount,
         defaultStart: document.getElementById("configStart").value || DEFAULT_CONFIG.defaultStart,
         defaultEnd: document.getElementById("configEnd").value || DEFAULT_CONFIG.defaultEnd,
@@ -5915,6 +6003,8 @@
       children[slot] = name;
       births[slot] = entry.geburtsdatum || "";
       mails[slot] = (entry.email || "").trim();
+      const fill = function(key, val) { const a = (cfg[key] || []).slice(); while (a.length < 5) a.push(""); a[slot] = val || ""; cfg[key] = a; };
+      fill("childParents", (entry.name || "").trim()); fill("childPhones", (entry.telefon || "").trim()); fill("childOrte", (entry.ort || "").trim()); fill("childNotes", entry.notizen || "");
       cfg.children = children; cfg.childBirthdates = births; cfg.childEmails = mails; cfg.childCount = count;
       saveConfig(cfg);
       populateNameSelect(document.getElementById("nameSelect").value);
@@ -6086,8 +6176,9 @@
       const keep = (entryModalOwner === owner && document.getElementById("entryEditModal").classList.contains("open")) ? box.scrollTop : 0;
       document.getElementById("entryEditTitle").textContent = title;
       document.getElementById("entryEditTitle").style.display = title ? "" : "none";
-      document.querySelector("#entryEditModal .modal-actions").style.display = owner === "waitlist" ? "none" : "";
+      document.querySelector("#entryEditModal .modal-actions").style.display = (owner === "waitlist" || owner === "child") ? "none" : "";
       const c = document.getElementById("entryEditContent");
+      if (owner !== "child" && typeof stashChildPanes === "function") stashChildPanes();
       c.innerHTML = "";
       c.appendChild(bodyEl);
       entryModalOwner = owner;
@@ -6096,12 +6187,14 @@
     }
     function hideEntryEditModal(owner) {
       if (entryModalOwner !== owner) return;
+      if (typeof stashChildPanes === "function") stashChildPanes();
       document.getElementById("entryEditModal").classList.remove("open");
       document.getElementById("entryEditContent").innerHTML = "";
       entryModalOwner = null;
     }
     function closeEntryEditModal() {
       const owner = entryModalOwner;
+      if (typeof stashChildPanes === "function") stashChildPanes();
       document.getElementById("entryEditModal").classList.remove("open");
       document.getElementById("entryEditContent").innerHTML = "";
       entryModalOwner = null;
@@ -6109,6 +6202,7 @@
       fortbildungExpandedIds.clear();
       if (owner === "waitlist") renderWaitlistContent();
       if (owner === "fortbildung") renderFortbildungContent();
+      if (owner === "child" && childEditIdx >= 0) { refreshChildCard(childEditIdx); childEditIdx = -1; }
     }
     let waitlistEditTab = "kind";
     function wlAgeText(iso) {
