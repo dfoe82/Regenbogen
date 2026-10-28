@@ -1029,6 +1029,18 @@
     .dp .dp-lbl { color: var(--color-text-muted); font-size: 0.85em; margin-right: 4px; min-width: 2em; }
     .dp-time input { width: 3.2em !important; font-size: 1.05em; }
     .dp .dp-dot { color: var(--color-text-muted); font-weight: 700; }
+    .waitlist-entry-body.wl-edit { border-top: none; padding-top: 0; }
+    .wl-hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .wl-hd h3 { margin: 0; font-size: 1.25em; } .wl-hd small { color: var(--color-text-muted); font-size: 0.85em; }
+    .wl-done { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 2px; }
+    .wl-edit .waitlist-stars { margin: 2px 0 10px; }
+    .wl-actions { display: flex; gap: 8px; margin: 0 0 8px; }
+    .wl-act { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 42px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); color: var(--color-text); font-weight: 600; text-decoration: none; }
+    .wl-act.off { opacity: 0.4; pointer-events: none; }
+    .wl-age { font-size: 0.85em; color: var(--color-text-muted); margin: 0 2px 4px; }
+    .wl-notiz { width: 100%; box-sizing: border-box; min-height: 180px; font-family: var(--font-base); font-size: 1em; }
+    .wl-bar { display: flex; gap: 8px; margin-top: 14px; position: sticky; bottom: -22px; padding: 10px 0 2px; background: linear-gradient(rgba(255,255,255,0), var(--color-surface) 30%); }
+    .wl-bar .btn-primary { flex: 1; } .wl-bar .wl-del { flex: 0 0 auto; margin-top: 0; font-size: 0.9em; padding: 0 16px; }
     .fb-sum { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 18px; padding: 14px 16px; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
     .fb-sum small { display: block; color: var(--color-text-muted); font-size: 0.8em; }
     .fb-sum .n { font-size: 1.9em; font-weight: 800; color: var(--color-primary-dark); line-height: 1.1; }
@@ -2208,11 +2220,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.50.1";
+    const APP_VERSION = "1.51.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.51.0", date: "28.10.2026", items: ["Warteliste: Eintrag neu aufgebaut – Kopf mit Name und Sternen, Reiter Kind / Kontakt / Notiz, Alter wird berechnet, Buttons „Anrufen“ und „E-Mail“, feste Leiste „Kind übernehmen“ / „Löschen“"] },
       { v: "1.50.1", date: "28.10.2026", items: ["Warteliste: Button „In Kinder übernehmen“ heißt jetzt „Kind übernehmen“"] },
       { v: "1.50.0", date: "28.10.2026", items: ["Warteliste und Fortbildung: Einträge ansehen/bearbeiten öffnet im Vordergrund (Popup mit „Fertig“) statt aufgeklappt in der Liste", "Telefon- und E-Mail-Felder einheitlich gestaltet"] },
       { v: "1.49.1", date: "28.10.2026", items: ["Fortbildung: Uhrzeit (Von/Bis) in Blöcken Stunde / Minute ohne Doppelpunkt tippen – nach der Stunde springt es zu den Minuten (vorbelegt mit 00)"] },
@@ -5918,6 +5931,8 @@
       const box = document.getElementById("entryEditBox");
       const keep = (entryModalOwner === owner && document.getElementById("entryEditModal").classList.contains("open")) ? box.scrollTop : 0;
       document.getElementById("entryEditTitle").textContent = title;
+      document.getElementById("entryEditTitle").style.display = title ? "" : "none";
+      document.querySelector("#entryEditModal .modal-actions").style.display = owner === "waitlist" ? "none" : "";
       const c = document.getElementById("entryEditContent");
       c.innerHTML = "";
       c.appendChild(bodyEl);
@@ -5941,7 +5956,21 @@
       if (owner === "waitlist") renderWaitlistContent();
       if (owner === "fortbildung") renderFortbildungContent();
     }
+    let waitlistEditTab = "kind";
+    function wlAgeText(iso) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+      if (!m) return "";
+      const now = new Date();
+      let months = (now.getFullYear() - parseInt(m[1], 10)) * 12 + (now.getMonth() + 1 - parseInt(m[2], 10));
+      if (now.getDate() < parseInt(m[3], 10)) months--;
+      if (months < 0) return "";
+      const y = Math.floor(months / 12), mo = months % 12;
+      const ys = y > 0 ? y + (y === 1 ? " Jahr" : " Jahre") : "";
+      const ms = (mo > 0 || y === 0) ? mo + (mo === 1 ? " Monat" : " Monate") : "";
+      return (ys + " " + ms).trim();
+    }
     function toggleWaitlistExpand(id) {
+      waitlistEditTab = "kind";
       waitlistExpandedIds.clear();
       waitlistExpandedIds.add(id);
       renderWaitlistContent();
@@ -6027,7 +6056,50 @@
 
         if (isExpanded) {
           const body = document.createElement("div");
-          body.className = "waitlist-entry-body";
+          body.className = "waitlist-entry-body wl-edit";
+
+          // Kopf: Name, Familie, Fertig, Sterne
+          const hd = document.createElement("div");
+          hd.className = "wl-hd";
+          const hdL = document.createElement("div");
+          const h3 = document.createElement("h3");
+          h3.textContent = entry.kindName || entry.name || "Eintrag";
+          hdL.appendChild(h3);
+          if (entry.kindName && entry.name) {
+            const sm = document.createElement("small");
+            sm.textContent = entry.name;
+            hdL.appendChild(sm);
+          }
+          hd.appendChild(hdL);
+          const doneBtn = document.createElement("button");
+          doneBtn.type = "button"; doneBtn.className = "wl-done"; doneBtn.textContent = "Fertig";
+          doneBtn.addEventListener("click", function() { closeEntryEditModal(); });
+          hd.appendChild(doneBtn);
+          body.appendChild(hd);
+
+          const starsRow = document.createElement("div");
+          starsRow.className = "waitlist-stars";
+          for (let s = 1; s <= 5; s++) {
+            const starBtn = document.createElement("button");
+            starBtn.type = "button";
+            starBtn.className = "waitlist-star" + (s <= (entry.rating || 0) ? " filled" : "");
+            starBtn.textContent = s <= (entry.rating || 0) ? "★" : "☆";
+            starBtn.addEventListener("click", function() { setWaitlistRating(entry.id, s); });
+            starsRow.appendChild(starBtn);
+          }
+          body.appendChild(starsRow);
+
+          // Reiter
+          const tabs = document.createElement("div");
+          tabs.className = "cr-seg";
+          [["kind", "Kind"], ["kontakt", "Kontakt"], ["notiz", "Notiz"]].forEach(function(t) {
+            const tb = document.createElement("button");
+            tb.type = "button"; tb.textContent = t[1];
+            tb.className = waitlistEditTab === t[0] ? "on" : "";
+            tb.addEventListener("click", function() { waitlistEditTab = t[0]; renderWaitlistContent(); });
+            tabs.appendChild(tb);
+          });
+          body.appendChild(tabs);
 
           const fields = document.createElement("div");
           fields.className = "waitlist-entry-fields";
@@ -6049,69 +6121,70 @@
             return row;
           }
 
-          fields.appendChild(fieldRow("Name", "name"));
-          fields.appendChild(fieldRow("Name Kind", "kindName"));
-          fields.appendChild(fieldRow("Geburtsdatum Kind", "geburtsdatum", "dateparts"));
-          fields.appendChild(fieldRow("Ort", "ort"));
-          fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
-          fields.appendChild(fieldRow("E-Mail", "email", "email"));
-          fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
-
-          body.appendChild(fields);
-
-          // Sterne-Bewertung (zum Markieren favorisierter Einträge)
-          const starsRow = document.createElement("div");
-          starsRow.className = "waitlist-stars";
-          for (let s = 1; s <= 5; s++) {
-            const starBtn = document.createElement("button");
-            starBtn.type = "button";
-            starBtn.className = "waitlist-star" + (s <= (entry.rating || 0) ? " filled" : "");
-            starBtn.textContent = s <= (entry.rating || 0) ? "★" : "☆";
-            starBtn.addEventListener("click", function() { setWaitlistRating(entry.id, s); });
-            starsRow.appendChild(starBtn);
-          }
-          body.appendChild(starsRow);
-
-          const createdInfo = document.createElement("p");
-          createdInfo.className = "waitlist-created-info";
-          createdInfo.textContent = "Erstellt am: " + formatWaitlistCreatedAt(entry.createdAt);
-          body.appendChild(createdInfo);
-
-          const notesToggle = document.createElement("button");
-          notesToggle.type = "button";
-          notesToggle.className = "waitlist-notes-toggle";
-          setIconText(notesToggle, "notes", entry.notesOpen ? "Notizen schließen" : (entry.notizen ? "Notizen anzeigen/bearbeiten" : "Notiz hinzufügen"));
-          notesToggle.addEventListener("click", function() { toggleWaitlistNotes(entry.id); });
-          body.appendChild(notesToggle);
-
-          if (entry.notesOpen) {
-            const notesBox = document.createElement("div");
-            notesBox.className = "waitlist-notes-box";
+          if (waitlistEditTab === "kind") {
+            fields.appendChild(fieldRow("Name Kind", "kindName"));
+            fields.appendChild(fieldRow("Geburtsdatum Kind", "geburtsdatum", "dateparts"));
+            const ageTxt = wlAgeText(entry.geburtsdatum);
+            if (ageTxt) {
+              const ageRow = document.createElement("div");
+              ageRow.className = "wl-age";
+              ageRow.textContent = "Alter: " + ageTxt;
+              fields.appendChild(ageRow);
+            }
+            fields.appendChild(fieldRow("Startdatum", "startdatum", "date"));
+          } else if (waitlistEditTab === "kontakt") {
+            const act = document.createElement("div");
+            act.className = "wl-actions";
+            const tel = (entry.telefon || "").replace(/[^\d+]/g, "");
+            const mail = (entry.email || "").trim();
+            const call = document.createElement("a");
+            call.className = "wl-act" + (tel ? "" : " off");
+            call.textContent = "☎ Anrufen";
+            if (tel) call.href = "tel:" + tel;
+            const em = document.createElement("a");
+            em.className = "wl-act" + (mail ? "" : " off");
+            em.textContent = "✉ E-Mail";
+            if (mail) em.href = "mailto:" + mail;
+            act.appendChild(call); act.appendChild(em);
+            fields.appendChild(act);
+            fields.appendChild(fieldRow("Name (Eltern)", "name"));
+            fields.appendChild(fieldRow("Telefonnummer", "telefon", "tel"));
+            fields.appendChild(fieldRow("E-Mail", "email", "email"));
+            fields.appendChild(fieldRow("Ort", "ort"));
+          } else {
             const textarea = document.createElement("textarea");
+            textarea.className = "wl-notiz";
+            textarea.placeholder = "Notizen …";
             textarea.value = entry.notizen || "";
             textarea.addEventListener("change", function() {
               updateWaitlistField(entry.id, "notizen", textarea.value);
             });
-            notesBox.appendChild(textarea);
-            body.appendChild(notesBox);
+            fields.appendChild(textarea);
+            const createdInfo = document.createElement("p");
+            createdInfo.className = "waitlist-created-info";
+            createdInfo.textContent = "Erstellt am: " + formatWaitlistCreatedAt(entry.createdAt);
+            fields.appendChild(createdInfo);
           }
+          body.appendChild(fields);
 
+          // Feste Aktionsleiste unten
+          const bar = document.createElement("div");
+          bar.className = "wl-bar";
           const adoptBtn = document.createElement("button");
           adoptBtn.type = "button";
           adoptBtn.className = "btn-primary";
-          adoptBtn.style.cssText = "width:100%; margin-top:10px;";
           adoptBtn.textContent = "Kind übernehmen";
           adoptBtn.addEventListener("click", function() { adoptWaitlistChild(entry.id); });
-          body.appendChild(adoptBtn);
-
+          bar.appendChild(adoptBtn);
           const deleteBtn = document.createElement("button");
           deleteBtn.type = "button";
-          deleteBtn.className = "waitlist-delete btn-danger";
-          deleteBtn.textContent = "Eintrag löschen";
+          deleteBtn.className = "btn-danger wl-del";
+          deleteBtn.textContent = "Löschen";
           deleteBtn.addEventListener("click", function() { deleteWaitlistEntry(entry.id); });
-          body.appendChild(deleteBtn);
+          bar.appendChild(deleteBtn);
+          body.appendChild(bar);
 
-          mountEntryEditModal("waitlist", entry.name || entry.kindName || "Eintrag", body);
+          mountEntryEditModal("waitlist", "", body);
           wlMounted = true;
         }
 
