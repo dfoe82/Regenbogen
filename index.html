@@ -209,7 +209,7 @@
     .save-toast svg.ico { stroke-width: 2.4; }
     /* Einheitliche Formularfelder */
     select, input[type="text"], input[type="password"], input[type="number"], input[type="date"],
-    input[type="time"], textarea {
+    input[type="tel"], input[type="email"], input[type="time"], textarea {
       font-family: var(--font-base);
       border: 1px solid var(--color-border);
       border-radius: var(--radius-sm);
@@ -421,7 +421,7 @@
       word-wrap: break-word;
       word-break: break-word;
     }
-    select, input[type="time"], input[type="text"], input[type="date"], input[type="number"] {
+    select, input[type="time"], input[type="text"], input[type="tel"], input[type="email"], input[type="date"], input[type="number"] {
       width: 90%;
       padding: 4px;
       font-size: 1em;
@@ -942,7 +942,7 @@
     }
     .waitlist-expand-icon {
       flex-shrink: 0;
-      font-size: 0.8em;
+      font-size: 1.4em;
       color: var(--color-text-muted);
       transition: transform 0.15s ease;
     }
@@ -1085,7 +1085,7 @@
     }
     .fortbildung-expand-icon {
       flex-shrink: 0;
-      font-size: 0.8em;
+      font-size: 1.4em;
       color: var(--color-text-muted);
       transition: transform 0.15s ease;
     }
@@ -2123,6 +2123,17 @@
   </div>
 
   <!-- Versteckter Container für den Druck (Einzel-Kind, Monatsabschluss, sequenziell) -->
+  <!-- Eintrag bearbeiten (Warteliste/Fortbildung) im Vordergrund -->
+  <div id="entryEditModal" class="modal-overlay no-print" onclick="if(event.target===this) closeEntryEditModal()">
+    <div class="modal-box" id="entryEditBox">
+      <h2 id="entryEditTitle"></h2>
+      <div id="entryEditContent"></div>
+      <div class="modal-actions" style="margin-top:12px;">
+        <button type="button" class="btn-primary" onclick="closeEntryEditModal()">Fertig</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Hinweis einmalig nach einem Update -->
   <div id="whatsNewSheet" class="remark-sheet no-print" onclick="if(event.target===this) closeWhatsNew()">
     <div class="remark-sheet-box">
@@ -2197,11 +2208,13 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.49.1";
+    const APP_VERSION = "1.50.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.50.1", date: "28.10.2026", items: ["Warteliste: Button „In Kinder übernehmen“ heißt jetzt „Kind übernehmen“"] },
+      { v: "1.50.0", date: "28.10.2026", items: ["Warteliste und Fortbildung: Einträge ansehen/bearbeiten öffnet im Vordergrund (Popup mit „Fertig“) statt aufgeklappt in der Liste", "Telefon- und E-Mail-Felder einheitlich gestaltet"] },
       { v: "1.49.1", date: "28.10.2026", items: ["Fortbildung: Uhrzeit (Von/Bis) in Blöcken Stunde / Minute ohne Doppelpunkt tippen – nach der Stunde springt es zu den Minuten (vorbelegt mit 00)"] },
       { v: "1.49.0", date: "28.10.2026", items: ["Geburtsdatum einfacher eingeben: drei Felder Tag / Monat / Jahr ohne Punkte, springt automatisch weiter (Warteliste und Kinder-Konfiguration)", "Warteliste: Button „In Kinder übernehmen“ legt das Kind (Name, Geburtsdatum, E-Mail) in der Konfiguration unter Kinder an"] },
       { v: "1.48.0", date: "27.10.2026", items: ["Warteliste: neues Feld „Geburtsdatum Kind“ (beim Anlegen und im Eintrag, auch in der Kurzzeile sichtbar)"] },
@@ -5899,12 +5912,38 @@
     // eingeklappt (kompakt) startet.
     const waitlistExpandedIds = new Set();
 
+    // Bearbeiten im Vordergrund (Popup) statt aufgeklappt in der Liste
+    let entryModalOwner = null;
+    function mountEntryEditModal(owner, title, bodyEl) {
+      const box = document.getElementById("entryEditBox");
+      const keep = (entryModalOwner === owner && document.getElementById("entryEditModal").classList.contains("open")) ? box.scrollTop : 0;
+      document.getElementById("entryEditTitle").textContent = title;
+      const c = document.getElementById("entryEditContent");
+      c.innerHTML = "";
+      c.appendChild(bodyEl);
+      entryModalOwner = owner;
+      document.getElementById("entryEditModal").classList.add("open");
+      box.scrollTop = keep;
+    }
+    function hideEntryEditModal(owner) {
+      if (entryModalOwner !== owner) return;
+      document.getElementById("entryEditModal").classList.remove("open");
+      document.getElementById("entryEditContent").innerHTML = "";
+      entryModalOwner = null;
+    }
+    function closeEntryEditModal() {
+      const owner = entryModalOwner;
+      document.getElementById("entryEditModal").classList.remove("open");
+      document.getElementById("entryEditContent").innerHTML = "";
+      entryModalOwner = null;
+      waitlistExpandedIds.clear();
+      fortbildungExpandedIds.clear();
+      if (owner === "waitlist") renderWaitlistContent();
+      if (owner === "fortbildung") renderFortbildungContent();
+    }
     function toggleWaitlistExpand(id) {
-      if (waitlistExpandedIds.has(id)) {
-        waitlistExpandedIds.delete(id);
-      } else {
-        waitlistExpandedIds.add(id);
-      }
+      waitlistExpandedIds.clear();
+      waitlistExpandedIds.add(id);
       renderWaitlistContent();
     }
 
@@ -5940,11 +5979,12 @@
         return aTime - bTime;
       });
 
+      let wlMounted = false;
       sortedEntries.forEach(function(entry, index) {
         const isExpanded = waitlistExpandedIds.has(entry.id);
 
         const block = document.createElement("div");
-        block.className = "waitlist-entry" + (isExpanded ? " expanded" : "");
+        block.className = "waitlist-entry";
 
         // Einzeilige Zusammenfassung – zum Auf-/Zuklappen anklickbar.
         const summary = document.createElement("div");
@@ -5980,7 +6020,7 @@
 
         const expandIcon = document.createElement("span");
         expandIcon.className = "waitlist-expand-icon";
-        expandIcon.textContent = "▼";
+        expandIcon.textContent = "›";
         summary.appendChild(expandIcon);
 
         block.appendChild(summary);
@@ -6060,7 +6100,7 @@
           adoptBtn.type = "button";
           adoptBtn.className = "btn-primary";
           adoptBtn.style.cssText = "width:100%; margin-top:10px;";
-          adoptBtn.textContent = "In Kinder übernehmen";
+          adoptBtn.textContent = "Kind übernehmen";
           adoptBtn.addEventListener("click", function() { adoptWaitlistChild(entry.id); });
           body.appendChild(adoptBtn);
 
@@ -6071,11 +6111,13 @@
           deleteBtn.addEventListener("click", function() { deleteWaitlistEntry(entry.id); });
           body.appendChild(deleteBtn);
 
-          block.appendChild(body);
+          mountEntryEditModal("waitlist", entry.name || entry.kindName || "Eintrag", body);
+          wlMounted = true;
         }
 
         container.appendChild(block);
       });
+      if (!wlMounted) hideEntryEditModal("waitlist");
     }
 
     // ============================================================
@@ -6268,11 +6310,8 @@
     const fortbildungExpandedIds = new Set();
 
     function toggleFortbildungExpand(id) {
-      if (fortbildungExpandedIds.has(id)) {
-        fortbildungExpandedIds.delete(id);
-      } else {
-        fortbildungExpandedIds.add(id);
-      }
+      fortbildungExpandedIds.clear();
+      fortbildungExpandedIds.add(id);
       renderFortbildungContent();
     }
 
@@ -6322,6 +6361,7 @@
       }
 
       let lastYear = null;
+      let fbMounted = false;
       entries.forEach(function(entry) {
         const yr = fbFirstDate(entry).slice(0, 4) || "ohne";
         if (yr !== lastYear) {
@@ -6336,7 +6376,7 @@
         const isExpanded = fortbildungExpandedIds.has(entry.id);
 
         const block = document.createElement("div");
-        block.className = "fortbildung-entry" + (isExpanded ? " expanded" : "");
+        block.className = "fortbildung-entry";
 
         // Einzeilige Zusammenfassung – zum Auf-/Zuklappen anklickbar.
         const summary = document.createElement("div");
@@ -6377,7 +6417,7 @@
 
         const expandIcon = document.createElement("span");
         expandIcon.className = "fortbildung-expand-icon";
-        expandIcon.textContent = "▼";
+        expandIcon.textContent = "›";
         summary.appendChild(expandIcon);
 
         block.appendChild(summary);
@@ -6459,11 +6499,13 @@
           deleteBtn.addEventListener("click", function() { deleteFortbildungEntry(entry.id); });
           body.appendChild(deleteBtn);
 
-          block.appendChild(body);
+          mountEntryEditModal("fortbildung", entry.fortbildung || "Fortbildung", body);
+          fbMounted = true;
         }
 
         container.appendChild(block);
       });
+      if (!fbMounted) hideEntryEditModal("fortbildung");
     }
 
     // Seite immer ganz oben anzeigen – sofort und nach dem Rendern (iOS stellt sonst teils die alte Position wieder her)
@@ -6493,6 +6535,7 @@
       else if (hiddenAt && Date.now() - hiddenAt > 5000) { scrollTopAll(true); }
     });
     function showPage(pageId) {
+      if (entryModalOwner) { document.getElementById("entryEditModal").classList.remove("open"); document.getElementById("entryEditContent").innerHTML = ""; entryModalOwner = null; }
       document.querySelectorAll(".page-section").forEach(el => el.classList.remove("active"));
       document.getElementById(pageId).classList.add("active");
       // Jede Seite immer von ganz oben anzeigen
