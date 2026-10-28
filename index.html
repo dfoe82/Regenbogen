@@ -855,6 +855,11 @@
       background: var(--color-primary);
       color: #fff;
     }
+    .cal-mark { display: block; font-size: 0.62em; font-weight: 700; line-height: 1.1; margin-top: 2px; }
+    .cal-mark.ok { color: #16a34a; } .cal-mark.part { color: #d97706; } .cal-mark.none { color: #dc2626; }
+    .in-range .cal-mark, .ov-week button.on .cal-mark { color: #fff; }
+    .ov-week button.on .cal-mark.part, .calendar-day.in-range .cal-mark.part { color: #ffd58a; }
+    .calendar-day .cal-mark { position: static; }
     .calendar-day.has-data::after {
       content: "";
       position: absolute;
@@ -1492,7 +1497,7 @@
       <div id="dateRangeFields">
         <div id="overviewCalendarGrid" class="calendar-grid calendar-grid-wrap"></div>
         <p style="font-size:0.75em; color:#555; text-align:center; margin-top:4px;">
-          <span style="color:#c00;">●</span> = für mindestens ein Kind bereits Einträge vorhanden.
+          <span style="color:#16a34a;font-weight:700;">✓</span> alle Kinder eingetragen · <span style="color:#d97706;font-weight:700;">2/3</span> teilweise · <span style="color:#dc2626;font-weight:700;">0/3</span> nichts eingetragen.
           <br><a href="#" onclick="resetCalendarSelection(); return false;">Auswahl zurücksetzen</a>
         </p>
       </div>
@@ -2260,11 +2265,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.56.0";
+    const APP_VERSION = "1.57.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.57.0", date: "28.10.2026", items: ["Kalender und Wochenleiste markieren die Vollständigkeit der Anwesenheit: ✓ = alle Kinder eingetragen, z. B. 2/3 = teilweise, 0/3 = nichts eingetragen (nur Arbeitstage bis heute, ohne Urlaub)"] },
       { v: "1.56.0", date: "28.10.2026", items: ["Konfiguration → Kinder: Auswahl „Anzahl der Kinder“ entfällt; stattdessen Knöpfe „＋ Neu“ und „Aus Warteliste“ (höchstens 5 Kinder)", "Kind entfernen (im geöffneten Kind) mit Abfrage; der Text wird mit Datum in die Notizen übernommen, das Kind steht danach unter „Ehemalige Kinder“ und kann wieder aufgenommen werden", "Aus der Warteliste übernommene Einträge werden erst beim Speichern der Konfiguration aus der Warteliste entfernt"] },
       { v: "1.55.0", date: "28.10.2026", items: ["Konfiguration → Kinder wie in der Warteliste: je Kind eine Kachel mit Name, Geburtstag und Alter; Tipp öffnet das Kind im Vordergrund mit den Reitern Kind, Kontakt und Notiz", "Neu je Kind: Name der Eltern, Telefonnummer, Ort und Notiz sowie Knöpfe Anrufen und E-Mail", "„Kind übernehmen“ aus der Warteliste übernimmt jetzt auch Eltern, Telefon, Ort und Notiz"] },
       { v: "1.54.0", date: "28.10.2026", items: ["Regelmäßige Erinnerung an die Dateisicherung (Standard: jede Woche, einstellbar unter Daten & Sicherung; „Später“ erinnert am nächsten Tag erneut)", "Sicherungsdatei heißt jetzt Sicherung-Regenbogen-App-Datum-Uhrzeit.json", "Anzeige, wann zuletzt eine Dateisicherung erstellt wurde"] },
@@ -3758,7 +3764,39 @@
       return false;
     }
 
+    // Vollständigkeit der Anwesenheit je Arbeitstag: bei wie vielen aktiven Kindern sind Zeiten oder eine Bemerkung eingetragen?
+    // Liefert null für Wochenende, Urlaub, Tage in der Zukunft oder wenn es keine Kinder gibt.
+    const ovMonthCache = {};
+    function ovMonthStates(month, year) {
+      const key = year + "-" + month;
+      if (!ovMonthCache[key]) {
+        ovMonthCache[key] = getActiveChildren().map(function(n) { return loadChildState(n, month, year); });
+      }
+      return ovMonthCache[key];
+    }
+    function dayCompletion(day, month, year) {
+      const today = new Date();
+      if (new Date(year, month - 1, day) > new Date(today.getFullYear(), today.getMonth(), today.getDate())) return null;
+      if (!isWorkDay(year, month, day) || getVacationForDay(year, month, day)) return null;
+      const states = ovMonthStates(month, year);
+      if (!states.length) return null;
+      let done = 0;
+      states.forEach(function(st) {
+        const row = st.table && st.table[day - 1];
+        if (row && (row.start || row.end || row.remark)) done++;
+      });
+      return { done: done, total: states.length };
+    }
+    function makeCompletionMark(c) {
+      const el = document.createElement("span");
+      const k = c.done === c.total ? "ok" : (c.done > 0 ? "part" : "none");
+      el.className = "cal-mark " + k;
+      el.textContent = k === "ok" ? "✓" : c.done + "/" + c.total;
+      return el;
+    }
+
     function renderCalendarGrid() {
+      Object.keys(ovMonthCache).forEach(function(k) { delete ovMonthCache[k]; });
       const grid = document.getElementById("overviewCalendarGrid");
       if (!grid) return;
       const month = parseInt(document.getElementById("overviewMonth").value);
@@ -3789,7 +3827,8 @@
         const vac = getVacationForDay(year, month, d);
         if (vac) { cell.classList.add("vacation"); cell.title = "Urlaub" + (vac.label ? ": " + vac.label : ""); }
         if (d >= fromDay && d <= toDay) cell.classList.add("in-range");
-        if (dayHasAnyData(d - 1, month, year)) cell.classList.add("has-data");
+        const comp = dayCompletion(d, month, year);
+        if (comp) cell.appendChild(makeCompletionMark(comp));
         cell.addEventListener("click", function() { onCalendarDayTap(d); });
         grid.appendChild(cell);
       }
@@ -3948,6 +3987,8 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.innerHTML = "<small>" + names[i] + "</small>" + d.getDate();
+        const wc = dayCompletion(d.getDate(), d.getMonth() + 1, d.getFullYear());
+        if (wc) btn.appendChild(makeCompletionMark(wc));
         const sameMonth = (d.getMonth() + 1 === selM && d.getFullYear() === selY);
         if (sameMonth && d.getDate() >= from && d.getDate() <= to) btn.classList.add("on");
         if (getVacationForDay(d.getFullYear(), d.getMonth() + 1, d.getDate())) btn.classList.add("vac");
@@ -4214,6 +4255,7 @@
           hoursTd.textContent = calculateHours(startInput.value, endInput.value);
           aCheckbox.checked = !!(startInput.value && endInput.value);
           showSaveToast();
+          if (typeof renderCalendarGrid === "function") renderCalendarGrid();
           if (document.getElementById("nameSelect").value === childName &&
               parseInt(document.getElementById("monthSelect").value) === month &&
               parseInt(document.getElementById("yearSelect").value) === year) {
