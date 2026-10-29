@@ -490,6 +490,14 @@
     .cfg-add-row { display: flex; gap: 8px; margin: 4px 0 10px; }
     .cfg-add-row button { flex: 1; }
     .cfg-former-note { white-space: pre-wrap; font-size: 0.88em; margin: 6px 0 10px; }
+    .sf-card { border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); padding: 6px 12px 10px; margin-bottom: 10px; }
+    .sf-sum { font-weight: 700; padding: 8px 0 6px; border-bottom: 1px solid var(--color-border); margin-bottom: 4px; }
+    .sf-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+    .sf-row:last-of-type { border-bottom: 0; }
+    .sf-dot { flex: none; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.75em; font-weight: 800; margin-top: 1px; }
+    .sf-dot.ok { background: #16a34a; } .sf-dot.warn { background: #d97706; } .sf-dot.err { background: #dc2626; } .sf-dot.na { background: #9ca3af; }
+    .sf-txt { flex: 1; min-width: 0; } .sf-txt b { display: block; } .sf-txt small { color: var(--color-text-muted); display: block; line-height: 1.35; }
+    .sf-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; } .sf-actions button { flex: 1 1 140px; }
     .ov-weekbar { display: flex; justify-content: space-between; align-items: center; margin: 0 auto 6px auto; }
     .ov-weekbar button { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 8px; }
     .ov-wk-nav { display: inline-flex; align-items: center; }
@@ -2028,6 +2036,8 @@
           <p style="font-size:0.85em; color:#555; margin-top:0;">Die App legt automatisch einmal täglich (beim Öffnen) einen Sicherheitspunkt an und vor jedem Import. Es werden die letzten 14 aufbewahrt. Unterschriften sind darin nicht enthalten.</p>
           <div class="modal-row"><button type="button" onclick="createBackupPointManual()"><i data-ico="check"></i> Jetzt Sicherheitspunkt erstellen</button></div>
           <div id="backupPointList" class="mc-group" style="margin-top:10px;"></div>
+      <div class="cfg-sub">Sind meine Daten sicher?</div>
+      <div id="safetyCard" class="sf-card"><div class="sf-sum" id="safetySummary">Prüfe …</div><div id="safetyRows"></div></div>
       <div class="cfg-sub">Erinnerung an die Dateisicherung</div>
       <div class="modal-row" style="flex-wrap:wrap;">
         <label for="backupReminderSel">Erinnern:</label>
@@ -2265,11 +2275,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.57.1";
+    const APP_VERSION = "1.58.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.58.0", date: "29.10.2026", items: ["Konfiguration → Daten & Sicherung: neue Kachel „Sind meine Daten sicher?“ mit Ampel für Home-Bildschirm, dauerhaften Speicher, Cloud-Sync (zuletzt hochgeladen) und Dateisicherung, mit Hinweisen und Knopf „Jetzt Datei sichern“"] },
       { v: "1.57.1", date: "28.10.2026", items: ["Übersicht: Bei aufgeklapptem Kalender werden KW-Pfeile und Wochenleiste ausgeblendet (waren doppelt)"] },
       { v: "1.57.0", date: "28.10.2026", items: ["Kalender und Wochenleiste markieren die Vollständigkeit der Anwesenheit: ✓ = alle Kinder eingetragen, z. B. 2/3 = teilweise, 0/3 = nichts eingetragen (nur Arbeitstage bis heute, ohne Urlaub)"] },
       { v: "1.56.0", date: "28.10.2026", items: ["Konfiguration → Kinder: Auswahl „Anzahl der Kinder“ entfällt; stattdessen Knöpfe „＋ Neu“ und „Aus Warteliste“ (höchstens 5 Kinder)", "Kind entfernen (im geöffneten Kind) mit Abfrage; der Text wird mit Datum in die Notizen übernommen, das Kind steht danach unter „Ehemalige Kinder“ und kann wieder aufgenommen werden", "Aus der Warteliste übernommene Einträge werden erst beim Speichern der Konfiguration aus der Warteliste entfernt"] },
@@ -2685,7 +2696,8 @@
       autoUploadTimer = setTimeout(function() {
         const data = collectAllDataForExport();
         db.collection("attendanceApp").doc("sharedData").set(data)
-          .catch(function(e) { console.error("Automatisches Hochladen fehlgeschlagen:", e); });
+          .then(function() { try { localStorage.setItem("lastCloudUpload", String(Date.now())); localStorage.removeItem("cloudUploadFailed"); } catch (e) {} renderSafetyCard(); })
+          .catch(function(e) { console.error("Automatisches Hochladen fehlgeschlagen:", e); try { localStorage.setItem("cloudUploadFailed", "1"); } catch (e2) {} renderSafetyCard(); });
       }, 2000);
     }
 
@@ -3366,6 +3378,7 @@
       if (cur && cur.id !== "pageConfig") configReturnPage = cur.id;
       refreshCfgSummaries();
       renderBackupPointList();
+      renderSafetyCard();
       showPage("pageConfig");
     }
 
@@ -3509,6 +3522,7 @@
       a.download = "Sicherung-Regenbogen-App-" + stamp + ".json";
       try { localStorage.setItem("lastFileExport", String(Date.now())); localStorage.removeItem("backupRemindSnooze"); } catch (e) {}
       if (typeof refreshBackupReminderInfo === "function") refreshBackupReminderInfo();
+      if (typeof renderSafetyCard === "function") renderSafetyCard();
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -7576,6 +7590,74 @@
       if (!el) return;
       const age = backupAgeDays();
       el.textContent = age === null ? "Noch keine Dateisicherung auf diesem Gerät erstellt." : "Letzte Dateisicherung: " + (age === 0 ? "heute" : age === 1 ? "gestern" : "vor " + age + " Tagen") + ".";
+    }
+    // ---- Statuskachel "Sind meine Daten sicher?" ----
+    function ageText(ts) {
+      const d = Math.floor((Date.now() - ts) / 86400000);
+      if (d <= 0) {
+        const m = Math.floor((Date.now() - ts) / 60000);
+        return m < 2 ? "gerade eben" : (m < 60 ? "vor " + m + " Minuten" : "heute " + new Date(ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }));
+      }
+      return d === 1 ? "gestern" : "vor " + d + " Tagen";
+    }
+    function renderSafetyCard() {
+      const rowsEl = document.getElementById("safetyRows"), sumEl = document.getElementById("safetySummary");
+      if (!rowsEl || !sumEl) return;
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const standalone = (window.navigator.standalone === true) || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+      const rows = [];
+      if (standalone) rows.push({ st: "ok", t: "Home-Bildschirm", s: "Die App ist als Symbol installiert." });
+      else if (isIOS) rows.push({ st: "warn", t: "Nicht auf dem Home-Bildschirm", s: "Safari kann die Daten löschen, wenn die App längere Zeit nicht geöffnet wird. Abhilfe: In Safari auf „Teilen“ tippen, dann „Zum Home-Bildschirm“, und die App künftig über das Symbol öffnen." });
+      else rows.push({ st: "na", t: "Home-Bildschirm", s: "Auf diesem Gerät nicht erforderlich." });
+      const persistRow = { st: "na", t: "Dauerhafter Speicher", s: "Wird geprüft …", persist: true };
+      rows.push(persistRow);
+      const db = getFirestoreDb();
+      const user = (db && typeof firebase !== "undefined" && firebase.auth) ? firebase.auth().currentUser : null;
+      let lastUp = 0; try { lastUp = parseInt(localStorage.getItem("lastCloudUpload"), 10) || 0; } catch (e) {}
+      let failed = false; try { failed = localStorage.getItem("cloudUploadFailed") === "1"; } catch (e) {}
+      if (!db) rows.push({ st: "warn", t: "Cloud-Sync nicht eingerichtet", s: "Ohne Cloud liegen die Daten nur auf diesem Gerät. Einrichtung unter „Cloud-Synchronisierung“." });
+      else if (!user) rows.push({ st: "warn", t: "Cloud: nicht angemeldet", s: "Unter „Cloud-Synchronisierung“ anmelden, damit Änderungen gesichert werden." });
+      else if (failed) rows.push({ st: "err", t: "Cloud: Hochladen fehlgeschlagen", s: "Der letzte Upload hat nicht geklappt (Netz?). Die App versucht es bei der nächsten Änderung erneut." });
+      else rows.push({ st: "ok", t: "Cloud-Sync", s: lastUp ? "Zuletzt hochgeladen: " + ageText(lastUp) + "." : "Angemeldet. Noch kein Upload seit dem Start dieser Version." });
+      const age = backupAgeDays();
+      if (age === null) rows.push({ st: "err", t: "Dateisicherung", s: "Auf diesem Gerät wurde noch keine Dateisicherung erstellt.", backup: true });
+      else rows.push({ st: age <= 7 ? "ok" : (age <= 30 ? "warn" : "err"), t: "Dateisicherung", s: "Zuletzt " + (age === 0 ? "heute" : age === 1 ? "gestern" : "vor " + age + " Tagen") + ".", backup: age > 7 });
+      function paint() {
+        const order = { ok: 0, na: 0, warn: 1, err: 2 };
+        const worst = rows.reduce(function(m, r) { return Math.max(m, order[r.st]); }, 0);
+        sumEl.textContent = worst === 0 ? "✓ Alles in Ordnung" : (worst === 1 ? "! Bitte prüfen" : "! Handlungsbedarf");
+        sumEl.style.color = worst === 0 ? "#16a34a" : (worst === 1 ? "#d97706" : "#dc2626");
+        rowsEl.innerHTML = "";
+        rows.forEach(function(r) {
+          const row = document.createElement("div"); row.className = "sf-row";
+          const dot = document.createElement("span"); dot.className = "sf-dot " + r.st; dot.textContent = r.st === "ok" ? "✓" : (r.st === "na" ? "–" : "!");
+          const tx = document.createElement("div"); tx.className = "sf-txt";
+          const b = document.createElement("b"); b.textContent = r.t; const sm = document.createElement("small"); sm.textContent = r.s;
+          tx.appendChild(b); tx.appendChild(sm);
+          row.appendChild(dot); row.appendChild(tx); rowsEl.appendChild(row);
+        });
+        const act = document.createElement("div"); act.className = "sf-actions";
+        if (rows.some(function(r) { return r.backup; })) {
+          const bb = document.createElement("button"); bb.type = "button"; bb.className = "btn-primary"; bb.textContent = "Jetzt Datei sichern";
+          bb.addEventListener("click", function() { exportAllData(); });
+          act.appendChild(bb);
+        }
+        if (persistRow.canAsk) {
+          const pb = document.createElement("button"); pb.type = "button"; pb.textContent = "Dauerhaften Speicher anfordern";
+          pb.addEventListener("click", function() { navigator.storage.persist().then(function() { renderSafetyCard(); }); });
+          act.appendChild(pb);
+        }
+        if (act.children.length) rowsEl.appendChild(act);
+      }
+      paint();
+      if (navigator.storage && navigator.storage.persisted) {
+        navigator.storage.persisted().then(function(p) {
+          persistRow.st = p ? "ok" : (standalone || !isIOS ? "warn" : "warn");
+          persistRow.s = p ? "Das Gerät hat zugesagt, die Daten nicht automatisch zu löschen." : "Das Gerät hat das noch nicht zugesagt. Auf dem Home-Bildschirm klappt es meist nach einiger Nutzung.";
+          persistRow.canAsk = !p && !!navigator.storage.persist;
+          paint();
+        }).catch(function() { persistRow.s = "Nicht ermittelbar."; paint(); });
+      } else { persistRow.s = "Auf diesem Gerät nicht ermittelbar."; paint(); }
     }
     function backupReminderDue() {
       const days = getBackupReminderDays();
