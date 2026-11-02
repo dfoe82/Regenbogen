@@ -498,6 +498,10 @@
     .sf-dot.ok { background: #16a34a; } .sf-dot.warn { background: #d97706; } .sf-dot.err { background: #dc2626; } .sf-dot.na { background: #9ca3af; }
     .sf-txt { flex: 1; min-width: 0; } .sf-txt b { display: block; } .sf-txt small { color: var(--color-text-muted); display: block; line-height: 1.35; }
     .sf-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; } .sf-actions button { flex: 1 1 140px; }
+    .cr-bulk-row .cr-chip { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; padding-top: 4px; padding-bottom: 4px; }
+    .cr-bulk-row .cr-chip small { font-size: 0.68em; font-weight: 600; opacity: 0.85; }
+    .cr-sumbar { border-radius: 12px; padding: 9px 12px; font-weight: 700; display: flex; justify-content: space-between; margin: 8px 0; background: #fee2e2; color: #b91c1c; }
+    .cr-sumbar.ok { background: #dcfce7; color: #15803d; }
     .ov-weekbar { display: flex; justify-content: space-between; align-items: center; margin: 0 auto 6px auto; }
     .ov-weekbar button { background: none; border: none; box-shadow: none; color: var(--color-primary-dark); font-weight: 700; min-height: 0; padding: 4px 8px; }
     .ov-wk-nav { display: inline-flex; align-items: center; }
@@ -863,6 +867,10 @@
       background: var(--color-primary);
       color: #fff;
     }
+    .cal-mark.hol { color: #6b7280; font-weight: 600; font-size: 0.5em; }
+    .calendar-day.holiday { background: #e8eaf3; color: #6b7280; }
+    .calendar-day.holiday.in-range { background: var(--color-primary); color: #fff; }
+    .in-range .cal-mark.hol, .ov-week button.on .cal-mark.hol { color: #e0e7ff; }
     .cal-mark { display: block; font-size: 0.62em; font-weight: 700; line-height: 1.1; margin-top: 2px; }
     .cal-mark.ok { color: #16a34a; } .cal-mark.part { color: #d97706; } .cal-mark.none { color: #dc2626; }
     .in-range .cal-mark, .ov-week button.on .cal-mark { color: #fff; }
@@ -1563,10 +1571,11 @@
           </div>
           <div class="cr-bulkbar"><button type="button" onclick="creditsBulkSelect('all')">Alle wählen</button><button type="button" onclick="creditsBulkSelect('open')">Nur offene</button><button type="button" onclick="creditsBulkSelect('none')">Keine</button></div>
         </div>
-        <div class="mc-group-t">Stand heute</div>
+        <div id="creditsSumBar" class="cr-sumbar" style="display:none;"></div>
+        <div class="mc-group-t" id="creditsListTitle">Abgelaufener Monat</div>
         <div class="mc-group" id="creditsList"></div>
         <button type="button" class="btn-primary" id="creditsBulkBtn" style="width:100%; margin:-4px 0 14px; display:none;" onclick="openBulkMessages()">Nachricht an Eltern erstellen</button>
-        <p class="cr-hint" id="crAktHint">Grün = Guthaben · Orange = unter 10 € · Rot = noch offen · Ohne Einzahlung gelten die bisherigen Kosten des laufenden Monats als offen. Der Verbrauch wird ab dem Monat der ersten Einzahlung berechnet. Zahlen Eltern einen offenen Betrag per Überweisung nach, bitte ebenfalls als Einzahlung erfassen.</p>
+        <p class="cr-hint" id="crAktHint">Rot = zu zahlen · Orange = Guthaben unter 10 € · Grün = Guthaben. Verrechnet wird das Guthaben (alle Einzahlungen bis heute abzüglich der Kosten bis Ende des gewählten Monats). Kinder ohne Guthaben: Kosten des Monats sind zu zahlen. Zahlen Eltern einen offenen Betrag nach, bitte als Einzahlung erfassen.</p>
         </div>
         <div id="crPaneArchiv" style="display:none;">
           <div class="mc-group-t">Archivierte Monate</div>
@@ -2275,11 +2284,14 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.58.0";
+    const APP_VERSION = "1.60.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.60.1", date: "03.11.2026", items: ["Mittagessen: „ohne Einzahlung“ in der Liste heißt jetzt „ohne Guthaben“"] },
+      { v: "1.60.0", date: "03.11.2026", items: ["Mittagessen: Die Liste zeigt jetzt den abgelaufenen Monat (Pfeile für andere Monate): je Kind Kosten, verrechnetes Guthaben und „zu zahlen“ bzw. „Guthaben“, oben die Summe „Zu zahlen gesamt“", "Kein „Stand heute“ mit laufendem Monat mehr; „Nur offene“ und „Offenen Betrag einsetzen“ beziehen sich auf den gewählten Monat"] },
+      { v: "1.59.0", date: "29.10.2026", items: ["Gesetzliche Feiertage Schleswig-Holstein werden automatisch erkannt: im Kalender und in der Wochenleiste grau mit „Feiertag“, zählen nicht als fehlend (kein 0/3)", "An Feiertagen (Arbeitstage ohne Eintrag) steht automatisch die Bemerkung „Feiertag“ in den Tabellen und Auswertungen; wer an dem Tag trotzdem Zeiten einträgt, überschreibt sie"] },
       { v: "1.58.0", date: "29.10.2026", items: ["Konfiguration → Daten & Sicherung: neue Kachel „Sind meine Daten sicher?“ mit Ampel für Home-Bildschirm, dauerhaften Speicher, Cloud-Sync (zuletzt hochgeladen) und Dateisicherung, mit Hinweisen und Knopf „Jetzt Datei sichern“"] },
       { v: "1.57.1", date: "28.10.2026", items: ["Übersicht: Bei aufgeklapptem Kalender werden KW-Pfeile und Wochenleiste ausgeblendet (waren doppelt)"] },
       { v: "1.57.0", date: "28.10.2026", items: ["Kalender und Wochenleiste markieren die Vollständigkeit der Anwesenheit: ✓ = alle Kinder eingetragen, z. B. 2/3 = teilweise, 0/3 = nichts eingetragen (nur Arbeitstage bis heute, ohne Urlaub)"] },
@@ -3792,7 +3804,7 @@
     function dayCompletion(day, month, year) {
       const today = new Date();
       if (new Date(year, month - 1, day) > new Date(today.getFullYear(), today.getMonth(), today.getDate())) return null;
-      if (!isWorkDay(year, month, day) || getVacationForDay(year, month, day)) return null;
+      if (!isWorkDay(year, month, day) || getVacationForDay(year, month, day) || getHolidayName(year, month, day)) return null;
       const states = ovMonthStates(month, year);
       if (!states.length) return null;
       let done = 0;
@@ -3842,6 +3854,11 @@
         const vac = getVacationForDay(year, month, d);
         if (vac) { cell.classList.add("vacation"); cell.title = "Urlaub" + (vac.label ? ": " + vac.label : ""); }
         if (d >= fromDay && d <= toDay) cell.classList.add("in-range");
+        const hol = getHolidayName(year, month, d);
+        if (hol) {
+          cell.classList.add("holiday"); cell.title = hol;
+          const hm = document.createElement("span"); hm.className = "cal-mark hol"; hm.textContent = "Feiertag"; cell.appendChild(hm);
+        }
         const comp = dayCompletion(d, month, year);
         if (comp) cell.appendChild(makeCompletionMark(comp));
         cell.addEventListener("click", function() { onCalendarDayTap(d); });
@@ -3972,6 +3989,8 @@
       if (from === to) {
         html = "<b>" + wd(from) + ", " + from + ". " + MONTH_NAMES_DE[month - 1] + (year !== now.getFullYear() ? " " + year : "") + "</b> · " + (isToday ? "heute" : "nachgetragen");
         if (getVacationForDay(year, month, from)) html += " · Urlaub";
+        const holN = getHolidayName(year, month, from);
+        if (holN) html += " · Feiertag (" + holN + ")";
         if (calendarRangeAnchor !== null) html += " · <span style='color:var(--color-text-muted)'>weiteren Tag tippen = Zeitraum</span>";
       } else {
         html = "<b>" + wd(from) + " " + from + ". – " + wd(to) + " " + to + "." + month + ".</b> · " + (to - from + 1) + " Tage";
@@ -4008,6 +4027,11 @@
         const btn = document.createElement("button");
         btn.type = "button";
         btn.innerHTML = "<small>" + names[i] + "</small>" + d.getDate();
+        const wh = getHolidayName(d.getFullYear(), d.getMonth() + 1, d.getDate());
+        if (wh) {
+          btn.classList.add("hol"); btn.title = wh;
+          const hm = document.createElement("span"); hm.className = "cal-mark hol"; hm.textContent = "Feiertag"; btn.appendChild(hm);
+        }
         const wc = dayCompletion(d.getDate(), d.getMonth() + 1, d.getFullYear());
         if (wc) btn.appendChild(makeCompletionMark(wc));
         const sameMonth = (d.getMonth() + 1 === selM && d.getFullYear() === selY);
@@ -4363,6 +4387,37 @@
       return "attendanceState_" + childName;
     }
 
+    // ---- Gesetzliche Feiertage Schleswig-Holstein ----
+    const holidayCache = {};
+    function getHolidaysSH(year) {
+      year = parseInt(year, 10);
+      if (holidayCache[year]) return holidayCache[year];
+      const a = year % 19, b = Math.floor(year / 100), c = year % 100, d = Math.floor(b / 4), e = b % 4;
+      const f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+      const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+      const l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+      const em = Math.floor((h + l - 7 * m + 114) / 31), ed = ((h + l - 7 * m + 114) % 31) + 1;
+      const map = {};
+      const add = function(dt, name) { map[(dt.getMonth() + 1) + "-" + dt.getDate()] = name; };
+      const easter = new Date(year, em - 1, ed);
+      const rel = function(n) { return new Date(year, em - 1, ed + n); };
+      add(new Date(year, 0, 1), "Neujahr");
+      add(rel(-2), "Karfreitag");
+      add(rel(1), "Ostermontag");
+      add(new Date(year, 4, 1), "Tag der Arbeit");
+      add(rel(39), "Christi Himmelfahrt");
+      add(rel(50), "Pfingstmontag");
+      add(new Date(year, 9, 3), "Tag der Deutschen Einheit");
+      add(new Date(year, 9, 31), "Reformationstag");
+      add(new Date(year, 11, 25), "1. Weihnachtstag");
+      add(new Date(year, 11, 26), "2. Weihnachtstag");
+      holidayCache[year] = map;
+      return map;
+    }
+    function getHolidayName(year, month, day) {
+      return getHolidaysSH(year)[parseInt(month, 10) + "-" + parseInt(day, 10)] || "";
+    }
+
     // Lädt (oder erzeugt) den kompletten Zustand eines Kindes für einen Monat/Jahr.
     // Jeder Monat wird unter einem eigenen Schlüssel gespeichert, damit das
     // Nachpflegen früherer Monate nicht die Daten des aktuellen Monats überschreibt.
@@ -4400,6 +4455,15 @@
           header: { month: month, year: year, person: childName, ktp: (state && state.header && state.header.ktp) || document.getElementById("ctpInput").value }
         };
       }
+      // Feiertage (Arbeitstage ohne Eintrag) automatisch mit der Bemerkung "Feiertag" vorbelegen
+      // (nur in der Anzeige/Auswertung; gespeichert wird erst, wenn der Eintrag bearbeitet wird).
+      const hols = getHolidaysSH(year);
+      Object.keys(hols).forEach(function(k) {
+        const parts = k.split("-");
+        if (parseInt(parts[0], 10) !== parseInt(month, 10)) return;
+        const row = state.table[parseInt(parts[1], 10) - 1];
+        if (row && !row.start && !row.end && !row.remark && isWorkDay(year, month, parseInt(parts[1], 10))) row.remark = "Feiertag";
+      });
       return state;
     }
 
@@ -5161,6 +5225,20 @@
       const c = getMealCostForMonth(child, t.getMonth() + 1, t.getFullYear()).cost;
       return { bal: c > 0.004 ? -c : 0, noAcct: true };
     }
+    // Zu zahlen / Guthaben für einen Monat: alle Einzahlungen bis heute minus Kosten bis Ende dieses Monats.
+    // Ohne Einzahlung (oder Monat vor der ersten Einzahlung) gelten die Kosten des Monats als zu zahlen.
+    function getMonthDue(child, month, year) {
+      const cost = getMealCostForMonth(child, month, year).cost;
+      const pays = getCreditPayments(child);
+      const ym = year * 12 + (month - 1);
+      if (!pays.length || ym < creditYM(pays[0].date)) return { cost: cost, vorher: 0, bal: cost > 0.004 ? -cost : 0, noAcct: true };
+      const now = new Date();
+      const todayStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+      const startYM = creditYM(pays[0].date);
+      const paid = pays.filter(function(x) { return x.date <= todayStr; }).reduce(function(a, x) { return a + (parseFloat(x.amount) || 0); }, 0);
+      const vorher = paid - (ym > startYM ? sumMealCosts(child, startYM, ym - 1) : 0);
+      return { cost: cost, vorher: vorher, bal: vorher - cost, noAcct: false };
+    }
     function creditChipClass(bal) {
       if (bal === null) return "";
       if (bal < -0.004) return "bad";
@@ -5176,16 +5254,17 @@
 
     let creditsReturnPage = "pageMonthlyClose";
     const CREDITS_BULK = true; // Variante B: Sammelauswahl in der Liste
-    let creditsMsgM = new Date().getMonth() + 1;
-    let creditsMsgY = new Date().getFullYear();
+    function creditsPrevMonthYM() { const t = new Date(); const d = new Date(t.getFullYear(), t.getMonth() - 1, 1); return { m: d.getMonth() + 1, y: d.getFullYear() }; }
+    let creditsMsgM = creditsPrevMonthYM().m;
+    let creditsMsgY = creditsPrevMonthYM().y;
     let creditsBulkSel = {};
     let creditsListTab = "akt";
     let archiveSheetCtx = null;
     function openCreditsPage(from) {
       creditsReturnPage = from || "pageMonthlyClose";
       creditsListTab = "akt";
-      creditsMsgM = new Date().getMonth() + 1;
-      creditsMsgY = new Date().getFullYear();
+      creditsMsgM = creditsPrevMonthYM().m;
+      creditsMsgY = creditsPrevMonthYM().y;
       creditsBulkSel = {};
       showPage("pageCredits");
       showCreditsList();
@@ -5298,12 +5377,17 @@
         return;
       }
       list.innerHTML = "";
-      let nSel = 0;
+      let nSel = 0, totalDue = 0;
       children.forEach(function(name) {
-        const shown = getCreditShown(name);
-        const bal = shown.bal;
-        const chipCls = (shown.noAcct && bal === 0) ? "" : creditChipClass(bal);
-        const label = bal < -0.004 ? "offen " + fmtEuro(-bal) : fmtEuro(bal);
+        const due = getMonthDue(name, creditsMsgM, creditsMsgY);
+        const bal = due.bal;
+        const chipCls = (due.noAcct && bal === 0) ? "" : creditChipClass(bal);
+        let label;
+        if (bal < -0.004) label = "<small>zu zahlen</small>" + fmtEuro(-bal);
+        else if (due.noAcct && due.cost < 0.005) label = "<small>nichts</small>zu zahlen";
+        else if (Math.abs(bal) < 0.005) label = "<small>&nbsp;</small>ausgeglichen";
+        else label = "<small>Guthaben</small>" + fmtEuro(bal);
+        if (bal < -0.004) totalDue += -bal;
         if (!CREDITS_BULK) {
           const b = document.createElement("button");
           b.type = "button";
@@ -5315,17 +5399,16 @@
           list.appendChild(b);
           return;
         }
-        const cost = getMealCostForMonth(name, creditsMsgM, creditsMsgY).cost;
-        const acct = getCreditMonthAccount(name, creditsMsgM, creditsMsgY);
-        let sub = MONTH_NAMES_DE[creditsMsgM - 1].slice(0, 3) + ". " + fmtEuro(cost);
-        if (acct && acct.anfang < -0.004) sub += " + Vormonat " + fmtEuro(-acct.anfang);
-        if (shown.noAcct) sub = "ohne Einzahlung · " + sub;
+        let sub = "Kosten " + fmtEuro(due.cost);
+        if (due.noAcct) sub += "<br>ohne Guthaben";
+        else if (due.vorher > 0.004) sub += "<br>− Guthaben " + fmtEuro(due.vorher);
+        else if (due.vorher < -0.004) sub += "<br>+ Vormonat " + fmtEuro(-due.vorher);
         const on = !!creditsBulkSel[name];
         if (on) nSel++;
         const row = document.createElement("div");
         row.className = "mc-item cr-bulk-row";
         row.innerHTML = '<button type="button" class="doc-sel' + (on ? " on" : "") + '" aria-label="Auswählen">' + (on ? "✓" : "") + '</button>' +
-          '<div class="mc-tx"><div class="mc-a">' + creditEsc(name) + '</div><small>' + creditEsc(sub) + '</small></div>' +
+          '<div class="mc-tx"><div class="mc-a">' + creditEsc(name) + '</div><small>' + sub + '</small></div>' +
           '<span class="cr-chip ' + chipCls + '">' + label + '</span>' +
           '<svg class="mc-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>';
         row.querySelector(".doc-sel").addEventListener("click", function(ev) {
@@ -5336,6 +5419,14 @@
         row.addEventListener("click", function() { openCreditDetail(name); });
         list.appendChild(row);
       });
+      const bar = document.getElementById("creditsSumBar");
+      bar.style.display = "";
+      bar.className = "cr-sumbar" + (totalDue > 0.004 ? "" : " ok");
+      bar.innerHTML = totalDue > 0.004 ? "<span>Zu zahlen gesamt</span><span>" + fmtEuro(totalDue) + "</span>" : "<span>Nichts zu zahlen</span><span>✓</span>";
+      const pm = creditsPrevMonthYM(), nowD = new Date();
+      document.getElementById("creditsListTitle").textContent =
+        (creditsMsgM === pm.m && creditsMsgY === pm.y) ? "Abgelaufener Monat" :
+        (creditsMsgM === nowD.getMonth() + 1 && creditsMsgY === nowD.getFullYear()) ? "Laufender Monat (Zwischenstand)" : "Monat";
       if (CREDITS_BULK) {
         bulkBtn.disabled = nSel === 0;
         bulkBtn.style.opacity = nSel === 0 ? "0.5" : "";
@@ -5431,25 +5522,27 @@
       const name = creditsCurrentChild;
       if (!name) return;
       document.getElementById("creditsChildName").textContent = name;
-      const shown = getCreditShown(name);
-      const bal = shown.noAcct ? null : shown.bal;
+      const due = getMonthDue(name, creditsMsgM, creditsMsgY);
+      const bal = due.noAcct ? null : due.bal;
       const n = document.getElementById("creditsBigN");
       const s = document.getElementById("creditsBigS");
       const price = parseFloat(loadConfig().mealPrice) || 0;
-      if (shown.noAcct) {
-        if (shown.bal < -0.004) {
-          n.textContent = "− " + fmtEuro(-shown.bal); n.className = "n bad";
-          s.textContent = "Noch offen (laufender Monat) – noch keine Einzahlung erfasst";
+      const mn = MONTH_NAMES_DE[creditsMsgM - 1] + " " + creditsMsgY;
+      document.querySelector("#crPaneKonto .cr-big > small").textContent = "Stand für " + mn;
+      if (due.noAcct) {
+        if (due.bal < -0.004) {
+          n.textContent = "− " + fmtEuro(-due.bal); n.className = "n bad";
+          s.textContent = "Zu zahlen für " + mn + " – noch keine Einzahlung erfasst";
         } else {
           n.textContent = fmtEuro(0); n.className = "n";
           s.textContent = "Noch keine Einzahlung erfasst";
         }
       } else if (bal < -0.004) {
         n.textContent = "− " + fmtEuro(-bal); n.className = "n bad";
-        s.textContent = "Noch offen – Eltern bitten, nachzuzahlen";
+        s.textContent = "Zu zahlen für " + mn + " – Eltern bitten, nachzuzahlen";
       } else {
         n.textContent = fmtEuro(bal); n.className = "n " + creditChipClass(bal);
-        s.textContent = price > 0 ? "Reicht für ca. " + Math.floor((bal + 0.004) / price) + " Mittagessen" : "";
+        s.textContent = "Guthaben nach " + mn + (price > 0 ? " · reicht für ca. " + Math.floor((bal + 0.004) / price) + " Mittagessen" : "");
       }
       const rows = [];
       const pays = getCreditPayments(name);
@@ -5495,12 +5588,8 @@
     // Offener Betrag des Kindes: bei Minusstand der Fehlbetrag, ohne bisheriges Konto die Kosten des aktuellen Monats
     let creditOpenAmount = 0;
     function computeCreditOpenAmount(child) {
-      const bal = getCreditBalanceToday(child);
-      if (bal === null) {
-        const t = new Date();
-        return getMealCostForMonth(child, t.getMonth() + 1, t.getFullYear()).cost;
-      }
-      return bal < -0.004 ? -bal : 0;
+      const d = getMonthDue(child, creditsMsgM, creditsMsgY);
+      return d.bal < -0.004 ? -d.bal : 0;
     }
     function fillCreditOpenAmount() {
       document.getElementById("creditAmount").value = creditOpenAmount.toFixed(2).replace(".", ",");
