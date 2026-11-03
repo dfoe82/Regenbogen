@@ -2284,11 +2284,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.60.2";
+    const APP_VERSION = "1.60.3";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.60.3", date: "03.11.2026", items: ["Mittagessen: Kinder ohne eigene Einzahlung laufen ab dem ersten Einzahlungsmonat (irgendeines Kindes) mit – offene Beträge der Vormonate werden bei allen Kindern gleich mitgeführt, auch in der Nachricht an die Eltern"] },
       { v: "1.60.2", date: "03.11.2026", items: ["Mittagessen: Nachrichten an die Eltern (einzeln und für mehrere) werden immer aus den aktuellen Daten berechnet und passen damit zur Liste; früher zu früh archivierte Texte (z. B. 2,50 € statt des Monatsbetrags) werden im Archiv automatisch neu berechnet"] },
       { v: "1.60.1", date: "03.11.2026", items: ["Mittagessen: „ohne Einzahlung“ in der Liste heißt jetzt „ohne Guthaben“"] },
       { v: "1.60.0", date: "03.11.2026", items: ["Mittagessen: Die Liste zeigt jetzt den abgelaufenen Monat (Pfeile für andere Monate): je Kind Kosten, verrechnetes Guthaben und „zu zahlen“ bzw. „Guthaben“, oben die Summe „Zu zahlen gesamt“", "Kein „Stand heute“ mit laufendem Monat mehr; „Nur offene“ und „Offenen Betrag einsetzen“ beziehen sich auf den gewählten Monat"] },
@@ -5117,6 +5118,10 @@
         return head + "Zusammen mit dem noch offenen Betrag aus den Vormonaten (" + fmtEuro(-acct.anfang) +
           ") sind insgesamt noch " + fmtEuro(-acct.ende) + " zu zahlen.\n\nVielen Dank!";
       }
+      if (verfuegbar < 0.005) {
+        return "Hallo,\n\nfür " + childName + " sind im " + monthName + " " + year +
+          " insgesamt " + fmtEuro(toPay) + " für das Mittagessen zu zahlen.\n\nVielen Dank!";
+      }
       return head + "Nach Verrechnung mit dem Guthaben (" + fmtEuro(Math.max(0, verfuegbar)) +
         ") sind noch " + fmtEuro(-acct.ende) + " zu zahlen.\n\nVielen Dank!";
     }
@@ -5188,12 +5193,26 @@
       }
       return sum;
     }
+    // Startmonat des Guthaben-Systems: frühester Monat einer Einzahlung bei irgendeinem Kind.
+    // Kinder ohne eigene Einzahlung laufen ab diesem Monat mit (offene Beträge werden mitgeführt).
+    function getCreditGlobalStartYM() {
+      let best = null;
+      getActiveChildren().forEach(function(n) {
+        const p = getCreditPayments(n);
+        if (p.length) { const y = creditYM(p[0].date); if (best === null || y < best) best = y; }
+      });
+      return best;
+    }
+    function getCreditStartYM(child) {
+      const p = getCreditPayments(child);
+      return p.length ? creditYM(p[0].date) : getCreditGlobalStartYM();
+    }
     // Kontostand für einen Monat: null, wenn das Kind noch kein Konto hat bzw. der
     // Monat vor der ersten Einzahlung liegt (dann gilt die alte Nachricht).
     function getCreditMonthAccount(child, month, year) {
       const pays = getCreditPayments(child);
-      if (!pays.length) return null;
-      const startYM = creditYM(pays[0].date);
+      const startYM = getCreditStartYM(child);
+      if (startYM === null) return null;
       const ym = year * 12 + (month - 1);
       if (ym < startYM) return null;
       const payUpTo = function(limit) {
@@ -5232,13 +5251,13 @@
       const cost = getMealCostForMonth(child, month, year).cost;
       const pays = getCreditPayments(child);
       const ym = year * 12 + (month - 1);
-      if (!pays.length || ym < creditYM(pays[0].date)) return { cost: cost, vorher: 0, bal: cost > 0.004 ? -cost : 0, noAcct: true };
+      const startYM = getCreditStartYM(child);
+      if (startYM === null || ym < startYM) return { cost: cost, vorher: 0, bal: cost > 0.004 ? -cost : 0, noAcct: true };
       const now = new Date();
       const todayStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
-      const startYM = creditYM(pays[0].date);
       const paid = pays.filter(function(x) { return x.date <= todayStr; }).reduce(function(a, x) { return a + (parseFloat(x.amount) || 0); }, 0);
       const vorher = paid - (ym > startYM ? sumMealCosts(child, startYM, ym - 1) : 0);
-      return { cost: cost, vorher: vorher, bal: vorher - cost, noAcct: false };
+      return { cost: cost, vorher: vorher, bal: vorher - cost, noAcct: false, noPay: !pays.length };
     }
     function creditChipClass(bal) {
       if (bal === null) return "";
@@ -5406,7 +5425,7 @@
           return;
         }
         let sub = "Kosten " + fmtEuro(due.cost);
-        if (due.noAcct) sub += "<br>ohne Guthaben";
+        if (due.noAcct || (due.noPay && Math.abs(due.vorher) < 0.005)) sub += "<br>ohne Guthaben";
         else if (due.vorher > 0.004) sub += "<br>− Guthaben " + fmtEuro(due.vorher);
         else if (due.vorher < -0.004) sub += "<br>+ Vormonat " + fmtEuro(-due.vorher);
         const on = !!creditsBulkSel[name];
