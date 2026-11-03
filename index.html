@@ -2284,11 +2284,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.60.1";
+    const APP_VERSION = "1.60.2";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.60.2", date: "03.11.2026", items: ["Mittagessen: Nachrichten an die Eltern (einzeln und für mehrere) werden immer aus den aktuellen Daten berechnet und passen damit zur Liste; früher zu früh archivierte Texte (z. B. 2,50 € statt des Monatsbetrags) werden im Archiv automatisch neu berechnet"] },
       { v: "1.60.1", date: "03.11.2026", items: ["Mittagessen: „ohne Einzahlung“ in der Liste heißt jetzt „ohne Guthaben“"] },
       { v: "1.60.0", date: "03.11.2026", items: ["Mittagessen: Die Liste zeigt jetzt den abgelaufenen Monat (Pfeile für andere Monate): je Kind Kosten, verrechnetes Guthaben und „zu zahlen“ bzw. „Guthaben“, oben die Summe „Zu zahlen gesamt“", "Kein „Stand heute“ mit laufendem Monat mehr; „Nur offene“ und „Offenen Betrag einsetzen“ beziehen sich auf den gewählten Monat"] },
       { v: "1.59.0", date: "29.10.2026", items: ["Gesetzliche Feiertage Schleswig-Holstein werden automatisch erkannt: im Kalender und in der Wochenleiste grau mit „Feiertag“, zählen nicht als fehlend (kein 0/3)", "An Feiertagen (Arbeitstage ohne Eintrag) steht automatisch die Bemerkung „Feiertag“ in den Tabellen und Auswertungen; wer an dem Tag trotzdem Zeiten einträgt, überschreibt sie"] },
@@ -5299,7 +5300,12 @@
       Object.keys(keys).forEach(function(k) {
         const y = parseInt(k.slice(0, 4), 10), m = parseInt(k.slice(5), 10);
         if (!isParentMessageFrozen(y, m)) return;
-        if (getParentMessageArchive()[k]) return;
+        const ex = getParentMessageArchive()[k];
+        if (ex) {
+          // Zu früh angelegte Archivtexte (vor Monatsende, z. B. Monat vorzeitig abgeschlossen) neu berechnen
+          const created = new Date(ex.createdAt).getTime();
+          if (isNaN(created) || created >= new Date(y, m, 1).getTime()) return;
+        }
         let total = 0;
         children.forEach(function(n) { total += getMealCostForMonth(n, m, y).cost; });
         if (total <= 0.004) return;
@@ -5443,12 +5449,13 @@
     }
     // Nachricht für Kind/Monat: archivierter Text (eingefrorene Monate) oder live berechnet
     function getCreditsMessage(name, m, y) {
+      // Arbeitsansicht: immer aus den aktuellen Anwesenheits- und Einzahlungsdaten berechnet.
+      // Die unveränderten Texte früherer Monate stehen im Reiter "Archiv".
       const key = y + "-" + String(m).padStart(2, "0");
-      if (isParentMessageFrozen(y, m)) {
-        const a = getParentMessageArchive()[key];
-        if (a && a.messages && a.messages[name]) return { text: a.messages[name], archived: true, at: a.createdAt };
-      }
-      return { text: buildParentMessageText(name, m, y), archived: false };
+      const a = getParentMessageArchive()[key];
+      const text = buildParentMessageText(name, m, y);
+      const differs = !!(a && a.messages && a.messages[name] && a.messages[name] !== text);
+      return { text: text, archived: false, differs: differs };
     }
     function creditsMailTo(name, text, m, y) {
       const cfg = loadConfig();
@@ -5476,7 +5483,7 @@
       document.getElementById("creditsMsgText").value = r.text;
       document.getElementById("creditsMsgInfo").textContent = r.archived
         ? "Archivierte Fassung vom " + formatArchiveTimestamp(r.at) + " – bleibt unverändert."
-        : "Laufender Monat – wird aktuell berechnet.";
+        : (r.differs ? "Wird aktuell berechnet. Die archivierte Fassung im Reiter „Archiv“ weicht ab." : "Wird aus den aktuellen Daten berechnet.");
       document.getElementById("creditsMsgShare").style.display = navigator.share ? "" : "none";
     }
     function openBulkMessages() {
