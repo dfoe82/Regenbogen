@@ -2284,11 +2284,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.60.3";
+    const APP_VERSION = "1.61.0";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.61.0", date: "06.11.2026", items: ["Kinder haben ein Startdatum (Konfiguration → Kind → Reiter Kind); „Kind übernehmen“ aus der Warteliste übernimmt das Startdatum", "Ein Kind mit Startdatum in der Zukunft erscheint erst ab diesem Tag in Übersicht, Kinder-Liste, Mittagessen usw.; in der Konfiguration steht es mit „startet TT.MM.JJJJ“"] },
       { v: "1.60.3", date: "03.11.2026", items: ["Mittagessen: Kinder ohne eigene Einzahlung laufen ab dem ersten Einzahlungsmonat (irgendeines Kindes) mit – offene Beträge der Vormonate werden bei allen Kindern gleich mitgeführt, auch in der Nachricht an die Eltern"] },
       { v: "1.60.2", date: "03.11.2026", items: ["Mittagessen: Nachrichten an die Eltern (einzeln und für mehrere) werden immer aus den aktuellen Daten berechnet und passen damit zur Liste; früher zu früh archivierte Texte (z. B. 2,50 € statt des Monatsbetrags) werden im Archiv automatisch neu berechnet"] },
       { v: "1.60.1", date: "03.11.2026", items: ["Mittagessen: „ohne Einzahlung“ in der Liste heißt jetzt „ohne Guthaben“"] },
@@ -2817,6 +2818,7 @@
       childPhones: ["", "", "", "", ""],
       childOrte: ["", "", "", "", ""],
       childNotes: ["", "", "", "", ""],
+      childStarts: ["", "", "", "", ""],
       children: ["Marlon", "Stella", "Jelle", "Nilas", "Emilia"],
       childBirthdates: ["", "", "", "", ""],
       childEmails: ["", "", "", "", ""],
@@ -2937,10 +2939,21 @@
       queueAutoUpload();
     }
 
-    function getActiveChildren() {
+    function todayIsoLocal() {
+      const t = new Date();
+      return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+    }
+    // Kinder mit Startdatum in der Zukunft erscheinen erst ab diesem Tag (includeFuture = true: alle)
+    function getActiveChildren(includeFuture) {
       const config = loadConfig();
       const count = config.childCount || 5;
-      return config.children.slice(0, count).filter(n => n && n.trim() !== "");
+      const starts = config.childStarts || [];
+      const today = todayIsoLocal();
+      return config.children.slice(0, count).filter(function(n, i) {
+        if (!n || n.trim() === "") return false;
+        if (!includeFuture && starts[i] && starts[i] > today) return false;
+        return true;
+      });
     }
 
     // Parst ein Datum im Format "JJJJ-MM-TT" (Wert eines <input type="date">)
@@ -3100,6 +3113,9 @@
       const parts = [];
       const g = formatFortbildungDatum(bd); if (g) parts.push("geb. " + g);
       const a = wlAgeText(bd); if (a) parts.push(a);
+      const sdEl = document.getElementById("configChildStart" + i);
+      const sv = sdEl ? sdEl.value : "";
+      if (sv && sv > todayIsoLocal()) parts.unshift("startet " + formatFortbildungDatum(sv));
       const meta = card.querySelector(".waitlist-summary-meta");
       meta.textContent = parts.join(" · "); meta.style.display = parts.length ? "" : "none";
     }
@@ -3155,12 +3171,12 @@
     function readChildSlot(i) {
       const g = function(id) { return document.getElementById(id).value; };
       return { name: g("configChild" + i).trim(), birthdate: g("configChildBirthdate" + i), parent: g("configChildParent" + i).trim(),
-        phone: g("configChildPhone" + i).trim(), email: g("configChildEmail" + i).trim(), ort: g("configChildOrt" + i).trim(), notes: g("configChildNotiz" + i) };
+        phone: g("configChildPhone" + i).trim(), email: g("configChildEmail" + i).trim(), ort: g("configChildOrt" + i).trim(), notes: g("configChildNotiz" + i), start: g("configChildStart" + i) };
     }
     function writeChildSlot(i, o) {
       const set = function(id, v) { document.getElementById(id).value = v || ""; };
       set("configChild" + i, o.name); set("configChildBirthdate" + i, o.birthdate); set("configChildParent" + i, o.parent);
-      set("configChildPhone" + i, o.phone); set("configChildEmail" + i, o.email); set("configChildOrt" + i, o.ort); set("configChildNotiz" + i, o.notes);
+      set("configChildPhone" + i, o.phone); set("configChildEmail" + i, o.email); set("configChildOrt" + i, o.ort); set("configChildNotiz" + i, o.notes); set("configChildStart" + i, o.start);
       refreshChildAge(i); refreshChildActions(i); refreshChildCard(i);
     }
     function compactRemoveChild(i) {
@@ -3224,7 +3240,7 @@
       for (let i = 0; i < n; i++) {
         if (readChildSlot(i).name.toLowerCase() === name.toLowerCase()) { alert("„" + name + "“ ist bereits unter Kinder eingetragen."); return; }
       }
-      writeChildSlot(n, { name: name, birthdate: e.geburtsdatum || "", parent: (e.name || "").trim(), phone: (e.telefon || "").trim(), email: (e.email || "").trim(), ort: (e.ort || "").trim(), notes: e.notizen || "" });
+      writeChildSlot(n, { name: name, birthdate: e.geburtsdatum || "", parent: (e.name || "").trim(), phone: (e.telefon || "").trim(), email: (e.email || "").trim(), ort: (e.ort || "").trim(), notes: e.notizen || "", start: e.startdatum || "" });
       cfgPendingWl.push(id);
       setChildCount(n + 1);
       hideEntryEditModal("childpick");
@@ -3334,6 +3350,12 @@
         pKind.appendChild(fieldRow("Geburtsdatum Kind", bd));
         const age = document.createElement("div"); age.className = "wl-age"; age.id = "configChildAge" + i;
         pKind.appendChild(age);
+        const sd = document.createElement("div"); sd.id = "configChildStart" + i;
+        makeDateParts(sd, (config.childStarts || [])[i] || "");
+        pKind.appendChild(fieldRow("Startdatum", sd));
+        const sdh = document.createElement("div"); sdh.className = "wl-age"; sdh.textContent = "Leer = sofort. Das Kind erscheint erst ab diesem Tag in Übersicht und Listen.";
+        pKind.appendChild(sdh);
+        sd.addEventListener("change", function() { refreshChildCard(i); });
         bd.addEventListener("change", function() { refreshChildAge(i); });
         // Reiter "Kontakt"
         const pKont = document.createElement("div"); pKont.id = "cfgPane_" + i + "_kontakt"; pKont.className = "waitlist-entry-fields";
@@ -3411,7 +3433,7 @@
       const childCount = parseInt(document.getElementById("configChildCount").value) || 5;
       const children = [];
       const childBirthdates = [];
-      const childEmails = [], childParents = [], childPhones = [], childOrte = [], childNotes = [];
+      const childEmails = [], childParents = [], childPhones = [], childOrte = [], childNotes = [], childStarts = [];
       for (let i = 0; i < 5; i++) {
         const used = i < childCount;
         childEmails.push(used ? document.getElementById("configChildEmail" + i).value.trim() : "");
@@ -3419,6 +3441,7 @@
         childPhones.push(used ? document.getElementById("configChildPhone" + i).value.trim() : "");
         childOrte.push(used ? document.getElementById("configChildOrt" + i).value.trim() : "");
         childNotes.push(used ? document.getElementById("configChildNotiz" + i).value : "");
+        childStarts.push(used ? document.getElementById("configChildStart" + i).value : "");
         const val = document.getElementById("configChild" + i).value.trim();
         children.push(i < childCount ? val : "");
         const bdVal = document.getElementById("configChildBirthdate" + i).value;
@@ -3436,6 +3459,7 @@
         childPhones: childPhones,
         childOrte: childOrte,
         childNotes: childNotes,
+        childStarts: childStarts,
         formerChildren: cfgFormer,
         childCount: childCount,
         defaultStart: document.getElementById("configStart").value || DEFAULT_CONFIG.defaultStart,
@@ -6348,7 +6372,7 @@
       births[slot] = entry.geburtsdatum || "";
       mails[slot] = (entry.email || "").trim();
       const fill = function(key, val) { const a = (cfg[key] || []).slice(); while (a.length < 5) a.push(""); a[slot] = val || ""; cfg[key] = a; };
-      fill("childParents", (entry.name || "").trim()); fill("childPhones", (entry.telefon || "").trim()); fill("childOrte", (entry.ort || "").trim()); fill("childNotes", entry.notizen || "");
+      fill("childParents", (entry.name || "").trim()); fill("childPhones", (entry.telefon || "").trim()); fill("childOrte", (entry.ort || "").trim()); fill("childNotes", entry.notizen || ""); fill("childStarts", entry.startdatum || "");
       cfg.children = children; cfg.childBirthdates = births; cfg.childEmails = mails; cfg.childCount = count;
       saveConfig(cfg);
       populateNameSelect(document.getElementById("nameSelect").value);
