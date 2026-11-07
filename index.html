@@ -1614,7 +1614,15 @@
   <div id="pageMonthlyClose" class="page-section">
     <div class="mc-wrap">
     <h1 style="text-align:left;">Monatsabschluss</h1>
-
+    <div class="cr-seg" id="mcSeg" style="margin-bottom:14px;">
+      <button type="button" class="on" id="mcSegKinder" onclick="setMcView('kinder')">Kinder</button>
+      <button type="button" id="mcSegKtpp" onclick="setMcView('ktpp')">KTPP</button>
+    </div>
+    <div id="mcKtpp" style="display:none;">
+      <div class="mc-group-t" style="margin-top:0;">Ausfalltage der Tagespflegeperson</div>
+      <div id="ausfallBox"></div>
+    </div>
+    <div id="mcKinder">
     <div class="mc-stepper">
       <button type="button" class="mc-arrow" onclick="stepCloseMonth(-1)" aria-label="Vorheriger Monat"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
       <div class="mc-mid"><div class="mc-m" id="closeMonthLabel">Oktober</div><div class="mc-y" id="closeYearLabel">2026</div></div>
@@ -1671,10 +1679,11 @@
       <button type="button" class="mc-item" onclick="openCreditsPage()"><div class="mc-tile"><i data-ico="wallet"></i></div>
         <div class="mc-tx"><div class="mc-a">Mittagessen</div><div class="mc-b">Guthaben, Nachrichten an Eltern und Archiv</div></div><svg class="mc-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
     </div>
+    </div>
     <div class="mc-spacer"></div>
     </div>
 
-    <div class="mc-cta-wrap no-print">
+    <div class="mc-cta-wrap no-print" id="mcCta">
       <button type="button" class="btn-primary mc-cta" onclick="performMonthlyClose()"><svg viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M7 14h10v7H7z"/></svg>Monatsabschluss erstellen</button>
       <div class="mc-cta-sub">Alle Kinder · PDF drucken + E-Mail</div>
     </div>
@@ -2284,11 +2293,15 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.61.0";
+    const APP_VERSION = "1.62.2";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.62.2", date: "07.11.2026", items: ["KTPP-Ausfalltage: jeder Tag (krank und Urlaub) wird einzeln mit Wochentag und Datum aufgelistet"] },
+      { v: "1.62.1", date: "07.11.2026", items: ["Ausfalltage wandern in den Bereich Abschluss: oben umschalten zwischen „Kinder“ und „KTPP“ (Zählung krank/Urlaub je Jahr); aus der Konfiguration entfernt"] },
+      { v: "1.62.0", date: "07.11.2026", items: ["Neu: Konfiguration → Ausfalltage – Ausfalltage der Tagespflegeperson je Jahr gezählt: insgesamt, krank und Urlaub, mit Auflistung der Zeiträume"] },
+      { v: "1.61.1", date: "06.11.2026", items: ["Startdaten der Kinder gehen nicht mehr verloren, wenn die Cloud-Synchronisierung Daten von einem Gerät mit älterer App-Version bringt"] },
       { v: "1.61.0", date: "06.11.2026", items: ["Kinder haben ein Startdatum (Konfiguration → Kind → Reiter Kind); „Kind übernehmen“ aus der Warteliste übernimmt das Startdatum", "Ein Kind mit Startdatum in der Zukunft erscheint erst ab diesem Tag in Übersicht, Kinder-Liste, Mittagessen usw.; in der Konfiguration steht es mit „startet TT.MM.JJJJ“"] },
       { v: "1.60.3", date: "03.11.2026", items: ["Mittagessen: Kinder ohne eigene Einzahlung laufen ab dem ersten Einzahlungsmonat (irgendeines Kindes) mit – offene Beträge der Vormonate werden bei allen Kindern gleich mitgeführt, auch in der Nachricht an die Eltern"] },
       { v: "1.60.2", date: "03.11.2026", items: ["Mittagessen: Nachrichten an die Eltern (einzeln und für mehrere) werden immer aus den aktuellen Daten berechnet und passen damit zur Liste; früher zu früh archivierte Texte (z. B. 2,50 € statt des Monatsbetrags) werden im Archiv automatisch neu berechnet"] },
@@ -2836,6 +2849,117 @@
     };
 
     // ----- Urlaub der Kindertagespflegeperson -----
+
+
+    function setMcView(v) {
+      const k = v === "ktpp";
+      document.getElementById("mcKinder").style.display = k ? "none" : "";
+      document.getElementById("mcKtpp").style.display = k ? "" : "none";
+      document.getElementById("mcCta").style.display = k ? "none" : "";
+      document.getElementById("mcSegKinder").className = k ? "" : "on";
+      document.getElementById("mcSegKtpp").className = k ? "on" : "";
+      if (k) renderAusfallTage();
+    }
+    // ----- Ausfalltage der Tagespflegeperson (krank / Urlaub), je Jahr -----
+    let ausfallYear = new Date().getFullYear();
+    let ausfallFilter = "alle";
+    function collectAusfallTage(year) {
+      const cfg = loadConfig();
+      const res = {};   // iso -> "krank" | "urlaub"
+      const wd = cfg.workDays || DEFAULT_CONFIG.workDays;
+      const iso = function(y, m, d) { return y + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0"); };
+      // 1) Urlaubszeiträume aus der Konfiguration (nur Arbeitstage, ohne Feiertage)
+      (cfg.vacations || []).forEach(function(v) {
+        if (!v || !v.from) return;
+        const a = new Date(v.from + "T12:00:00"), b = new Date((v.to || v.from) + "T12:00:00");
+        for (let t = new Date(a); t <= b; t.setDate(t.getDate() + 1)) {
+          if (t.getFullYear() !== year) continue;
+          if (!wd[t.getDay()]) continue;
+          if (getHolidayName(t.getFullYear(), t.getMonth() + 1, t.getDate())) continue;
+          res[iso(year, t.getMonth() + 1, t.getDate())] = "urlaub";
+        }
+      });
+      // 2) Bemerkungen „KTPP krank“ / „KTPP Urlaub“ / „Urlaub“ in den Anwesenheitslisten (bei irgendeinem Kind)
+      const rx = new RegExp("^attendanceState_.*_" + year + "_(\\d{2})$");
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i), m = rx.exec(k || "");
+        if (!m) continue;
+        let st; try { st = JSON.parse(localStorage.getItem(k)); } catch (e) { continue; }
+        if (!st || !st.table) continue;
+        st.table.forEach(function(row, idx) {
+          const r = row && row.remark;
+          if (r === "KTPP krank") res[iso(year, parseInt(m[1], 10), idx + 1)] = "krank";
+          else if ((r === "KTPP Urlaub" || r === "Urlaub") && !res[iso(year, parseInt(m[1], 10), idx + 1)]) res[iso(year, parseInt(m[1], 10), idx + 1)] = "urlaub";
+        });
+      }
+      return res;
+    }
+    function ausfallRanges(dates, year) {
+      // Aufeinanderfolgende Arbeitstage zu Zeiträumen zusammenfassen
+      const cfg = loadConfig(), wd = cfg.workDays || DEFAULT_CONFIG.workDays;
+      function nextWork(d) {
+        const t = new Date(d.getTime());
+        do { t.setDate(t.getDate() + 1); } while (!wd[t.getDay()] || getHolidayName(t.getFullYear(), t.getMonth() + 1, t.getDate()));
+        return t;
+      }
+      const out = []; let cur = null;
+      dates.forEach(function(k) {
+        const d = new Date(k + "T12:00:00");
+        if (cur && nextWork(cur.to).toDateString() === d.toDateString()) { cur.to = d; cur.n++; }
+        else { cur = { from: d, to: d, n: 1 }; out.push(cur); }
+      });
+      const f = function(d) { return String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "."; };
+      return out.map(function(r) {
+        return { text: r.n === 1 ? f(r.from) : f(r.from) + " – " + f(r.to), n: r.n };
+      });
+    }
+    function renderAusfallTage() {
+      const box = document.getElementById("ausfallBox");
+      if (!box) return;
+      const data = collectAusfallTage(ausfallYear);
+      const keys = Object.keys(data).sort();
+      const krank = keys.filter(function(k) { return data[k] === "krank"; });
+      const urlaub = keys.filter(function(k) { return data[k] === "urlaub"; });
+      const today = todayIsoLocal();
+      const plan = keys.filter(function(k) { return k > today; }).length;
+      box.innerHTML = "";
+      const nav = document.createElement("div"); nav.className = "cr-seg"; nav.style.cssText = "justify-content:space-between;align-items:center;";
+      const prev = document.createElement("button"); prev.type = "button"; prev.textContent = "‹"; prev.style.flex = "0 0 48px";
+      const nxt = document.createElement("button"); nxt.type = "button"; nxt.textContent = "›"; nxt.style.flex = "0 0 48px";
+      const yl = document.createElement("div"); yl.textContent = ausfallYear; yl.style.cssText = "flex:1;text-align:center;font-weight:700;";
+      prev.onclick = function() { ausfallYear--; renderAusfallTage(); };
+      nxt.onclick = function() { ausfallYear++; renderAusfallTage(); };
+      nav.appendChild(prev); nav.appendChild(yl); nav.appendChild(nxt); box.appendChild(nav);
+      const sum = document.createElement("div"); sum.style.cssText = "display:flex;gap:8px;margin:0 0 12px;";
+      [["Gesamt", keys.length, "alle"], ["Krank", krank.length, "krank"], ["Urlaub", urlaub.length, "urlaub"]].forEach(function(c) {
+        const t = document.createElement("button"); t.type = "button";
+        t.style.cssText = "flex:1;padding:10px 4px;border-radius:12px;border:1.5px solid " + (ausfallFilter === c[2] ? "var(--color-primary)" : "#dde1e8") + ";background:#fff;text-align:center;";
+        t.innerHTML = '<div style="font-size:1.5em;font-weight:700;line-height:1.1;">' + c[1] + '</div><div style="font-size:0.8em;color:#667;">' + c[0] + '</div>';
+        t.onclick = function() { ausfallFilter = c[2]; renderAusfallTage(); };
+        sum.appendChild(t);
+      });
+      box.appendChild(sum);
+      function block(title, list) {
+        if (!list.length) return;
+        const h = document.createElement("div"); h.style.cssText = "font-weight:650;margin:10px 0 4px;"; h.textContent = title + " – " + list.length + (list.length === 1 ? " Tag" : " Tage");
+        box.appendChild(h);
+        const wdn = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+        list.forEach(function(k) {
+          const d = new Date(k + "T12:00:00");
+          const row = document.createElement("div"); row.style.cssText = "display:flex;justify-content:space-between;padding:6px 2px;border-bottom:1px solid #eef0f4;font-size:0.95em;";
+          const fut = k > today;
+          row.innerHTML = "<span>" + wdn[d.getDay()] + ", " + String(d.getDate()).padStart(2, "0") + "." + String(d.getMonth() + 1).padStart(2, "0") + "." + d.getFullYear() + "</span><span style='color:#667'>" + (fut ? "geplant" : "") + "</span>";
+          box.appendChild(row);
+        });
+      }
+      if (ausfallFilter === "alle" || ausfallFilter === "krank") block("Krank", krank);
+      if (ausfallFilter === "alle" || ausfallFilter === "urlaub") block("Urlaub", urlaub);
+      if (!keys.length) { const e = document.createElement("div"); e.style.cssText = "color:#667;padding:8px 0;"; e.textContent = "Für " + ausfallYear + " sind keine Ausfalltage eingetragen."; box.appendChild(e); }
+      const note = document.createElement("div"); note.style.cssText = "font-size:0.78em;color:#778;margin-top:12px;line-height:1.4;";
+      note.textContent = "Gezählt werden Arbeitstage: Urlaub aus den Urlaubszeiträumen (ohne Wochenenden/Feiertage) sowie die Bemerkungen „KTPP krank“ und „KTPP Urlaub“ in den Anwesenheitslisten." + (plan ? " Davon liegen " + plan + " Tage noch in der Zukunft (geplant)." : "");
+      box.appendChild(note);
+    }
+
     function getVacationForDay(year, month, day) {
       const config = loadConfig();
       const list = config.vacations || [];
@@ -3598,6 +3722,14 @@
     // vom Cloud-Download genutzt.
     function applyImportedData(data) {
       if (data.appConfig) {
+        // Stammt die Konfiguration von einem Gerät mit älterer App-Version (ohne Startdaten),
+        // bleiben die lokal gespeicherten Startdaten erhalten.
+        if (!data.appConfig.childStarts) {
+          try {
+            const loc = JSON.parse(localStorage.getItem(CONFIG_KEY) || "null");
+            if (loc && loc.childStarts) data.appConfig.childStarts = loc.childStarts;
+          } catch (e) {}
+        }
         localStorage.setItem(CONFIG_KEY, JSON.stringify(data.appConfig));
       }
       if (data.waitlist) {
