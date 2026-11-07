@@ -344,10 +344,10 @@
     }
 
     /* ----- Sperrbildschirm (Variante B) ----- */
-    .lk-overlay { position: fixed; inset: 0; z-index: 99999; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    .lk-overlay { position: fixed; inset: 0; display: flex; text-align: center; z-index: 99999; overflow-y: auto; -webkit-overflow-scrolling: touch;
       background: linear-gradient(180deg, #eef0ff 0%, #fdf2f8 55%, #fff7ed 100%); color: #1f2937; }
     .lk-arc { position: fixed; left: 0; right: 0; top: 0; height: 8px; background: linear-gradient(90deg,#ef4444,#f59e0b,#eab308,#22c55e,#3b82f6,#8b5cf6); }
-    .lk-wrap { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(24px + env(safe-area-inset-top,0px)) 20px calc(18px + env(safe-area-inset-bottom,0px)); }
+    .lk-wrap { margin: auto; width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: calc(24px + env(safe-area-inset-top,0px)) 20px calc(18px + env(safe-area-inset-bottom,0px)); }
     .lk-logo { height: 84px; width: auto; }
     .lk-title { font-size: 1.35em; font-weight: 700; margin-top: 12px; text-align: center; }
     .lk-sub { color: #667; font-size: .9em; margin-top: 2px; text-align: center; min-height: 1.3em; }
@@ -1471,7 +1471,7 @@
       <div class="lk-dots" id="lkDots"></div>
       <div class="lk-err" id="lkErr"></div>
       <div class="lk-pad" id="lkPad"></div>
-      <button type="button" class="lk-link" id="lkBio" style="display:none;" onclick="lkBioUnlock()">Mit Face ID / Touch ID entsperren</button>
+      <button type="button" class="lk-link" id="lkBio" style="display:none; font-size:1.05em;" onclick="lkBioUnlock()">🔓 Mit Face ID / Touch ID entsperren</button>
       <button type="button" class="lk-link" id="lkForgotBtn" onclick="lkForgot()">PIN vergessen?</button>
       <button type="button" class="lk-link" id="lkCancel" style="display:none;" onclick="lkCancelChange()">Abbrechen</button>
       <div class="lk-forgot" id="lkForgotPanel" style="display:none;">
@@ -2230,8 +2230,9 @@
               <option value="light">Immer hell</option>
               <option value="dark">Immer dunkel</option>
             </select></div>
-          <div class="modal-row" id="lkBioRow" style="display:none;"><label style="min-width:150px;">Face ID / Touch ID:</label>
+          <div class="modal-row" id="lkBioRow"><label style="min-width:150px;">Face ID / Touch ID:</label>
             <button type="button" id="lkBioToggle" onclick="lkBioToggle()">Einrichten</button></div>
+          <p id="lkBioNote" style="font-size:0.8em; color:#555; margin:-4px 0 8px;"></p>
           <div class="modal-row">
             <button type="button" onclick="lkStartChange()"><i data-ico="lock"></i> PIN ändern</button>
             <button type="button" onclick="lockApp()">Jetzt sperren</button>
@@ -2381,11 +2382,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.63.0";
+    const APP_VERSION = "1.63.1";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.63.1", date: "07.11.2026", items: ["Sperrbildschirm sitzt jetzt mittig (auch auf iPad/iPhone)", "Face ID / Touch ID: erscheint automatisch beim Öffnen, wird nach dem ersten PIN-Entsperren zum Einrichten angeboten; in der Konfiguration immer sichtbar mit Hinweis, falls das Gerät es nicht unterstützt"] },
       { v: "1.63.0", date: "07.11.2026", items: ["Neuer Sperrbildschirm: große Zifferntafel, Begrüßung nach Tageszeit, abends automatisch dunkel; entsperrt nach der letzten Ziffer", "PIN mit 4 oder 6 Ziffern, PIN ändern (Konfiguration → Sperre & PIN), „PIN vergessen?“ mit Cloud-Passwort", "Automatisch sperren (nie, beim Verlassen der App oder nach 1/5/15/30 Minuten, Standard 15), Schloss-Button oben zum sofortigen Sperren", "Nach 5 falschen Eingaben Wartezeit mit Countdown", "Optional Face ID / Touch ID (nur auf Geräten mit https und Gerätesperre)"] },
       { v: "1.62.2", date: "07.11.2026", items: ["KTPP-Ausfalltage: jeder Tag (krank und Urlaub) wird einzeln mit Wochentag und Datum aufgelistet"] },
       { v: "1.62.1", date: "07.11.2026", items: ["Ausfalltage wandern in den Bereich Abschluss: oben umschalten zwischen „Kinder“ und „KTPP“ (Zählung krank/Urlaub je Jahr); aus der Konfiguration entfernt"] },
@@ -2598,6 +2600,7 @@
       else { LK.mode = "unlock"; }
       lkRender();
       lkResumeLockout();
+      if (LK.mode === "unlock" && lkGet("bioCredId", "") && !lkLockedLeft()) setTimeout(lkBioUnlock, 350);
     }
     function lkSetLen(n) { LK.len = n; LK.buf = ""; lkRender(); }
     function lkKey(k) {
@@ -2622,6 +2625,18 @@
       document.getElementById("pinLockOverlay").style.display = "none";
       lkLastActivity = Date.now();
       onPinUnlocked();
+      lkOfferBio();
+    }
+    // Nach erfolgreicher PIN-Eingabe einmalig anbieten, Face ID / Touch ID einzurichten
+    function lkOfferBio() {
+      if (lkGet("bioCredId", "") || lkGet("bioAsked", "") === "1") return;
+      lkBioSupported().then(function(ok) {
+        if (!ok) return;
+        lkSet("bioAsked", "1");
+        setTimeout(function() {
+          if (confirm("Soll die App künftig mit Face ID / Touch ID entsperrt werden? Der PIN bleibt als Rückfall. (Später unter Konfiguration → Sperre & PIN änderbar.)")) lkBioToggle();
+        }, 600);
+      });
     }
     function lkFail() {
       let f = (parseInt(lkGet("lockFails", "0"), 10) || 0) + 1;
@@ -2727,8 +2742,14 @@
     }
     function lkBioRefresh() {
       lkBioSupported().then(function(ok) {
-        document.getElementById("lkBioRow").style.display = ok ? "" : "none";
-        document.getElementById("lkBioToggle").textContent = lkGet("bioCredId", "") ? "Ausschalten" : "Einrichten";
+        const on = !!lkGet("bioCredId", "");
+        const btn = document.getElementById("lkBioToggle");
+        btn.textContent = on ? "Ausschalten" : "Einrichten";
+        btn.disabled = !ok && !on;
+        document.getElementById("lkBioNote").textContent = on
+          ? "Aktiv: Beim Öffnen der App erscheint Face ID / Touch ID, der PIN bleibt als Rückfall."
+          : ok ? "Entsperren ohne PIN-Eingabe mit Face ID / Touch ID."
+          : "Auf diesem Gerät oder in diesem Browser nicht verfügbar (benötigt eine https-Seite und eine eingerichtete Gerätesperre mit Face ID / Touch ID).";
       });
     }
     function lkBioToggle() {
@@ -2746,12 +2767,12 @@
     }
     function lkBioUnlock() {
       const id = lkGet("bioCredId", "");
-      if (!id || lkLockedLeft() > 0) return;
+      if (!id || lkLockedLeft() > 0 || !lkOverlayShown() || LK.mode !== "unlock") return;
       navigator.credentials.get({ publicKey: {
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         allowCredentials: [{ type: "public-key", id: lkUnB64(id) }],
         userVerification: "required", timeout: 60000
-      } }).then(function() { lkSuccess(); }).catch(function() { document.getElementById("lkErr").textContent = "Nicht erkannt – bitte PIN eingeben."; });
+      } }).then(function() { lkSuccess(); }).catch(function() { document.getElementById("lkErr").textContent = "Face ID nicht erkannt – tippe auf den Button oder gib den PIN ein."; });
     }
     // ----- Einstellungen und automatisches Sperren -----
     function lkSaveSettings() {
