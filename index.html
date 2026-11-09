@@ -2087,6 +2087,17 @@
         </div>
       </details>
 
+      <details class="cfg-item">
+        <summary><span class="cfg-it-t">Elterntexte Mittagessen</span><span class="cfg-it-s" id="cfgMsgSummary"></span></summary>
+        <div class="cfg-item-body">
+          <label style="min-width:auto; display:flex; align-items:center; gap:6px; margin-bottom:6px;"><input type="checkbox" id="cfgMsgUseCredit" onchange="cfgMsgRefresh()"> Mit Guthaben verrechnen</label>
+          <p style="font-size:0.8em; color:#555; margin:0 0 8px;">Aus: Texte und die Mittagessen-Liste zeigen nur den Betrag des Monats, ein vorhandenes Guthaben wird nicht abgezogen.</p>
+          <p style="font-size:0.8em; color:#555; margin:0 0 6px;">Platzhalter antippen, um sie an der Cursor-Stelle einzufügen:</p>
+          <div id="cfgMsgChips" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;"></div>
+          <div id="cfgMsgBlocks"></div>
+        </div>
+      </details>
+
       <div class="cfg-sub">Urlaub (deine Urlaubszeiten)</div>
       <p style="font-size:0.8em; color:#555; margin-top:-4px;">
         Zeiträume, in denen du selbst nicht da bist. Sie werden im Kalender auf der Übersicht farbig markiert.
@@ -2382,11 +2393,14 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.63.1";
+    const APP_VERSION = "1.64.2";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.64.2", date: "09.11.2026", items: ["Elterntexte: nennen jetzt, was mit dem Guthaben verrechnet wurde, ein verbleibendes Guthaben bzw. den Rest, der zu zahlen ist; ohne Guthaben wird keines erwähnt; neuer Platzhalter {Verrechnet} und eigene Vorlage für „Guthaben genau aufgebraucht“"] },
+      { v: "1.64.1", date: "09.11.2026", items: ["„Mit Guthaben verrechnen“ aus: Auch die Mittagessen-Liste zeigt nur den Monatsbetrag – Liste und Elterntexte passen zusammen"] },
+      { v: "1.64.0", date: "09.11.2026", items: ["Konfiguration → Elterntexte Mittagessen: die vier Textvorlagen sind anpassbar (mit Platzhaltern wie {Kind}, {Betrag}, {Rest}) und lassen sich auf den Standardtext zurücksetzen", "Option „Mit Guthaben verrechnen“: ausgeschaltet nennen die Texte nur den Monatsbetrag"] },
       { v: "1.63.1", date: "07.11.2026", items: ["Sperrbildschirm sitzt jetzt mittig (auch auf iPad/iPhone)", "Face ID / Touch ID: erscheint automatisch beim Öffnen, wird nach dem ersten PIN-Entsperren zum Einrichten angeboten; in der Konfiguration immer sichtbar mit Hinweis, falls das Gerät es nicht unterstützt"] },
       { v: "1.63.0", date: "07.11.2026", items: ["Neuer Sperrbildschirm: große Zifferntafel, Begrüßung nach Tageszeit, abends automatisch dunkel; entsperrt nach der letzten Ziffer", "PIN mit 4 oder 6 Ziffern, PIN ändern (Konfiguration → Sperre & PIN), „PIN vergessen?“ mit Cloud-Passwort", "Automatisch sperren (nie, beim Verlassen der App oder nach 1/5/15/30 Minuten, Standard 15), Schloss-Button oben zum sofortigen Sperren", "Nach 5 falschen Eingaben Wartezeit mit Countdown", "Optional Face ID / Touch ID (nur auf Geräten mit https und Gerätesperre)"] },
       { v: "1.62.2", date: "07.11.2026", items: ["KTPP-Ausfalltage: jeder Tag (krank und Urlaub) wird einzeln mit Wochentag und Datum aufgelistet"] },
@@ -3199,6 +3213,8 @@
       defaultStart: "07:30",
       defaultEnd: "14:00",
       mealPrice: 2.50,
+      msgUseCredit: true,
+      msgTemplates: {},
       labels: DEFAULT_LABELS,
       // Index entspricht JS Date.getDay(): 0=So, 1=Mo, 2=Di, 3=Mi, 4=Do, 5=Fr, 6=Sa
       workDays: [false, true, true, true, true, true, false],
@@ -3868,6 +3884,7 @@
       document.getElementById("configStart").value = config.defaultStart;
       document.getElementById("configEnd").value = config.defaultEnd;
       document.getElementById("configPrice").value = config.mealPrice;
+      cfgMsgBuild(config);
       document.getElementById("configEmail").value = config.reportEmail || "";
       document.getElementById("configLocation").value = config.location || DEFAULT_CONFIG.location;
 
@@ -3950,6 +3967,8 @@
         defaultStart: document.getElementById("configStart").value || DEFAULT_CONFIG.defaultStart,
         defaultEnd: document.getElementById("configEnd").value || DEFAULT_CONFIG.defaultEnd,
         mealPrice: parseFloat(document.getElementById("configPrice").value) || 0,
+        msgUseCredit: document.getElementById("cfgMsgUseCredit").checked,
+        msgTemplates: cfgMsgRead(),
         reportEmail: document.getElementById("configEmail").value.trim(),
         location: document.getElementById("configLocation").value.trim() || DEFAULT_CONFIG.location,
         vacations: readConfigVacations(),
@@ -5614,33 +5633,102 @@
       return n.toFixed(2).replace(".", ",") + " €";
     }
 
+    // Textvorlagen für die Nachrichten an die Eltern (anpassbar in der Konfiguration)
+    const MSG_TEMPLATE_DEFAULTS = {
+      plain: "Hallo,\n\nfür {Kind} sind im {Monat} {Jahr} insgesamt {Betrag} für das Mittagessen zu zahlen.\n\nVielen Dank!",
+      covered: "Hallo,\n\nfür {Kind} sind im {Monat} {Jahr} insgesamt {Betrag} für das Mittagessen angefallen. Dieser Betrag wurde vollständig mit dem Guthaben verrechnet, es ist nichts zu zahlen. Es bleibt ein Guthaben von {Guthaben}.\n\nVielen Dank!",
+      used: "Hallo,\n\nfür {Kind} sind im {Monat} {Jahr} insgesamt {Betrag} für das Mittagessen angefallen. Dieser Betrag wurde vollständig mit dem Guthaben verrechnet, es ist nichts zu zahlen. Das Guthaben ist damit aufgebraucht.\n\nVielen Dank!",
+      carry: "Hallo,\n\nfür {Kind} sind im {Monat} {Jahr} insgesamt {Betrag} für das Mittagessen angefallen. Zusammen mit dem noch offenen Betrag aus den Vormonaten ({Vormonat}) sind insgesamt noch {Rest} zu zahlen.\n\nVielen Dank!",
+      partial: "Hallo,\n\nfür {Kind} sind im {Monat} {Jahr} insgesamt {Betrag} für das Mittagessen angefallen. Davon wurden {Verrechnet} mit dem Guthaben verrechnet, es sind noch {Rest} zu zahlen.\n\nVielen Dank!"
+    };
+    function getMsgTemplate(key) {
+      const t = (loadConfig().msgTemplates || {})[key];
+      return (t && t.trim()) ? t : MSG_TEMPLATE_DEFAULTS[key];
+    }
+    function fillMsgTemplate(t, vars) {
+      return t.replace(/\{(\w+)\}/g, function(m, k) { return Object.prototype.hasOwnProperty.call(vars, k) ? vars[k] : m; });
+    }
+    const MSG_BLOCKS = [
+      ["plain", "Normal (ohne Guthaben)", "Wenn kein Guthaben im Spiel ist oder es nicht verrechnet wird."],
+      ["covered", "Guthaben reicht aus", "Das Guthaben deckt den Monat ab, es bleibt etwas übrig."],
+      ["used", "Guthaben genau aufgebraucht", "Das Guthaben deckt den Monat genau ab, es bleibt nichts übrig."],
+      ["partial", "Guthaben reicht teilweise", "Nach Verrechnung bleibt ein Rest zu zahlen."],
+      ["carry", "Offener Betrag aus Vormonaten", "Es gibt noch eine offene Summe aus früheren Monaten."]
+    ];
+    const MSG_CHIPS = ["Kind", "Monat", "Jahr", "Betrag", "Verrechnet", "Guthaben", "Verfuegbar", "Rest", "Vormonat"];
+    let cfgMsgLastTa = null;
+    function cfgMsgBuild(config) {
+      const box = document.getElementById("cfgMsgBlocks"), chips = document.getElementById("cfgMsgChips");
+      if (!box) return;
+      document.getElementById("cfgMsgUseCredit").checked = config.msgUseCredit !== false;
+      chips.innerHTML = "";
+      MSG_CHIPS.forEach(function(c) {
+        const b = document.createElement("button"); b.type = "button"; b.textContent = "{" + c + "}";
+        b.style.cssText = "min-height:0;padding:4px 10px;border-radius:99px;font-size:0.85em;";
+        b.onclick = function() {
+          const ta = cfgMsgLastTa || box.querySelector("textarea"); if (!ta) return;
+          const a = ta.selectionStart == null ? ta.value.length : ta.selectionStart, e = ta.selectionEnd == null ? a : ta.selectionEnd;
+          ta.value = ta.value.slice(0, a) + "{" + c + "}" + ta.value.slice(e);
+          ta.focus(); ta.selectionStart = ta.selectionEnd = a + c.length + 2; cfgMsgRefresh();
+        };
+        chips.appendChild(b);
+      });
+      box.innerHTML = "";
+      const saved = config.msgTemplates || {};
+      MSG_BLOCKS.forEach(function(d) {
+        const w = document.createElement("div"); w.dataset.key = d[0]; w.style.marginBottom = "12px";
+        const h = document.createElement("div"); h.style.cssText = "font-weight:650;"; h.textContent = d[1];
+        const p = document.createElement("div"); p.style.cssText = "font-size:0.78em;color:#667;margin-bottom:4px;"; p.textContent = d[2];
+        const ta = document.createElement("textarea"); ta.rows = 6; ta.style.cssText = "width:100%;box-sizing:border-box;";
+        ta.value = (saved[d[0]] && saved[d[0]].trim()) ? saved[d[0]] : MSG_TEMPLATE_DEFAULTS[d[0]];
+        ta.addEventListener("focus", function() { cfgMsgLastTa = ta; });
+        ta.addEventListener("input", cfgMsgRefresh);
+        const r = document.createElement("button"); r.type = "button"; r.textContent = "Standardtext"; r.style.cssText = "min-height:0;padding:4px 10px;margin-top:4px;font-size:0.85em;";
+        r.onclick = function() { ta.value = MSG_TEMPLATE_DEFAULTS[d[0]]; cfgMsgRefresh(); };
+        w.appendChild(h); w.appendChild(p); w.appendChild(ta); w.appendChild(r); box.appendChild(w);
+      });
+      cfgMsgRefresh();
+    }
+    function cfgMsgRefresh() {
+      const on = document.getElementById("cfgMsgUseCredit").checked;
+      document.querySelectorAll("#cfgMsgBlocks > div").forEach(function(w) {
+        w.style.display = (!on && w.dataset.key !== "plain") ? "none" : "";
+      });
+      const t = cfgMsgRead(), n = Object.keys(t).length;
+      document.getElementById("cfgMsgSummary").textContent = (on ? "mit Guthaben" : "ohne Guthaben") + (n ? " · angepasst" : "");
+    }
+    // Nur abweichende Texte speichern (leer = Standardtext)
+    function cfgMsgRead() {
+      const out = {};
+      document.querySelectorAll("#cfgMsgBlocks > div").forEach(function(w) {
+        const v = w.querySelector("textarea").value;
+        if (v.trim() && v !== MSG_TEMPLATE_DEFAULTS[w.dataset.key]) out[w.dataset.key] = v;
+      });
+      return out;
+    }
     function buildParentMessageText(childName, month, year) {
       if (!month) month = document.getElementById("closeMonth").value;
       if (!year) year = document.getElementById("closeYear").value;
       const toPay = getMealCostForMonth(childName, month, year).cost;
       const monthName = MONTH_NAMES_DE[parseInt(month) - 1] || month;
-      const acct = getCreditMonthAccount(childName, parseInt(month), parseInt(year));
-      if (!acct) {
-        return "Hallo,\n\nfür " + childName + " sind im " + monthName + " " + year +
-          " insgesamt " + fmtEuro(toPay) + " für das Mittagessen zu zahlen.\n\nVielen Dank!";
+      const useCredit = loadConfig().msgUseCredit !== false;
+      const acct = useCredit ? getCreditMonthAccount(childName, parseInt(month), parseInt(year)) : null;
+      const vars = { Kind: childName, Monat: monthName, Jahr: String(year), Betrag: fmtEuro(toPay), Guthaben: "", Rest: "", Vormonat: "", Verfuegbar: "", Verrechnet: "" };
+      let key = "plain";
+      if (acct) {
+        const verfuegbar = acct.anfang + acct.einzahlungen;
+        vars.Guthaben = fmtEuro(Math.max(0, acct.ende));
+        vars.Rest = fmtEuro(Math.max(0, -acct.ende));
+        vars.Vormonat = fmtEuro(Math.max(0, -acct.anfang));
+        vars.Verfuegbar = fmtEuro(Math.max(0, verfuegbar));
+        vars.Verrechnet = fmtEuro(Math.min(toPay, Math.max(0, verfuegbar)));
+        if (acct.ende >= 0.005) key = "covered";
+        else if (acct.ende >= -0.005) key = "used";
+        else if (acct.anfang < 0) key = "carry";
+        else if (verfuegbar < 0.005) key = "plain";
+        else key = "partial";
       }
-      const head = "Hallo,\n\nfür " + childName + " sind im " + monthName + " " + year +
-        " insgesamt " + fmtEuro(toPay) + " für das Mittagessen angefallen. ";
-      const verfuegbar = acct.anfang + acct.einzahlungen;
-      if (acct.ende >= 0) {
-        return head + "Dieser Betrag wurde mit dem Guthaben verrechnet – es bleibt ein Guthaben von " +
-          fmtEuro(acct.ende) + ".\n\nVielen Dank!";
-      }
-      if (acct.anfang < 0) {
-        return head + "Zusammen mit dem noch offenen Betrag aus den Vormonaten (" + fmtEuro(-acct.anfang) +
-          ") sind insgesamt noch " + fmtEuro(-acct.ende) + " zu zahlen.\n\nVielen Dank!";
-      }
-      if (verfuegbar < 0.005) {
-        return "Hallo,\n\nfür " + childName + " sind im " + monthName + " " + year +
-          " insgesamt " + fmtEuro(toPay) + " für das Mittagessen zu zahlen.\n\nVielen Dank!";
-      }
-      return head + "Nach Verrechnung mit dem Guthaben (" + fmtEuro(Math.max(0, verfuegbar)) +
-        ") sind noch " + fmtEuro(-acct.ende) + " zu zahlen.\n\nVielen Dank!";
+      return fillMsgTemplate(getMsgTemplate(key), vars);
     }
 
 
@@ -5769,7 +5857,8 @@
       const pays = getCreditPayments(child);
       const ym = year * 12 + (month - 1);
       const startYM = getCreditStartYM(child);
-      if (startYM === null || ym < startYM) return { cost: cost, vorher: 0, bal: cost > 0.004 ? -cost : 0, noAcct: true };
+      // Option „Mit Guthaben verrechnen“ aus: Liste zeigt wie die Texte nur den Monatsbetrag
+      if (loadConfig().msgUseCredit === false || startYM === null || ym < startYM) return { cost: cost, vorher: 0, bal: cost > 0.004 ? -cost : 0, noAcct: true };
       const now = new Date();
       const todayStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
       const paid = pays.filter(function(x) { return x.date <= todayStr; }).reduce(function(a, x) { return a + (parseFloat(x.amount) || 0); }, 0);
