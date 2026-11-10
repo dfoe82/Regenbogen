@@ -2393,11 +2393,12 @@
     // ============================================================
     // KONFIGURATION (Kindernamen, Standardzeiten, Mittagessenpreis)
     // ============================================================
-    const APP_VERSION = "1.64.2";
+    const APP_VERSION = "1.64.3";
 
     // Versionshistorie (neueste zuerst) – wird in Konfiguration → Versionshistorie angezeigt.
     // Bei jeder neuen Version hier oben einen Eintrag ergänzen.
     const VERSION_HISTORY = [
+      { v: "1.64.3", date: "09.11.2026", items: ["Einzahlung erfassen: Das Betragsfeld ist mit dem zu zahlenden (offenen) Betrag vorbelegt und kann geändert werden"] },
       { v: "1.64.2", date: "09.11.2026", items: ["Elterntexte: nennen jetzt, was mit dem Guthaben verrechnet wurde, ein verbleibendes Guthaben bzw. den Rest, der zu zahlen ist; ohne Guthaben wird keines erwähnt; neuer Platzhalter {Verrechnet} und eigene Vorlage für „Guthaben genau aufgebraucht“"] },
       { v: "1.64.1", date: "09.11.2026", items: ["„Mit Guthaben verrechnen“ aus: Auch die Mittagessen-Liste zeigt nur den Monatsbetrag – Liste und Elterntexte passen zusammen"] },
       { v: "1.64.0", date: "09.11.2026", items: ["Konfiguration → Elterntexte Mittagessen: die vier Textvorlagen sind anpassbar (mit Platzhaltern wie {Kind}, {Betrag}, {Rest}) und lassen sich auf den Standardtext zurücksetzen", "Option „Mit Guthaben verrechnen“: ausgeschaltet nennen die Texte nur den Monatsbetrag"] },
@@ -6268,6 +6269,8 @@
       const ob = document.getElementById("creditOpenBtn");
       ob.style.display = (!p && creditOpenAmount > 0.004) ? "" : "none";
       ob.textContent = "Offenen Betrag einsetzen (" + fmtEuro(creditOpenAmount) + ")";
+      // Neue Einzahlung: Feld mit dem zu zahlenden (offenen) Betrag vorbelegen
+      if (!p && creditOpenAmount > 0.004) document.getElementById("creditAmount").value = creditOpenAmount.toFixed(2).replace(".", ",");
       document.getElementById("creditCarry").checked = true;
       updateCreditHint();
       document.getElementById("creditSheet").classList.add("open");
